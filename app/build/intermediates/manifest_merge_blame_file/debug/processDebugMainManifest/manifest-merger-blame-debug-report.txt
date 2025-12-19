@@ -1,0 +1,212 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="aman.lyricify"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="23"
+9        android:targetSdkVersion="33" />
+10
+11    <!-- Internet permission for API calls -->
+12    <uses-permission android:name="android.permission.INTERNET" />
+12-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:6:5-67
+12-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:6:22-64
+13
+14    <!-- Notification listener permission for media detection -->
+15    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
+15-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:9:5-93
+15-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:9:22-90
+16
+17    <!-- Optional: Wake lock to keep service running -->
+18    <uses-permission android:name="android.permission.WAKE_LOCK" />
+18-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:12:5-68
+18-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:12:22-65
+19    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+19-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:15:5-75
+19-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:15:22-72
+20    <!-- For Android 12 and below -->
+21    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+21-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:17:5-80
+21-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:17:22-77
+22    <uses-permission
+22-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:18:5-20:38
+23        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+23-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:19:9-65
+24        android:maxSdkVersion="29" />
+24-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:20:9-35
+25    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+25-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:21:5-22:69
+25-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:22:9-66
+26
+27    <queries>
+27-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:24:1-26:15
+28        <provider android:authorities="aman.loghub.provider" />
+28-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:25:9-64
+28-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:25:19-61
+29    </queries>
+30
+31    <!-- Queries declaration for Android 11+ package visibility -->
+32    <queries>
+32-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:24:1-26:15
+33        <intent>
+33-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:75:9-77:18
+34            <action android:name="android.intent.action.MEDIA_BUTTON" />
+34-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:76:13-73
+34-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:76:21-70
+35        </intent>
+36        <intent>
+36-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:78:9-80:18
+37            <action android:name="android.media.browse.MediaBrowserService" />
+37-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:79:13-79
+37-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:79:21-76
+38        </intent>
+39
+40        <!-- Common music apps for better detection -->
+41        <package android:name="com.spotify.music" />
+41-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:83:9-53
+41-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:83:18-50
+42        <package android:name="com.google.android.music" />
+42-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:84:9-60
+42-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:84:18-57
+43        <package android:name="com.apple.android.music" />
+43-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:85:9-59
+43-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:85:18-56
+44        <package android:name="com.google.android.apps.youtube.music" />
+44-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:86:9-73
+44-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:86:18-70
+45        <package android:name="com.amazon.mp3" />
+45-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:87:9-50
+45-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:87:18-47
+46        <package android:name="deezer.android.app" />
+46-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:88:9-54
+46-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:88:18-51
+47        <package android:name="com.soundcloud.android" />
+47-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:89:9-58
+47-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:89:18-55
+48        <package android:name="com.aspiro.tidal" />
+48-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:90:9-52
+48-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:90:18-49
+49    </queries>
+50
+51    <permission
+51-->[androidx.core:core:1.9.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/343d59c832fe44acd7033c649f2b68d1/transformed/core-1.9.0/AndroidManifest.xml:22:5-24:47
+52        android:name="aman.lyricify.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+52-->[androidx.core:core:1.9.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/343d59c832fe44acd7033c649f2b68d1/transformed/core-1.9.0/AndroidManifest.xml:23:9-81
+53        android:protectionLevel="signature" />
+53-->[androidx.core:core:1.9.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/343d59c832fe44acd7033c649f2b68d1/transformed/core-1.9.0/AndroidManifest.xml:24:9-44
+54
+55    <uses-permission android:name="aman.lyricify.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+55-->[androidx.core:core:1.9.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/343d59c832fe44acd7033c649f2b68d1/transformed/core-1.9.0/AndroidManifest.xml:26:5-97
+55-->[androidx.core:core:1.9.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/343d59c832fe44acd7033c649f2b68d1/transformed/core-1.9.0/AndroidManifest.xml:26:22-94
+56
+57    <application
+57-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:27:5-71:19
+58        android:name="aman.lyricify.Log"
+58-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:28:9-27
+59        android:allowBackup="true"
+59-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:29:9-35
+60        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+60-->[androidx.core:core:1.9.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/343d59c832fe44acd7033c649f2b68d1/transformed/core-1.9.0/AndroidManifest.xml:28:18-86
+61        android:debuggable="true"
+62        android:extractNativeLibs="false"
+63        android:icon="@drawable/ic_logo"
+63-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:30:9-41
+64        android:label="@string/app_name"
+64-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:32:9-41
+65        android:requestLegacyExternalStorage="true"
+65-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:35:9-52
+66        android:roundIcon="@mipmap/ic_launcher"
+66-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:31:9-48
+67        android:supportsRtl="true"
+67-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:33:9-35
+68        android:theme="@style/AppTheme"
+68-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:34:9-40
+69        android:usesCleartextTraffic="true" >
+69-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:36:9-44
+70
+71        <!-- Main Activity -->
+72        <activity
+72-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:39:9-47:20
+73            android:name="aman.lyricify.MainActivity"
+73-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:40:13-41
+74            android:exported="true"
+74-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:41:13-36
+75            android:launchMode="singleTop" >
+75-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:42:13-43
+76            <intent-filter>
+76-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:43:13-46:29
+77                <action android:name="android.intent.action.MAIN" />
+77-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:44:17-69
+77-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:44:25-66
+78
+79                <category android:name="android.intent.category.LAUNCHER" />
+79-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:45:17-77
+79-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:45:27-74
+80            </intent-filter>
+81        </activity>
+82        <activity android:name="aman.lyricify.LyricsActivity" />
+82-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:49:9-51
+82-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:49:19-48
+83        <activity android:name="aman.lyricify.SyncedLyricsActivity" />
+83-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:50:9-57
+83-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:50:19-54
+84        <activity android:name="aman.lyricify.TagEditorActivity" />
+84-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:51:9-54
+84-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:51:19-51
+85        <!-- Crash Activity -->
+86        <activity android:name="aman.lyricify.CrashActivity" />
+86-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:53:9-50
+86-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:53:19-47
+87
+88        <!-- Notification Listener Service -->
+89        <service
+89-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:56:9-69:19
+90            android:name="aman.lyricify.SongNotificationListener"
+90-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:57:13-53
+91            android:exported="true"
+91-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:60:13-36
+92            android:label="Lyricify Music Detection"
+92-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:58:13-53
+93            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" >
+93-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:59:13-87
+94            <intent-filter>
+94-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:61:13-63:29
+95                <action android:name="android.service.notification.NotificationListenerService" />
+95-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:62:17-99
+95-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:62:25-96
+96            </intent-filter>
+97
+98            <!-- Service metadata -->
+99            <meta-data
+99-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:66:13-68:65
+100                android:name="android.service.notification.default_filter_types"
+100-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:67:17-81
+101                android:value="conversations|alerting|silent" />
+101-->/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/AndroidManifest.xml:68:17-62
+102        </service>
+103
+104        <provider
+104-->[androidx.emoji2:emoji2:1.2.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/2bf4c3d614583880dc0f6fa3057d9869/transformed/emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
+105            android:name="androidx.startup.InitializationProvider"
+105-->[androidx.emoji2:emoji2:1.2.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/2bf4c3d614583880dc0f6fa3057d9869/transformed/emoji2-1.2.0/AndroidManifest.xml:25:13-67
+106            android:authorities="aman.lyricify.androidx-startup"
+106-->[androidx.emoji2:emoji2:1.2.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/2bf4c3d614583880dc0f6fa3057d9869/transformed/emoji2-1.2.0/AndroidManifest.xml:26:13-68
+107            android:exported="false" >
+107-->[androidx.emoji2:emoji2:1.2.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/2bf4c3d614583880dc0f6fa3057d9869/transformed/emoji2-1.2.0/AndroidManifest.xml:27:13-37
+108            <meta-data
+108-->[androidx.emoji2:emoji2:1.2.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/2bf4c3d614583880dc0f6fa3057d9869/transformed/emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
+109                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+109-->[androidx.emoji2:emoji2:1.2.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/2bf4c3d614583880dc0f6fa3057d9869/transformed/emoji2-1.2.0/AndroidManifest.xml:30:17-75
+110                android:value="androidx.startup" />
+110-->[androidx.emoji2:emoji2:1.2.0] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/2bf4c3d614583880dc0f6fa3057d9869/transformed/emoji2-1.2.0/AndroidManifest.xml:31:17-49
+111            <meta-data
+111-->[androidx.lifecycle:lifecycle-process:2.4.1] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/1081e680be708ca05294be6faf5afcd9/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:31:13-33:52
+112                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+112-->[androidx.lifecycle:lifecycle-process:2.4.1] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/1081e680be708ca05294be6faf5afcd9/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:32:17-78
+113                android:value="androidx.startup" />
+113-->[androidx.lifecycle:lifecycle-process:2.4.1] /data/user/0/com.tom.rv2ide/files/home/.gradle/caches/9.0.0/transforms/1081e680be708ca05294be6faf5afcd9/transformed/lifecycle-process-2.4.1/AndroidManifest.xml:33:17-49
+114        </provider>
+115    </application>
+116
+117</manifest>

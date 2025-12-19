@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base App Theme -->
+   
+
+    <!-- Rounded Text Field Shape -->
+    <style name="ShapeAppearance.App.RoundedTextField" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <!-- Custom Outlined Rounded EditText -->
+    <style name="Widget.App.TextInputLayout.OutlinedRounded" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxCornerRadiusTopStart">12dp</item>
+        <item name="boxCornerRadiusTopEnd">12dp</item>
+        <item name="boxCornerRadiusBottomStart">12dp</item>
+        <item name="boxCornerRadiusBottomEnd">12dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.App.RoundedTextField</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">2dp</item>
+        <item name="boxStrokeColor">@color/teal_700</item>
+        <item name="hintTextColor">#fff</item>
+        <item name="android:textColor">@color/colorOnSurface</item>
+    </style>
+
+</resources>

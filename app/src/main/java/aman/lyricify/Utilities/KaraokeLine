@@ -1,0 +1,18 @@
+package aman.lyricify;
+
+import java.util.List;
+
+/**
+ * Karaoke line with word-level timing information
+ */
+class KaraokeLine extends LyricLine {
+    String voice;
+    List<KaraokeWord> words;
+    KaraokeLineView karaokeView;
+    
+    KaraokeLine(long timestamp, String voice, List<KaraokeWord> words) {
+        super(timestamp, "");
+        this.voice = voice;
+        this.words = words;
+    }
+}

@@ -1,0 +1,205 @@
+package aman.lyricify.Views;
+
+import android.animation.Animator;
+import android.animation.ValueAnimator;
+import android.content.Context;
+import android.graphics.*;
+import android.util.AttributeSet;
+import androidx.appcompat.widget.AppCompatTextView;
+import android.view.animation.LinearInterpolator;
+
+public class GlowTextView extends AppCompatTextView {
+    private Paint basePaint;
+    private Paint glowPaint;
+    private LinearGradient gradient;
+    private float progress = 0f;
+    private int viewWidth;
+    private ValueAnimator animator;
+    private boolean isAnimating = false;
+
+    public GlowTextView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        init();
+    }
+
+    private void init() {
+        setLayerType(LAYER_TYPE_SOFTWARE, null);
+
+        basePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        basePaint.setColor(Color.GRAY);
+        basePaint.setStyle(Paint.Style.FILL);
+        basePaint.setTextAlign(Paint.Align.LEFT);
+
+        glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        glowPaint.setStyle(Paint.Style.FILL);
+        glowPaint.setTextAlign(Paint.Align.LEFT);
+        glowPaint.setMaskFilter(new BlurMaskFilter(20, BlurMaskFilter.Blur.NORMAL));
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        viewWidth = w;
+    }
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        String text = getText().toString();
+        float textSize = getTextSize();
+
+        basePaint.setTextSize(textSize);
+        glowPaint.setTextSize(textSize);
+
+        basePaint.setTypeface(getTypeface());
+        glowPaint.setTypeface(getTypeface());
+
+        Paint.FontMetrics fm = basePaint.getFontMetrics();
+        float textHeight = fm.descent - fm.ascent;
+        float y = (getHeight() + textHeight) / 2 - fm.descent;
+        float x = (getWidth() - basePaint.measureText(text)) / 2;
+
+        // Draw gray base
+        basePaint.setColor(Color.GRAY);
+        canvas.drawText(text, x, y, basePaint);
+
+        // Cutoff: how far the white progress reached
+        float cutoff = progress * viewWidth;
+
+        // 🔹 Draw small gradient underneath first (white → gray)
+        float fadeStart = cutoff;
+        float fadeEnd = cutoff + 80; // width of fading gradient
+        LinearGradient fadeGradient =
+                new LinearGradient(
+                        fadeStart,
+                        0,
+                        fadeEnd,
+                        0,
+                        new int[] {Color.WHITE, Color.TRANSPARENT},
+                        new float[] {0f, 1f},
+                        Shader.TileMode.CLAMP);
+        Paint fadePaint = new Paint(basePaint);
+        fadePaint.setShader(fadeGradient);
+        canvas.drawText(text, x, y, fadePaint);
+
+        // Left side (already swept) — pure white
+        canvas.save();
+        canvas.clipRect(0, 0, cutoff, getHeight());
+        basePaint.setColor(Color.WHITE);
+        canvas.drawText(text, x, y, basePaint);
+        canvas.restore();
+
+        // White band
+        gradient =
+                new LinearGradient(
+                        cutoff - 120,
+                        0,
+                        cutoff + 120,
+                        0,
+                        new int[] {Color.WHITE, Color.WHITE, Color.TRANSPARENT},
+                        new float[] {0f, 0.5f, 1f},
+                        Shader.TileMode.CLAMP);
+        glowPaint.setShader(gradient);
+        // Moving glow band
+        canvas.drawText(text, x, y, glowPaint);
+    }
+
+    private void startSweep() {
+        if (viewWidth <= 0) return;
+        if (isAnimating) return;
+        isAnimating = true;
+
+        animator = ValueAnimator.ofFloat(0f, 1f);
+        animator.setDuration(3000); // sweep duration
+        animator.setInterpolator(new LinearInterpolator());
+        animator.addUpdateListener(
+                a -> {
+                    progress = (float) a.getAnimatedValue();
+                    invalidate();
+                });
+
+        animator.addListener(
+                new Animator.AnimatorListener() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {}
+
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        // pause briefly when fully white
+                        postDelayed(() -> resetAndRestart(), 1000); // 1s pause
+                    }
+
+                    @Override
+                    public void onAnimationCancel(Animator animation) {}
+
+                    @Override
+                    public void onAnimationRepeat(Animator animation) {}
+                });
+
+        animator.start();
+    }
+
+    private void resetAndRestart() {
+        // Fade back to gray
+        ValueAnimator fadeBack = ValueAnimator.ofFloat(1f, 0f);
+        fadeBack.setDuration(1000);
+        fadeBack.setInterpolator(new LinearInterpolator());
+        fadeBack.addUpdateListener(
+                a -> {
+                    float fadeProgress = (float) a.getAnimatedValue();
+                    // blend gray & white
+                    basePaint.setColor(blendColor(Color.GRAY, Color.WHITE, fadeProgress));
+                    invalidate();
+                });
+        fadeBack.addListener(
+                new Animator.AnimatorListener() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {}
+
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        progress = 0f;
+                        isAnimating = false;
+                        startSweep(); // restart cycle
+                    }
+
+                    @Override
+                    public void onAnimationCancel(Animator animation) {}
+
+                    @Override
+                    public void onAnimationRepeat(Animator animation) {}
+                });
+        fadeBack.start();
+    }
+
+    private int blendColor(int startColor, int endColor, float ratio) {
+        int alpha =
+                (int)
+                        (Color.alpha(startColor)
+                                + (Color.alpha(endColor) - Color.alpha(startColor)) * ratio);
+        int red =
+                (int)
+                        (Color.red(startColor)
+                                + (Color.red(endColor) - Color.red(startColor)) * ratio);
+        int green =
+                (int)
+                        (Color.green(startColor)
+                                + (Color.green(endColor) - Color.green(startColor)) * ratio);
+        int blue =
+                (int)
+                        (Color.blue(startColor)
+                                + (Color.blue(endColor) - Color.blue(startColor)) * ratio);
+        return Color.argb(alpha, red, green, blue);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        post(this::startSweep);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (animator != null) animator.cancel();
+    }
+}

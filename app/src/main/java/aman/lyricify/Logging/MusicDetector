@@ -1,0 +1,145 @@
+
+package aman.lyricify
+
+import android.content.ComponentName;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.media.MediaMetadata;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
+import android.media.session.PlaybackState;
+import android.widget.Toast;
+import java.util.List;
+
+public class MusicDetector {
+    private MediaSessionManager mediaSessionManager;
+    private Context context;
+    private MediaSessionManager.OnActiveSessionsChangedListener sessionListener;
+    private ComponentName notificationComponent;
+    
+    public interface MusicInfoListener {
+        void onMusicInfoChanged(String title, String artist, Bitmap artwork);
+        void onPlaybackStopped();
+        void onError(String error);
+    }
+    
+    public MusicDetector(Context context) {
+        this.context = context;
+        this.mediaSessionManager = (MediaSessionManager) context.getSystemService(Context.MEDIA_SESSION_SERVICE);
+        this.notificationComponent = new ComponentName(context, MusicNotificationListener.class);
+    }
+    
+    public void startListening(MusicInfoListener listener) {
+        try {
+            // Create session change listener
+            sessionListener = controllers -> {
+                if (!controllers.isEmpty()) {
+                    // Get the first active controller (usually the currently playing one)
+                    MediaController controller = controllers.get(0);
+                    PlaybackState state = controller.getPlaybackState();
+                    
+                    if (state != null && state.getState() == PlaybackState.STATE_PLAYING) {
+                        extractMusicInfo(controller, listener);
+                    } else {
+                        listener.onPlaybackStopped();
+                    }
+                } else {
+                    listener.onPlaybackStopped();
+                }
+            };
+            
+            // Register the listener
+            mediaSessionManager.addOnActiveSessionsChangedListener(sessionListener, notificationComponent);
+            
+            // Check current active sessions immediately
+            List<MediaController> controllers = mediaSessionManager.getActiveSessions(notificationComponent);
+            if (!controllers.isEmpty()) {
+                for (MediaController controller : controllers) {
+                    PlaybackState state = controller.getPlaybackState();
+                    if (state != null && state.getState() == PlaybackState.STATE_PLAYING) {
+                        extractMusicInfo(controller, listener);
+                        break;
+                    }
+                }
+            } else {
+                listener.onPlaybackStopped();
+            }
+            
+        } catch (SecurityException e) {
+            listener.onError("Notification access permission not granted. Please enable it in Settings.");
+        } catch (Exception e) {
+            listener.onError("Error setting up music detection: " + e.getMessage());
+        }
+    }
+    
+    public void stopListening() {
+        if (sessionListener != null && mediaSessionManager != null) {
+            try {
+                mediaSessionManager.removeOnActiveSessionsChangedListener(sessionListener);
+            } catch (Exception e) {
+                // Ignore cleanup errors
+            }
+        }
+    }
+    
+    private void extractMusicInfo(MediaController controller, MusicInfoListener listener) {
+        try {
+            MediaMetadata metadata = controller.getMetadata();
+            if (metadata != null) {
+                String title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
+                String artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
+                
+                // Get artwork using priority system
+                Bitmap artwork = getArtworkFromMetadata(metadata);
+                
+                // Only notify if we have at least title or artist
+                if (title != null || artist != null) {
+                    listener.onMusicInfoChanged(
+                        title != null ? title : "Unknown Title",
+                        artist != null ? artist : "Unknown Artist",
+                        artwork
+                    );
+                } else {
+                    listener.onPlaybackStopped();
+                }
+            } else {
+                listener.onPlaybackStopped();
+            }
+        } catch (Exception e) {
+            listener.onError("Error extracting music info: " + e.getMessage());
+        }
+    }
+    
+    private Bitmap getArtworkFromMetadata(MediaMetadata metadata) {
+        // Try different artwork keys in priority order
+        String[] artworkKeys = {
+            MediaMetadata.METADATA_KEY_ALBUM_ART,
+            MediaMetadata.METADATA_KEY_ART,
+            MediaMetadata.METADATA_KEY_DISPLAY_ICON
+        };
+        
+        for (String key : artworkKeys) {
+            try {
+                Bitmap artwork = metadata.getBitmap(key);
+                if (artwork != null && !artwork.isRecycled()) {
+                    return artwork;
+                }
+            } catch (Exception e) {
+                // Continue to next key if this one fails
+                continue;
+            }
+        }
+        
+        return null; // No artwork found
+    }
+    
+    // Helper method to check if notification access is granted
+    public boolean isNotificationAccessGranted() {
+        try {
+            List<MediaController> controllers = mediaSessionManager.getActiveSessions(notificationComponent);
+            return true; // If we can get controllers, permission is granted
+        } catch (SecurityException e) {
+            return false;
+        }
+    }
+}

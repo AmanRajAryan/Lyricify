@@ -1,0 +1,267 @@
+package aman.lyricify;
+
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RadialGradient;
+import android.graphics.Shader;
+import android.graphics.Typeface;
+import android.text.TextPaint;
+import android.view.View;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Custom view for karaoke line with fill effect and smooth glow
+ */
+public class KaraokeLineView extends View {
+    
+    private LyricLineModels.KaraokeLine line;
+    private TextPaint strokePaint;
+    private TextPaint fillPaint;
+    private float fillProgress = 0f;
+    private int currentWordIndex = -1;
+    private Typeface typeface;
+    private int highlightTextSize;
+    
+    public KaraokeLineView(Context context, LyricLineModels.KaraokeLine line, 
+                          Typeface typeface, int highlightTextSize) {
+        super(context);
+        this.line = line;
+        this.typeface = typeface;
+        this.highlightTextSize = highlightTextSize;
+        initPaints();
+    }
+    
+    private void initPaints() {
+        float textSize = highlightTextSize * getResources().getDisplayMetrics().scaledDensity;
+        
+        // Stroke paint (hollow outline)
+        strokePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        strokePaint.setColor(Color.parseColor("#888888"));
+        strokePaint.setTextSize(textSize);
+        strokePaint.setTypeface(Typeface.create(typeface, Typeface.BOLD));
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(3f);
+        strokePaint.setTextAlign(Paint.Align.CENTER);
+        
+        // Fill paint (white fill for passed words)
+        fillPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        fillPaint.setColor(Color.WHITE);
+        fillPaint.setTextSize(textSize);
+        fillPaint.setTypeface(Typeface.create(typeface, Typeface.BOLD));
+        fillPaint.setStyle(Paint.Style.FILL);
+        fillPaint.setTextAlign(Paint.Align.CENTER);
+    }
+    
+    public void updateProgress(float progress, int wordIndex) {
+        this.fillProgress = progress;
+        this.currentWordIndex = wordIndex;
+        invalidate();
+    }
+    
+    public void updateTypeface(Typeface typeface) {
+        this.typeface = typeface;
+        initPaints();
+        requestLayout();
+        invalidate();
+    }
+    
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        int width = MeasureSpec.getSize(widthMeasureSpec);
+        
+        // Build full text
+        StringBuilder fullText = new StringBuilder();
+        for (LyricLineModels.KaraokeWord word : line.words) {
+            fullText.append(word.text);
+        }
+        
+        // Measure text with wrapping
+        int availableWidth = width - getPaddingLeft() - getPaddingRight();
+        Paint.FontMetrics fm = strokePaint.getFontMetrics();
+        float lineHeight = fm.descent - fm.ascent + fm.leading;
+        
+        // Simple word wrap
+        String[] words = fullText.toString().split(" ");
+        List<String> wrappedLines = new ArrayList<>();
+        StringBuilder currentLine = new StringBuilder();
+        
+        for (String word : words) {
+            String testLine = currentLine.length() == 0 ? word : currentLine + " " + word;
+            float testWidth = strokePaint.measureText(testLine);
+            
+            if (testWidth > availableWidth && currentLine.length() > 0) {
+                wrappedLines.add(currentLine.toString());
+                currentLine = new StringBuilder(word);
+            } else {
+                currentLine = new StringBuilder(testLine);
+            }
+        }
+        if (currentLine.length() > 0) {
+            wrappedLines.add(currentLine.toString());
+        }
+        
+        int height = (int)(wrappedLines.size() * lineHeight) + getPaddingTop() + getPaddingBottom();
+        setMeasuredDimension(width, height);
+    }
+    
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        
+        // Build full text
+        StringBuilder fullText = new StringBuilder();
+        for (LyricLineModels.KaraokeWord word : line.words) {
+            fullText.append(word.text);
+        }
+        
+        String text = fullText.toString();
+        float centerX = getWidth() / 2f;
+        
+        // Calculate wrapped lines
+        int availableWidth = getWidth() - getPaddingLeft() - getPaddingRight();
+        String[] words = text.split(" ");
+        List<String> wrappedLines = new ArrayList<>();
+        List<Integer> lineWordCounts = new ArrayList<>();
+        StringBuilder currentLine = new StringBuilder();
+        int wordsInCurrentLine = 0;
+        
+        for (String word : words) {
+            String testLine = currentLine.length() == 0 ? word : currentLine + " " + word;
+            float testWidth = strokePaint.measureText(testLine);
+            
+            if (testWidth > availableWidth && currentLine.length() > 0) {
+                wrappedLines.add(currentLine.toString());
+                lineWordCounts.add(wordsInCurrentLine);
+                currentLine = new StringBuilder(word);
+                wordsInCurrentLine = 1;
+            } else {
+                currentLine = new StringBuilder(testLine);
+                wordsInCurrentLine++;
+            }
+        }
+        if (currentLine.length() > 0) {
+            wrappedLines.add(currentLine.toString());
+            lineWordCounts.add(wordsInCurrentLine);
+        }
+        
+        Paint.FontMetrics fm = strokePaint.getFontMetrics();
+        float lineHeight = fm.descent - fm.ascent + fm.leading;
+        float startY = getPaddingTop() - strokePaint.ascent();
+        
+        // Draw each wrapped line (stroke/outline)
+        for (int lineIdx = 0; lineIdx < wrappedLines.size(); lineIdx++) {
+            String lineText = wrappedLines.get(lineIdx);
+            float currentY = startY + (lineIdx * lineHeight);
+            canvas.drawText(lineText, centerX, currentY, strokePaint);
+        }
+        
+        // Calculate which line contains the current word and draw glow
+        if (currentWordIndex >= 0 && currentWordIndex < line.words.size()) {
+            int wordsSoFar = 0;
+            int targetLineIdx = 0;
+            int wordIndexInLine = 0;
+            
+            for (int lineIdx = 0; lineIdx < lineWordCounts.size(); lineIdx++) {
+                int wordsInThisLine = lineWordCounts.get(lineIdx);
+                if (currentWordIndex < wordsSoFar + wordsInThisLine) {
+                    targetLineIdx = lineIdx;
+                    wordIndexInLine = currentWordIndex - wordsSoFar;
+                    break;
+                }
+                wordsSoFar += wordsInThisLine;
+            }
+            
+            String targetLineText = wrappedLines.get(targetLineIdx);
+            float targetY = startY + (targetLineIdx * lineHeight);
+            String[] lineWords = targetLineText.split(" ");
+            
+            float lineTextWidth = strokePaint.measureText(targetLineText);
+            float lineTextStartX = centerX - lineTextWidth / 2f;
+            
+            float wordStartX = lineTextStartX;
+            for (int i = 0; i < wordIndexInLine; i++) {
+                wordStartX += strokePaint.measureText(lineWords[i]);
+                if (i < wordIndexInLine) {
+                    wordStartX += strokePaint.measureText(" ");
+                }
+            }
+            
+            float wordWidth = strokePaint.measureText(lineWords[wordIndexInLine]);
+            float glowCenterX = wordStartX + (wordWidth * fillProgress);
+            float glowRadius = 35f;
+            
+            // Draw smooth radial glow
+            Paint radialGlowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+            RadialGradient gradient = new RadialGradient(
+                glowCenterX, 
+                targetY - strokePaint.getTextSize() / 3f,
+                glowRadius,
+                new int[]{
+                    Color.parseColor("#DDFFFFFF"),
+                    Color.parseColor("#88FFFFFF"),
+                    Color.parseColor("#22FFFFFF"),
+                    Color.parseColor("#00FFFFFF")
+                },
+                new float[]{0f, 0.3f, 0.7f, 1f},
+                Shader.TileMode.CLAMP
+            );
+            radialGlowPaint.setShader(gradient);
+            
+            canvas.drawCircle(glowCenterX, targetY - strokePaint.getTextSize() / 3f, 
+                            glowRadius, radialGlowPaint);
+        }
+        
+        // Draw fill for each line
+        canvas.save();
+        
+        int totalWordsFilled = currentWordIndex;
+        float partialWordProgress = fillProgress;
+        int wordsSoFar = 0;
+        
+        for (int lineIdx = 0; lineIdx < wrappedLines.size(); lineIdx++) {
+            String lineText = wrappedLines.get(lineIdx);
+            float currentY = startY + (lineIdx * lineHeight);
+            int wordsInThisLine = lineWordCounts.get(lineIdx);
+            
+            float lineTextWidth = strokePaint.measureText(lineText);
+            float lineTextStartX = centerX - lineTextWidth / 2f;
+            
+            float lineFillWidth = 0;
+            
+            if (totalWordsFilled < wordsSoFar) {
+                lineFillWidth = 0;
+            } else if (totalWordsFilled >= wordsSoFar + wordsInThisLine) {
+                lineFillWidth = getWidth();
+            } else {
+                String[] lineWords = lineText.split(" ");
+                int wordsFilledInLine = totalWordsFilled - wordsSoFar;
+                
+                lineFillWidth = lineTextStartX;
+                for (int i = 0; i < wordsFilledInLine && i < lineWords.length; i++) {
+                    lineFillWidth += strokePaint.measureText(lineWords[i]);
+                    if (i < wordsFilledInLine) {
+                        lineFillWidth += strokePaint.measureText(" ");
+                    }
+                }
+                
+                if (wordsFilledInLine < lineWords.length) {
+                    float currentWordWidth = strokePaint.measureText(lineWords[wordsFilledInLine]);
+                    lineFillWidth += currentWordWidth * partialWordProgress;
+                }
+            }
+            
+            canvas.save();
+            canvas.clipRect(0, currentY - strokePaint.getTextSize(), lineFillWidth, currentY + fm.descent);
+            canvas.drawText(lineText, centerX, currentY, fillPaint);
+            canvas.restore();
+            
+            wordsSoFar += wordsInThisLine;
+        }
+        
+        canvas.restore();
+    }
+}

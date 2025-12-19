@@ -1,0 +1,61 @@
+# Built files
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Gradle
+.gradle/
+build/
+
+# Local configuration
+local.properties
+gradle.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Keystore files (IMPORTANT)
+*.jks
+*.keystore
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# External native build
+.cxx/
+.externalNativeBuild/
+
+# Kotlin
+*.kotlin_module
+
+# Lint
+lint/
+lint-results*.html
+lint-results*.xml
+
+# NDK
+obj/
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Android profiling
+captures/
+
+# Firebase
+google-services.json
+
+# Crashlytics
+crashlytics-build.properties

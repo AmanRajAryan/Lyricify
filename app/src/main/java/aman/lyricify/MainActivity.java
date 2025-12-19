@@ -48,6 +48,9 @@ public class MainActivity extends AppCompatActivity {
         initializeManagers();
         setupListeners();
         
+
+        android.util.Log.d("test" , "test logwire"); 
+        
         permissionManager.checkAndRequestStoragePermission();
         mediaSessionHandler.initialize();
         nowPlayingManager.register();

@@ -1,0 +1,35 @@
+{
+  "allFiles": [
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/MainActivity.java",
+      "selection": {
+        "end": {
+          "column": 16,
+          "index": 8356,
+          "line": 244
+        },
+        "start": {
+          "column": 16,
+          "index": 8356,
+          "line": 244
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore",
+      "selection": {
+        "end": {
+          "column": 28,
+          "index": 565,
+          "line": 60
+        },
+        "start": {
+          "column": 28,
+          "index": 565,
+          "line": 60
+        }
+      }
+    }
+  ],
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore"
+}

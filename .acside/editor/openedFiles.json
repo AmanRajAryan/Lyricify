@@ -4,59 +4,14 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/SyncedLyricsView.java",
       "selection": {
         "end": {
-          "column": 1,
-          "index": 22399,
-          "line": 635
+          "column": 56,
+          "index": 3113,
+          "line": 94
         },
         "start": {
-          "column": 1,
-          "index": 22399,
-          "line": 635
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LyricWord.java",
-      "selection": {
-        "end": {
-          "column": 0,
-          "index": 203,
-          "line": 11
-        },
-        "start": {
-          "column": 0,
-          "index": 203,
-          "line": 11
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LyricLine.java",
-      "selection": {
-        "end": {
-          "column": 1,
-          "index": 438,
-          "line": 16
-        },
-        "start": {
-          "column": 1,
-          "index": 438,
-          "line": 16
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LrcParser.java",
-      "selection": {
-        "end": {
-          "column": 1,
-          "index": 4578,
-          "line": 109
-        },
-        "start": {
-          "column": 1,
-          "index": 4578,
-          "line": 109
+          "column": 56,
+          "index": 3113,
+          "line": 94
         }
       }
     }

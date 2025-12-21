@@ -89,15 +89,29 @@
 
     </RelativeLayout>
 
-
-    <LinearLayout
-        android:id="@+id/formatSelectorContainer"
+    <!-- hasElrc Indicator -->
+    <TextView
+        android:id="@+id/hasElrcIndicator"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@id/songInfoCard"
         android:layout_alignParentStart="true"
         android:layout_marginStart="16dp"
         android:layout_marginTop="12dp"
+        android:text="hasElrc: false"
+        android:textSize="12sp"
+        android:textColor="#B0B0B0"
+        android:fontFamily="monospace"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:id="@+id/formatSelectorContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/hasElrcIndicator"
+        android:layout_alignParentStart="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="4dp"
         android:background="@drawable/bg_format_selector"
         android:elevation="6dp"
         android:orientation="horizontal"
@@ -138,7 +152,7 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:paddingHorizontal="24dp"
-            android:paddingTop="60dp"
+            android:paddingTop="80dp"
             android:paddingBottom="80dp"
             android:clipToPadding="false"
             android:scrollbars="vertical">

@@ -1,35 +1,65 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/MainActivity.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/SyncedLyricsView.java",
       "selection": {
         "end": {
-          "column": 16,
-          "index": 8356,
-          "line": 244
+          "column": 1,
+          "index": 22399,
+          "line": 635
         },
         "start": {
-          "column": 16,
-          "index": 8356,
-          "line": 244
+          "column": 1,
+          "index": 22399,
+          "line": 635
         }
       }
     },
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LyricWord.java",
       "selection": {
         "end": {
-          "column": 28,
-          "index": 565,
-          "line": 60
+          "column": 0,
+          "index": 203,
+          "line": 11
         },
         "start": {
-          "column": 28,
-          "index": 565,
-          "line": 60
+          "column": 0,
+          "index": 203,
+          "line": 11
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LyricLine.java",
+      "selection": {
+        "end": {
+          "column": 1,
+          "index": 438,
+          "line": 16
+        },
+        "start": {
+          "column": 1,
+          "index": 438,
+          "line": 16
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LrcParser.java",
+      "selection": {
+        "end": {
+          "column": 1,
+          "index": 4578,
+          "line": 109
+        },
+        "start": {
+          "column": 1,
+          "index": 4578,
+          "line": 109
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/SyncedLyricsView.java"
 }

@@ -13,8 +13,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:text="abracadabra"
-        android:textSize="60sp"
+        android:text="LYRICIFY"
+        android:textSize="50sp"
         android:textStyle="bold"
         android:padding="5dp" />
 

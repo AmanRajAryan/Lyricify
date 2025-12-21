@@ -28,6 +28,7 @@ public class LyricsActivity extends AppCompatActivity {
     private ProgressBar lyricsLoading;
     private Spinner formatSpinner;
     private ImageView formatDropdownArrow;
+    private TextView hasElrcIndicator;
 
     private ImageButton showMetadataButton, saveLrcButton, copyLyricsButton;
     private ImageButton embedLyricsButton, syncedLyricsButton;
@@ -102,6 +103,7 @@ public class LyricsActivity extends AppCompatActivity {
         lyricsLoading = findViewById(R.id.lyricsLoading);
         formatSpinner = findViewById(R.id.formatSpinner);
         formatDropdownArrow = findViewById(R.id.formatDropdownArrow);
+        hasElrcIndicator = findViewById(R.id.hasElrcIndicator);
 
         showMetadataButton = findViewById(R.id.showMetadataButton);
         saveLrcButton = findViewById(R.id.saveLrcButton);
@@ -180,8 +182,13 @@ public class LyricsActivity extends AppCompatActivity {
     }
 
     private void setupFormatSpinner() {
-        String[] formats = {"Plain", "LRC", "ELRC", "ELRC Multi-Person"};
+        // Initial setup with placeholder - will be updated when lyrics load
+        String[] formats = {"Plain"};
+        setupSpinnerAdapter(formats);
+        formatSpinner.setEnabled(false);
+    }
 
+    private void setupSpinnerAdapter(String[] formats) {
         ArrayAdapter<String> adapter =
                 new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, formats) {
                     @Override
@@ -231,7 +238,7 @@ public class LyricsActivity extends AppCompatActivity {
                     @Override
                     public void onItemSelected(
                             AdapterView<?> parent, View view, int position, long id) {
-                        currentFormat = formats[position];
+                        currentFormat = (String) parent.getItemAtPosition(position);
                         lyricsFetcher.displayFormat(currentFormat);
                         updateSyncedLyricsButtonState();
                         animateArrow(false);
@@ -242,8 +249,6 @@ public class LyricsActivity extends AppCompatActivity {
                         animateArrow(false);
                     }
                 });
-
-        formatSpinner.setEnabled(false);
     }
 
     private void animateArrow(boolean isOpening) {
@@ -261,8 +266,47 @@ public class LyricsActivity extends AppCompatActivity {
             formatSpinner.setEnabled(false);
             syncedLyricsButton.setEnabled(false);
             syncedLyricsButton.setAlpha(0.4f);
+            hasElrcIndicator.setText("hasElrc: false");
+            hasElrcIndicator.setTextColor(Color.parseColor("#FF6B6B"));
             return;
         }
+
+        // Build list of available formats
+        java.util.ArrayList<String> availableFormats = new java.util.ArrayList<>();
+        availableFormats.add("Plain");
+
+        // Check for LRC (synced lyrics)
+        if (response.lrc != null && 
+            !response.lrc.isEmpty() && 
+            !response.lrc.equals("null")) {
+            availableFormats.add("LRC");
+        }
+
+        // Check for ELRC (enhanced lyrics)
+        boolean hasElrc = false;
+        if (response.elrc != null && 
+            !response.elrc.isEmpty() && 
+            !response.elrc.equals("null")) {
+            availableFormats.add("ELRC");
+            hasElrc = true;
+        }
+
+        // Check for ELRC Multi-Person
+        if (response.elrcMultiPerson != null && 
+            !response.elrcMultiPerson.isEmpty() && 
+            !response.elrcMultiPerson.equals("null")) {
+            availableFormats.add("ELRC Multi-Person");
+            hasElrc = true;
+        }
+
+        // Update hasElrc indicator
+        hasElrcIndicator.setText("hasElrc: " + hasElrc);
+        hasElrcIndicator.setTextColor(hasElrc ? 
+            Color.parseColor("#4CAF50") : Color.parseColor("#FF6B6B"));
+
+        // Update spinner with available formats
+        String[] formatsArray = availableFormats.toArray(new String[0]);
+        setupSpinnerAdapter(formatsArray);
 
         formatSpinner.setEnabled(true);
         updateSyncedLyricsButtonState();

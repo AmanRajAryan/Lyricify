@@ -1,8 +1,5 @@
 package aman.lyricify.Views;
 
-
-
-
 import android.animation.Animator;
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -36,7 +33,7 @@ public class GlowTextView extends AppCompatTextView {
         glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         glowPaint.setStyle(Paint.Style.FILL);
         glowPaint.setTextAlign(Paint.Align.LEFT);
-        glowPaint.setMaskFilter(new BlurMaskFilter(8, BlurMaskFilter.Blur.NORMAL));
+        glowPaint.setMaskFilter(new BlurMaskFilter(20, BlurMaskFilter.Blur.NORMAL));
     }
 
     @Override
@@ -45,48 +42,74 @@ public class GlowTextView extends AppCompatTextView {
         viewWidth = w;
     }
 
-    @Override
+                @Override
     protected void onDraw(Canvas canvas) {
         String text = getText().toString();
+        
+        // 1. Setup Paints & Measurements
         float textSize = getTextSize();
-
         basePaint.setTextSize(textSize);
         glowPaint.setTextSize(textSize);
-
         basePaint.setTypeface(getTypeface());
         glowPaint.setTypeface(getTypeface());
 
         Paint.FontMetrics fm = basePaint.getFontMetrics();
         float textHeight = fm.descent - fm.ascent;
         float y = (getHeight() + textHeight) / 2 - fm.descent;
-        float x = (getWidth() - basePaint.measureText(text)) / 2;
+        
+        // Calculate exact text position
+        float textWidth = basePaint.measureText(text);
+        float textX = (getWidth() - textWidth) / 2;
 
-        // Draw gray base
+        // 2. Draw the inactive gray base first
         basePaint.setColor(Color.GRAY);
-        canvas.drawText(text, x, y, basePaint);
+        // Clear any shader on the base paint to ensure it's solid gray
+        basePaint.setShader(null); 
+        canvas.drawText(text, textX, y, basePaint);
 
-        // Cutoff: how far the white progress reached
-        float cutoff = progress * viewWidth;
+        // 3. Calculate the "Wipe" position
+        // We want a gradient of roughly 120px width for the soft edge
+        float edgeWidth = 120f; 
+        
+        // Start Position: The fade hasn't touched the text yet
+        // We subtract edgeWidth so the 'Transparent' end of the gradient is at textX
+        float startCutoff = textX;
+        
+        // End Position: The solid white has fully crossed the text
+        // We add edgeWidth so the 'White' start of the gradient clears the end of text
+        float endCutoff = textX + textWidth + edgeWidth;
+        
+        // Current position based on animation progress
+        float totalTravel = endCutoff - startCutoff;
+        float currentX = startCutoff + (progress * totalTravel);
 
-        // White band with soft glow edge
-        gradient = new LinearGradient(
-                cutoff - 120, 0, cutoff + 120, 0,
-                new int[]{Color.WHITE, Color.WHITE, Color.TRANSPARENT},
-                new float[]{0f, 0.5f, 1f},
-                Shader.TileMode.CLAMP
+        // 4. Create the Shader (The "Magic" part)
+        // Gradient runs from [White] -> [Transparent]
+        // TileMode.CLAMP means:
+        //   - Everything BEFORE (currentX - edgeWidth) stays WHITE (Solid fill)
+        //   - Everything AFTER (currentX) stays TRANSPARENT (Empty)
+        LinearGradient fillGradient = new LinearGradient(
+                currentX - edgeWidth, 0,  // Start of fade (Solid White before this)
+                currentX, 0,              // End of fade (Transparent after this)
+                new int[]{Color.WHITE, Color.TRANSPARENT},
+                null,                     // evenly distributed
+                Shader.TileMode.CLAMP     // <--- This fixes the artifact
         );
-        glowPaint.setShader(gradient);
 
-        // Left side (already swept) — pure white
-        canvas.save();
-        canvas.clipRect(0, 0, cutoff, getHeight());
-        basePaint.setColor(Color.WHITE);
-        canvas.drawText(text, x, y, basePaint);
-        canvas.restore();
+        // 5. Draw the Sharp White Text (The Fill)
+        Paint fillPaint = new Paint(basePaint);
+        fillPaint.setColor(Color.WHITE);
+        fillPaint.setShader(fillGradient);
+        canvas.drawText(text, textX, y, fillPaint);
 
-        // Moving glow band
-        canvas.drawText(text, x, y, glowPaint);
+        // 6. Draw the Glow (The Bloom effect on top)
+        // We use the same gradient logic but with the blur paint
+        glowPaint.setShader(fillGradient);
+        canvas.drawText(text, textX, y, glowPaint);
     }
+
+
+
 
     private void startSweep() {
         if (viewWidth <= 0) return;
@@ -94,22 +117,31 @@ public class GlowTextView extends AppCompatTextView {
         isAnimating = true;
 
         animator = ValueAnimator.ofFloat(0f, 1f);
-        animator.setDuration(5000); // sweep duration
+        animator.setDuration(10000); // sweep duration
         animator.setInterpolator(new LinearInterpolator());
-        animator.addUpdateListener(a -> {
-            progress = (float) a.getAnimatedValue();
-            invalidate();
-        });
+        animator.addUpdateListener(
+                a -> {
+                    progress = (float) a.getAnimatedValue();
+                    invalidate();
+                });
 
-        animator.addListener(new Animator.AnimatorListener() {
-            @Override public void onAnimationStart(Animator animation) {}
-            @Override public void onAnimationEnd(Animator animation) {
-                // pause briefly when fully white
-                postDelayed(() -> resetAndRestart(), 1000); // 1s pause
-            }
-            @Override public void onAnimationCancel(Animator animation) {}
-            @Override public void onAnimationRepeat(Animator animation) {}
-        });
+        animator.addListener(
+                new Animator.AnimatorListener() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {}
+
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        // pause briefly when fully white
+                        postDelayed(() -> resetAndRestart(), 1000); // 1s pause
+                    }
+
+                    @Override
+                    public void onAnimationCancel(Animator animation) {}
+
+                    @Override
+                    public void onAnimationRepeat(Animator animation) {}
+                });
 
         animator.start();
     }
@@ -119,30 +151,51 @@ public class GlowTextView extends AppCompatTextView {
         ValueAnimator fadeBack = ValueAnimator.ofFloat(1f, 0f);
         fadeBack.setDuration(1000);
         fadeBack.setInterpolator(new LinearInterpolator());
-        fadeBack.addUpdateListener(a -> {
-            float fadeProgress = (float) a.getAnimatedValue();
-            // blend gray & white
-            basePaint.setColor(blendColor(Color.GRAY, Color.WHITE, fadeProgress));
-            invalidate();
-        });
-        fadeBack.addListener(new Animator.AnimatorListener() {
-            @Override public void onAnimationStart(Animator animation) {}
-            @Override public void onAnimationEnd(Animator animation) {
-                progress = 0f;
-                isAnimating = false;
-                startSweep(); // restart cycle
-            }
-            @Override public void onAnimationCancel(Animator animation) {}
-            @Override public void onAnimationRepeat(Animator animation) {}
-        });
+        fadeBack.addUpdateListener(
+                a -> {
+                    float fadeProgress = (float) a.getAnimatedValue();
+                    // blend gray & white
+                    basePaint.setColor(blendColor(Color.GRAY, Color.WHITE, fadeProgress));
+                    invalidate();
+                });
+        fadeBack.addListener(
+                new Animator.AnimatorListener() {
+                    @Override
+                    public void onAnimationStart(Animator animation) {}
+
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        progress = 0f;
+                        isAnimating = false;
+                        startSweep(); // restart cycle
+                    }
+
+                    @Override
+                    public void onAnimationCancel(Animator animation) {}
+
+                    @Override
+                    public void onAnimationRepeat(Animator animation) {}
+                });
         fadeBack.start();
     }
 
     private int blendColor(int startColor, int endColor, float ratio) {
-        int alpha = (int) (Color.alpha(startColor) + (Color.alpha(endColor) - Color.alpha(startColor)) * ratio);
-        int red = (int) (Color.red(startColor) + (Color.red(endColor) - Color.red(startColor)) * ratio);
-        int green = (int) (Color.green(startColor) + (Color.green(endColor) - Color.green(startColor)) * ratio);
-        int blue = (int) (Color.blue(startColor) + (Color.blue(endColor) - Color.blue(startColor)) * ratio);
+        int alpha =
+                (int)
+                        (Color.alpha(startColor)
+                                + (Color.alpha(endColor) - Color.alpha(startColor)) * ratio);
+        int red =
+                (int)
+                        (Color.red(startColor)
+                                + (Color.red(endColor) - Color.red(startColor)) * ratio);
+        int green =
+                (int)
+                        (Color.green(startColor)
+                                + (Color.green(endColor) - Color.green(startColor)) * ratio);
+        int blue =
+                (int)
+                        (Color.blue(startColor)
+                                + (Color.blue(endColor) - Color.blue(startColor)) * ratio);
         return Color.argb(alpha, red, green, blue);
     }
 

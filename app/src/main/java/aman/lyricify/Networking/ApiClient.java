@@ -14,11 +14,22 @@ import java.util.concurrent.TimeUnit;
 public class ApiClient {
 
     private static final String BASE_URL = "https://lyrics.paxsenix.org/";
+    private static final String USER_AGENT = "LYRICIFY";
 
     private static final OkHttpClient client =
             new OkHttpClient.Builder()
                     .connectTimeout(20, TimeUnit.SECONDS)
                     .readTimeout(60, TimeUnit.SECONDS)
+                    .addInterceptor(new Interceptor() {
+                        @Override
+                        public Response intercept(Chain chain) throws IOException {
+                            Request original = chain.request();
+                            Request request = original.newBuilder()
+                                    .header("User-Agent", USER_AGENT)
+                                    .build();
+                            return chain.proceed(request);
+                        }
+                    })
                     .build();
 
     // --- SHARED CACHE MECHANISM ---

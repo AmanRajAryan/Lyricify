@@ -257,15 +257,16 @@ public class SyncedLyricsView extends View {
             float top = wl.y + fm.ascent - verticalPadding;
             float bottom = wl.y + fm.descent + verticalPadding;
             if (clickedContentY >= top && clickedContentY <= bottom) {
-                seekListener.onSeek(wl.parentLine.startTime);
-                playSoundEffect(android.view.SoundEffectConstants.CLICK);
-                return true;
+                if (wl.parentLine.startTime != -1) {
+                    seekListener.onSeek(wl.parentLine.startTime);
+                    playSoundEffect(android.view.SoundEffectConstants.CLICK);
+                    return true;
+                }
             }
         }
         return false;
     }
 
-    // --- NEW: PRE-CALCULATED SCROLL LOGIC ---
     private boolean updateScrollLogic() {
         if (isFlinging) {
             if (scroller.computeScrollOffset()) {
@@ -288,25 +289,29 @@ public class SyncedLyricsView extends View {
             
             LyricLine currentLine = lyrics.get(effectiveIndex);
             
-            // 1. Get Pre-Calculated Target for Current Line
+            // Plain text (-1): Do not auto-scroll
+            if (currentLine.startTime == -1) return false;
+
+            // 1. Get Pre-Calculated Target
             Float preCalcTarget = lineScrollYMap.get(currentLine);
             if (preCalcTarget == null) preCalcTarget = 0f;
             
             float desiredY = preCalcTarget - getHeight() / 2f;
 
             // 2. Lookahead Interpolation
-            // Since lineScrollYMap accounts for overlap, we just interpolate to the next pre-calculated target.
             if (effectiveIndex + 1 < lyrics.size()) {
                 LyricLine nextLine = lyrics.get(effectiveIndex + 1);
-                long timeUntilNext = nextLine.startTime - currentTime;
-
-                if (timeUntilNext < SCROLL_ANTICIPATION_MS && timeUntilNext > 0) {
-                    float ratio = 1f - ((float) timeUntilNext / SCROLL_ANTICIPATION_MS);
-                    
-                    Float nextPreCalcTarget = lineScrollYMap.get(nextLine);
-                    if (nextPreCalcTarget != null) {
-                        float nextTargetY = nextPreCalcTarget - getHeight() / 2f;
-                        desiredY = desiredY + (nextTargetY - desiredY) * ratio;
+                // Only look ahead if next line is also synced
+                if (nextLine.startTime != -1) {
+                    long timeUntilNext = nextLine.startTime - currentTime;
+                    if (timeUntilNext < SCROLL_ANTICIPATION_MS && timeUntilNext > 0) {
+                        float ratio = 1f - ((float) timeUntilNext / SCROLL_ANTICIPATION_MS);
+                        
+                        Float nextPreCalcTarget = lineScrollYMap.get(nextLine);
+                        if (nextPreCalcTarget != null) {
+                            float nextTargetY = nextPreCalcTarget - getHeight() / 2f;
+                            desiredY = desiredY + (nextTargetY - desiredY) * ratio;
+                        }
                     }
                 }
             }
@@ -353,7 +358,7 @@ public class SyncedLyricsView extends View {
     private void wrapLines(int viewWidth) {
         wrappedLines.clear();
         lineCenterYMap.clear();
-        lineScrollYMap.clear(); // Clear pre-calculated targets
+        lineScrollYMap.clear();
 
         float maxWidth = viewWidth - (padding * 2);
         if (maxWidth <= 0) return;
@@ -361,7 +366,6 @@ public class SyncedLyricsView extends View {
         float currentY = 0;
         LyricLine previousParent = null;
 
-        // 1. Layout Text
         for (int lineIdx = 0; lineIdx < lyrics.size(); lineIdx++) {
             LyricLine line = lyrics.get(lineIdx);
             
@@ -408,9 +412,12 @@ public class SyncedLyricsView extends View {
 
                     parentLastLineY = currentY;
                     currentY += textHeight;
+                    
                     previousParent = line;
-
-                    segmentStartTime = cluster.get(0).time;
+                    
+                    if (cluster.get(0).time != -1) {
+                         segmentStartTime = cluster.get(0).time;
+                    }
                     currentLineWords.clear();
                     currentLineWidth = 0;
                 }
@@ -441,57 +448,44 @@ public class SyncedLyricsView extends View {
         }
         totalContentHeight = currentY;
 
-        // 2. Pre-Calculate Scroll Targets (Overlap Logic)
+        // 2. Pre-Calculate Scroll Targets
         for (int i = 0; i < lyrics.size(); i++) {
             LyricLine current = lyrics.get(i);
-            Float centerCurrent = lineCenterYMap.get(current);
-            if (centerCurrent == null) centerCurrent = 0f;
+            Float centerCur = lineCenterYMap.get(current);
+            if (centerCur == null) centerCur = 0f;
 
-            float finalTargetY = centerCurrent;
+            if (current.startTime == -1) {
+                lineScrollYMap.put(current, centerCur); // Plain text just centers normally
+                continue;
+            }
 
-            boolean overlapsPrev = false;
-            boolean overlapsPrevPrev = false;
+            float finalTarget = centerCur;
+            boolean overlapsPrev = false, overlapsPrevPrev = false;
 
             if (i > 0) {
                 LyricLine prev = lyrics.get(i - 1);
-                // Check simple overlap with previous line
-                if (current.startTime < prev.endTime) {
-                    overlapsPrev = true;
-                }
+                if (current.startTime < prev.endTime) overlapsPrev = true;
             }
-
             if (i > 1) {
                 LyricLine prevPrev = lyrics.get(i - 2);
-                // Check overlap with 2 lines ago (3-line stack)
-                if (current.startTime < prevPrev.endTime) {
-                    overlapsPrevPrev = true;
-                }
+                if (current.startTime < prevPrev.endTime) overlapsPrevPrev = true;
             }
 
             if (overlapsPrevPrev) {
-                // 3 Lines Active: Focus the Middle Line (i-1)
-                LyricLine middle = lyrics.get(i - 1);
-                Float centerMiddle = lineCenterYMap.get(middle);
-                if (centerMiddle != null) {
-                    finalTargetY = centerMiddle;
-                }
+                Float centerMid = lineCenterYMap.get(lyrics.get(i - 1));
+                if (centerMid != null) finalTarget = centerMid;
             } else if (overlapsPrev) {
-                // 2 Lines Active: Focus Combined Center
-                LyricLine prev = lyrics.get(i - 1);
-                Float centerPrev = lineCenterYMap.get(prev);
-                if (centerPrev != null) {
-                    finalTargetY = (centerPrev + centerCurrent) / 2f;
-                }
-            } else {
-                // No Overlap: Focus Current Center
-                finalTargetY = centerCurrent;
+                Float centerPrev = lineCenterYMap.get(lyrics.get(i - 1));
+                if (centerPrev != null) finalTarget = (centerPrev + centerCur) / 2f;
             }
-
-            lineScrollYMap.put(current, finalTargetY);
+            
+            lineScrollYMap.put(current, finalTarget);
         }
     }
 
     private float getFocusRatio(LyricLine line, long nextStartTime) {
+        if (line.startTime == -1) return 1.0f;
+
         if (currentTime >= line.startTime && currentTime <= line.endTime) {
             return 1.0f;
         }
@@ -560,14 +554,21 @@ public class SyncedLyricsView extends View {
             float targetScale = (INACTIVE_SCALE / LAYOUT_SCALE) + 
                               ( (1.0f - (INACTIVE_SCALE / LAYOUT_SCALE)) * focusRatio );
 
+            boolean isPlain = (wl.parentLine.startTime == -1);
             boolean isTimeActive = (currentTime >= wl.parentLine.startTime && currentTime <= wl.parentLine.endTime);
             boolean isTimePast = (currentTime > wl.parentLine.endTime);
             boolean isV2 = (wl.parentLine.vocalType == 2);
             
-            // Calculate Alpha for PAST lines only (Color -> Grey Fade)
+            // Calculate Alpha for PAST lines only (Fade White/Color -> Grey)
             int targetAlpha = 255;
-            if (isTimePast) {
-                targetAlpha = (int) (102 + (255 - 102) * focusRatio);
+            if (isTimePast && !isPlain) {
+                // If Simple LRC, use cubic decay to fade faster
+                if (!wl.parentLine.isWordSynced) {
+                    float adjustedRatio = (float) Math.pow(focusRatio, 3); 
+                    targetAlpha = (int) (102 + (255 - 102) * adjustedRatio);
+                } else {
+                    targetAlpha = (int) (102 + (255 - 102) * focusRatio);
+                }
                 targetAlpha = Math.max(102, Math.min(255, targetAlpha));
             }
 
@@ -578,17 +579,28 @@ public class SyncedLyricsView extends View {
             for (LyricWord word : wl.words) {
                 float wordWidth = getWordWidth(word.text);
                 
-                if (isTimeActive && currentTime >= word.time) {
-                    // --- 1. CURRENT ACTIVE WORD/SUNG ---
-                    animatingGlow = true;
-                    drawActiveWord(canvas, word, wl, x, y, wordWidth);
-                } else if (isTimeActive) {
-                    // --- 2. FUTURE WORD IN ACTIVE LINE ---
-                    // Strictly GREY so the karaoke fill pops
+                if (isPlain) {
+                    // Plain Text -> Always Active White
+                    canvas.drawText(word.text, x, y, paintActive);
+                } 
+                else if (isTimeActive && currentTime >= word.time) {
+                    // 1. ACTIVE / KARAOKE
+                    // Check if Word Synced or Simple Line
+                    if (wl.parentLine.isWordSynced) {
+                        animatingGlow = true;
+                        drawActiveWord(canvas, word, wl, x, y, wordWidth);
+                    } else {
+                        // Simple Line: Instant Fill
+                        if (isV2) canvas.drawText(word.text, x, y, paintFillV2);
+                        else canvas.drawText(word.text, x, y, paintActive);
+                    }
+                } 
+                else if (isTimeActive) {
+                    // 2. FUTURE WORD in ACTIVE LINE -> Grey
                     canvas.drawText(word.text, x, y, paintDefault);
-                } else if (isTimePast) {
-                    // --- 3. PAST LINES (Shrinking) ---
-                    // Apply Fade: White->Grey OR Cyan->Grey (V2)
+                } 
+                else if (isTimePast) {
+                    // 3. PAST LINE -> Fade Color/White to Grey
                     if (focusRatio > 0.01f) {
                         if (isV2) paintActive.setColor(COLOR_V2);
                         else paintActive.setColor(Color.WHITE);
@@ -596,16 +608,26 @@ public class SyncedLyricsView extends View {
                         paintActive.setAlpha(targetAlpha);
                         canvas.drawText(word.text, x, y, paintActive);
                         
-                        // Restore Defaults
+                        // Restore
                         paintActive.setAlpha(255);
                         paintActive.setColor(Color.WHITE);
                     } else {
                         canvas.drawText(word.text, x, y, paintDefault);
                     }
-                } else {
-                    // --- 4. FUTURE LINES (Growing) ---
-                    // NO COLOR CHANGE allowed. Keep it Grey.
-                    canvas.drawText(word.text, x, y, paintDefault);
+                } 
+                else {
+                    // 4. FUTURE LINE 
+                    // Simple LRC: Animate Grey -> White if growing
+                    if (!wl.parentLine.isWordSynced && focusRatio > 0) {
+                        int futureAlpha = (int) (102 + (255 - 102) * focusRatio);
+                        futureAlpha = Math.max(102, Math.min(255, futureAlpha));
+                        paintActive.setAlpha(futureAlpha);
+                        canvas.drawText(word.text, x, y, paintActive);
+                        paintActive.setAlpha(255);
+                    } else {
+                        // Karaoke / Far Future: Grey
+                        canvas.drawText(word.text, x, y, paintDefault);
+                    }
                 }
                 x += wordWidth;
             }

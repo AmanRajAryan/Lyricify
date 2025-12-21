@@ -5,13 +5,73 @@
       "selection": {
         "end": {
           "column": 0,
-          "index": 27566,
-          "line": 724
+          "index": 28750,
+          "line": 746
         },
         "start": {
           "column": 0,
-          "index": 27566,
-          "line": 724
+          "index": 28750,
+          "line": 746
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LrcParser.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 6362,
+          "line": 165
+        },
+        "start": {
+          "column": 0,
+          "index": 6362,
+          "line": 165
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LyricsRenderer.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 8517,
+          "line": 219
+        },
+        "start": {
+          "column": 0,
+          "index": 8517,
+          "line": 219
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LyricsLayout.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 6581,
+          "line": 167
+        },
+        "start": {
+          "column": 0,
+          "index": 6581,
+          "line": 167
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyrics/LyricLine.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 453,
+          "line": 17
+        },
+        "start": {
+          "column": 0,
+          "index": 453,
+          "line": 17
         }
       }
     }

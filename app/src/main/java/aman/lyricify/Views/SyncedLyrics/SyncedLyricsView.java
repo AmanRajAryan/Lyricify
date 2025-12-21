@@ -41,7 +41,10 @@ public class SyncedLyricsView extends View {
 
     private List<LyricLine> lyrics = new ArrayList<>();
     private List<WrappedLine> wrappedLines = new ArrayList<>();
+    
+    // Maps
     private Map<LyricLine, Float> lineCenterYMap = new HashMap<>();
+    private Map<LyricLine, Float> lineScrollYMap = new HashMap<>(); // Pre-calculated Scroll Targets
 
     private long currentTime = 0;
 
@@ -262,6 +265,7 @@ public class SyncedLyricsView extends View {
         return false;
     }
 
+    // --- NEW: PRE-CALCULATED SCROLL LOGIC ---
     private boolean updateScrollLogic() {
         if (isFlinging) {
             if (scroller.computeScrollOffset()) {
@@ -283,23 +287,30 @@ public class SyncedLyricsView extends View {
             effectiveIndex = Math.max(0, effectiveIndex);
             
             LyricLine currentLine = lyrics.get(effectiveIndex);
-            Float centerY = lineCenterYMap.get(currentLine);
-            if (centerY == null) centerY = 0f;
+            
+            // 1. Get Pre-Calculated Target for Current Line
+            Float preCalcTarget = lineScrollYMap.get(currentLine);
+            if (preCalcTarget == null) preCalcTarget = 0f;
+            
+            float desiredY = preCalcTarget - getHeight() / 2f;
 
-            float desiredY = centerY - getHeight() / 2f;
-
+            // 2. Lookahead Interpolation
+            // Since lineScrollYMap accounts for overlap, we just interpolate to the next pre-calculated target.
             if (effectiveIndex + 1 < lyrics.size()) {
                 LyricLine nextLine = lyrics.get(effectiveIndex + 1);
                 long timeUntilNext = nextLine.startTime - currentTime;
+
                 if (timeUntilNext < SCROLL_ANTICIPATION_MS && timeUntilNext > 0) {
                     float ratio = 1f - ((float) timeUntilNext / SCROLL_ANTICIPATION_MS);
-                    Float nextCenterY = lineCenterYMap.get(nextLine);
-                    if (nextCenterY != null) {
-                        float nextTargetY = nextCenterY - getHeight() / 2f;
+                    
+                    Float nextPreCalcTarget = lineScrollYMap.get(nextLine);
+                    if (nextPreCalcTarget != null) {
+                        float nextTargetY = nextPreCalcTarget - getHeight() / 2f;
                         desiredY = desiredY + (nextTargetY - desiredY) * ratio;
                     }
                 }
             }
+            
             float minScroll = -getHeight() / 2f;
             targetScrollY = Math.max(minScroll, desiredY);
         }
@@ -342,6 +353,7 @@ public class SyncedLyricsView extends View {
     private void wrapLines(int viewWidth) {
         wrappedLines.clear();
         lineCenterYMap.clear();
+        lineScrollYMap.clear(); // Clear pre-calculated targets
 
         float maxWidth = viewWidth - (padding * 2);
         if (maxWidth <= 0) return;
@@ -349,6 +361,7 @@ public class SyncedLyricsView extends View {
         float currentY = 0;
         LyricLine previousParent = null;
 
+        // 1. Layout Text
         for (int lineIdx = 0; lineIdx < lyrics.size(); lineIdx++) {
             LyricLine line = lyrics.get(lineIdx);
             
@@ -427,6 +440,55 @@ public class SyncedLyricsView extends View {
             }
         }
         totalContentHeight = currentY;
+
+        // 2. Pre-Calculate Scroll Targets (Overlap Logic)
+        for (int i = 0; i < lyrics.size(); i++) {
+            LyricLine current = lyrics.get(i);
+            Float centerCurrent = lineCenterYMap.get(current);
+            if (centerCurrent == null) centerCurrent = 0f;
+
+            float finalTargetY = centerCurrent;
+
+            boolean overlapsPrev = false;
+            boolean overlapsPrevPrev = false;
+
+            if (i > 0) {
+                LyricLine prev = lyrics.get(i - 1);
+                // Check simple overlap with previous line
+                if (current.startTime < prev.endTime) {
+                    overlapsPrev = true;
+                }
+            }
+
+            if (i > 1) {
+                LyricLine prevPrev = lyrics.get(i - 2);
+                // Check overlap with 2 lines ago (3-line stack)
+                if (current.startTime < prevPrev.endTime) {
+                    overlapsPrevPrev = true;
+                }
+            }
+
+            if (overlapsPrevPrev) {
+                // 3 Lines Active: Focus the Middle Line (i-1)
+                LyricLine middle = lyrics.get(i - 1);
+                Float centerMiddle = lineCenterYMap.get(middle);
+                if (centerMiddle != null) {
+                    finalTargetY = centerMiddle;
+                }
+            } else if (overlapsPrev) {
+                // 2 Lines Active: Focus Combined Center
+                LyricLine prev = lyrics.get(i - 1);
+                Float centerPrev = lineCenterYMap.get(prev);
+                if (centerPrev != null) {
+                    finalTargetY = (centerPrev + centerCurrent) / 2f;
+                }
+            } else {
+                // No Overlap: Focus Current Center
+                finalTargetY = centerCurrent;
+            }
+
+            lineScrollYMap.put(current, finalTargetY);
+        }
     }
 
     private float getFocusRatio(LyricLine line, long nextStartTime) {

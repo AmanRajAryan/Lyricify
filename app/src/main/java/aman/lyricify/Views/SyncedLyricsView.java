@@ -414,7 +414,14 @@ public class SyncedLyricsView extends View {
 
                 while (i < line.words.size()) {
                     LyricWord lastAdded = cluster.get(cluster.size() - 1);
-                    if (lastAdded.text.endsWith(" ") || lastAdded.text.endsWith("\u3000")) break;
+
+                    // MODIFIED: Added check for "-" to break clusters on hyphens
+                    if (lastAdded.text.endsWith(" ")
+                            || lastAdded.text.endsWith("\u3000")
+                            || lastAdded.text.endsWith("-")) {
+                        break;
+                    }
+
                     LyricWord nextPiece = line.words.get(i);
                     cluster.add(nextPiece);
                     clusterWidth += getWordWidth(nextPiece.text) * effectiveMeasureScale;

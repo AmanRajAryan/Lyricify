@@ -126,7 +126,8 @@ public class SyncedLyricsView extends View {
         spacingBetweenWrappedLines = 10 * density;
         spacingBetweenLyrics = 60 * density;
 
-        bgBlurFilter = new BlurMaskFilter(10f * density / 3f, BlurMaskFilter.Blur.NORMAL);
+        // MODIFIED: Increased blur radius for "strengthy" effect (approx 3x stronger than before)
+        bgBlurFilter = new BlurMaskFilter(5f * density, BlurMaskFilter.Blur.NORMAL);
 
         paintActive = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintActive.setTextSize(layoutTextSize);
@@ -388,7 +389,8 @@ public class SyncedLyricsView extends View {
 
         float currentY = 0;
         LyricLine previousParent = null;
-        float bgIndent = padding * 2;
+
+        // REMOVED: float bgIndent = padding * 2;
 
         for (int lineIdx = 0; lineIdx < lyrics.size(); lineIdx++) {
             LyricLine line = lyrics.get(lineIdx);
@@ -415,7 +417,7 @@ public class SyncedLyricsView extends View {
                 while (i < line.words.size()) {
                     LyricWord lastAdded = cluster.get(cluster.size() - 1);
 
-                    // MODIFIED: Added check for "-" to break clusters on hyphens
+                    // MODIFIED: Break on hyphen ("-") to fix clustering issue
                     if (lastAdded.text.endsWith(" ")
                             || lastAdded.text.endsWith("\u3000")
                             || lastAdded.text.endsWith("-")) {
@@ -432,8 +434,12 @@ public class SyncedLyricsView extends View {
                         && !currentLineWords.isEmpty()) {
                     WrappedLine wl = new WrappedLine(line, new ArrayList<>(currentLineWords));
 
-                    if (line.isBackground) wl.xOffset = bgIndent;
-                    else wl.xOffset = 0;
+                    // MODIFIED: Center justify background lines
+                    if (line.isBackground) {
+                        wl.xOffset = (viewWidth - currentLineWidth) / 2f - padding;
+                    } else {
+                        wl.xOffset = 0;
+                    }
 
                     float spacing;
                     if (previousParent == null) spacing = 0;
@@ -468,8 +474,12 @@ public class SyncedLyricsView extends View {
             if (!currentLineWords.isEmpty()) {
                 WrappedLine wl = new WrappedLine(line, new ArrayList<>(currentLineWords));
 
-                if (line.isBackground) wl.xOffset = bgIndent;
-                else wl.xOffset = 0;
+                // MODIFIED: Center justify background lines
+                if (line.isBackground) {
+                    wl.xOffset = (viewWidth - currentLineWidth) / 2f - padding;
+                } else {
+                    wl.xOffset = 0;
+                }
 
                 float spacing;
                 if (previousParent == null) spacing = 0;
@@ -503,6 +513,7 @@ public class SyncedLyricsView extends View {
         }
         totalContentHeight = currentY;
 
+        // ... (Recalculate Scroll Map - Same as before) ...
         for (int i = 0; i < lyrics.size(); i++) {
             LyricLine current = lyrics.get(i);
             Float centerCur = lineCenterYMap.get(current);
@@ -578,7 +589,8 @@ public class SyncedLyricsView extends View {
 
         float viewTop = currentScrollY - textHeight;
         float viewBottom = currentScrollY + getHeight();
-        float viewCenterX = getWidth() / 2f;
+
+        // REMOVED: float viewCenterX = getWidth() / 2f; (Not needed for gradient anymore)
 
         for (WrappedLine wl : wrappedLines) {
             float y = wl.y;
@@ -613,7 +625,6 @@ public class SyncedLyricsView extends View {
                 paintBloomV2.setTextScaleX(BG_HORIZONTAL_STRETCH);
             }
 
-            // --- RESTORED VARIABLES HERE ---
             boolean isPlain = (wl.parentLine.startTime == -1);
             boolean isTimeActive =
                     (currentTime >= wl.parentLine.startTime
@@ -644,15 +655,12 @@ public class SyncedLyricsView extends View {
                 if (wl.parentLine.isBackground) wordWidth *= BG_HORIZONTAL_STRETCH;
 
                 int dispersedAlpha = 255;
-                if (wl.parentLine.isBackground) {
-                    float wordCenterX = x + wordWidth / 2f;
-                    float dist = Math.abs(wordCenterX - viewCenterX);
-                    float maxDist = getWidth() * 0.9f;
-                    float alphaFactor = 1.0f - (dist / maxDist);
-                    alphaFactor = Math.max(0.15f, Math.min(1f, alphaFactor));
 
-                    float maxDispersedAlpha = 200f;
-                    dispersedAlpha = (int) (maxDispersedAlpha * alphaFactor);
+                // MODIFIED: Removed spatial gradient logic.
+                // Replaced with a static alpha (120) so it looks "grey" like main lines but visible
+                // under blur.
+                if (wl.parentLine.isBackground) {
+                    dispersedAlpha = 120; // Fixed grey alpha
 
                     paintActive.setAlpha(dispersedAlpha);
                     paintDefault.setAlpha(dispersedAlpha);
@@ -681,6 +689,8 @@ public class SyncedLyricsView extends View {
 
                         int fadingAlpha = (int) (dispersedAlpha * fadeOutFactor);
                         animatingGlow = true;
+                        // Passing fadingAlpha ensures it fades out at the end, but stays solid grey
+                        // otherwise
                         drawActiveWord(canvas, word, wl, x, y, wordWidth, fadingAlpha);
                     } else {
                         if (wl.parentLine.isWordSynced) {
@@ -701,6 +711,7 @@ public class SyncedLyricsView extends View {
 
                         int finalAlpha = targetAlpha;
                         if (wl.parentLine.isBackground) {
+                            // Scale alpha relative to the dispersed (fixed) alpha
                             finalAlpha =
                                     (int) ((targetAlpha / 255f) * (dispersedAlpha / 255f) * 255);
                         }
@@ -792,10 +803,16 @@ public class SyncedLyricsView extends View {
         long elapsed = currentTime - word.time;
         float progress = Math.min(1.0f, (float) elapsed / duration);
 
+        // Draw the inactive base text
         canvas.drawText(word.text, x, y, paintDefault);
 
         if (targetGrad != null) {
-            float edgeWidth = 120f;
+            // MODIFIED: Make edgeWidth dependent on word width
+            // We use Math.min to ensure it doesn't get wider than 120f (preserving the look for
+            // long words)
+            // but shrinks down for short words so they fill L->R instead of fading.
+            float edgeWidth = Math.min(120f, wordWidth);
+
             float currentX = x + (wordWidth + edgeWidth) * progress;
 
             shaderMatrix.reset();
@@ -810,14 +827,12 @@ public class SyncedLyricsView extends View {
             if (progress < 1.0f) {
                 float bloomAlpha = 1.0f;
                 if (progress >= 0.7f) {
-                    // Map progress range [0.7, 1.0] to alpha range [1.0, 0.0]
                     bloomAlpha = (1.0f - progress) / (1.0f - 0.7f);
                     bloomAlpha = Math.max(0f, Math.min(1.0f, bloomAlpha));
                 }
 
                 int finalBloomAlpha = (int) (alphaOverride * bloomAlpha);
 
-                // IMPORTANT: Update the shadow layer with the fading alpha
                 int shadowColor = isV2 ? COLOR_V2 : Color.WHITE;
                 int fadedShadowColor =
                         Color.argb(
@@ -831,7 +846,6 @@ public class SyncedLyricsView extends View {
                 targetBloom.setAlpha(finalBloomAlpha);
                 canvas.drawText(word.text, x, y, targetBloom);
 
-                // Reset shadow layer after drawing
                 targetBloom.setShadowLayer(25, 0, 0, shadowColor);
             }
 

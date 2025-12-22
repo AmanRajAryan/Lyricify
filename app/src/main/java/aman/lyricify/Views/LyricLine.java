@@ -8,8 +8,9 @@ public class LyricLine {
     public long endTime;
     public List<LyricWord> words = new ArrayList<>();
     
-    public int vocalType = 1; // 1 = v1 (default/white), 2 = v2 (cyan/duet)
-    public boolean isWordSynced = false; // TRUE = <mm:ss>, FALSE = [mm:ss] only
+    public int vocalType = 1; // 1 = v1, 2 = v2
+    public boolean isWordSynced = false; 
+    public boolean isBackground = false; // NEW: Flag for Background Vocals
 
     public LyricLine(long startTime) {
         this.startTime = startTime;

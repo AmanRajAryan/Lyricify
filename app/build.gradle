@@ -38,6 +38,8 @@ android {
 }
 
 dependencies {
+    
+
     // Networking
     implementation 'com.squareup.okhttp3:okhttp:4.11.0'
 
@@ -53,4 +55,7 @@ dependencies {
 
     // TagLib AAR
     implementation files("libs/library-release.aar")
+    implementation files("libs/lyricsview.aar")
+    
+    
 }

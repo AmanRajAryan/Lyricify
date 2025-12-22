@@ -5,18 +5,17 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- Song Info Header -->
     <LinearLayout
         android:id="@+id/songInfoHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="16dp"
+        
         android:background="#1a1a1a"
         android:elevation="4dp"
         android:gravity="center_vertical">
         
-        <!-- Artwork -->
         <ImageView
             android:id="@+id/headerArtwork"
             android:layout_width="60dp"
@@ -25,7 +24,6 @@
             android:src="@drawable/ic_music_note"
             android:contentDescription="Album Artwork" />
         
-        <!-- Song Info -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -54,32 +52,37 @@
                 android:layout_marginTop="4dp"
                 android:maxLines="1"
                 android:ellipsize="end" />
-                
         </LinearLayout>
-
     </LinearLayout>
 
-    <!-- Loading Bar -->
     <ProgressBar
         android:id="@+id/syncedLoadingBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
+        android:elevation="10dp"
         android:visibility="gone" />
 
-    <!-- Synced Lyrics View -->
-    <aman.lyricify.SyncedLyricsView
-        android:id="@+id/syncedLyricsView"
+    <FrameLayout
+        android:id="@+id/lyricsContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/songInfoHeader"
-        android:layout_above="@id/controlsLayout"
-        android:background="#000000"
-        android:scrollbars="none" />
+        android:layout_above="@id/controlsLayout">
 
-    <!-- Playback Controls -->
+        
+        <aman.lyricify.SyncedLyricsView
+            android:id="@+id/syncedLyricsView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:scrollbars="none" />
+
+    </FrameLayout>
+
     <LinearLayout
         android:id="@+id/controlsLayout"
+        
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
@@ -88,7 +91,6 @@
         android:background="#1a1a1a"
         android:elevation="8dp">
 
-        <!-- Position Text -->
         <TextView
             android:id="@+id/positionText"
             android:layout_width="wrap_content"
@@ -99,7 +101,6 @@
             android:layout_gravity="center"
             android:layout_marginBottom="8dp" />
 
-        <!-- SeekBar -->
         <SeekBar
             android:id="@+id/progressSeekBar"
             android:layout_width="match_parent"
@@ -108,7 +109,6 @@
             android:progressTint="#FFFFFF"
             android:thumbTint="#FFFFFF" />
 
-        <!-- Control Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -141,9 +141,7 @@
                 android:layout_marginStart="8dp"
                 android:textSize="11sp"
                 android:padding="8dp" />
-
         </LinearLayout>
-
     </LinearLayout>
 
 </RelativeLayout>

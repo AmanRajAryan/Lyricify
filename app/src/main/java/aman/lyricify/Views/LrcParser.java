@@ -32,6 +32,11 @@ public class LrcParser {
 
                     int timeCompare = Long.compare(a.startTime, b.startTime);
                     if (timeCompare != 0) return timeCompare;
+                    
+                    // Put background vocals visually "after" main vocals if they start at exact same ms
+                    if (a.isBackground && !b.isBackground) return 1;
+                    if (!a.isBackground && b.isBackground) return -1;
+                    
                     return Integer.compare(a.vocalType, b.vocalType);
                 });
 
@@ -53,6 +58,8 @@ public class LrcParser {
                 long nextDifferentStart = -1;
                 for (int j = i + 1; j < lines.size(); j++) {
                     LyricLine next = lines.get(j);
+                    // Don't let a background line cut short a main line, or vice versa if possible
+                    // But generally simple logic is safest:
                     if (next.startTime > curr.startTime) {
                         nextDifferentStart = next.startTime;
                         break;
@@ -70,8 +77,32 @@ public class LrcParser {
 
     private static LyricLine parseLine(String lineContent) {
         if (lineContent == null || lineContent.trim().isEmpty()) return null;
+        String trimmed = lineContent.trim();
 
-        // 1. Try to find Line Timestamp [mm:ss.xx]
+        // 1. Check for Background Line [bg: ...]
+        // It might not have a timestamp prefix like [mm:ss], so we check strictly
+        if (trimmed.startsWith("[bg:") && trimmed.endsWith("]")) {
+            // Remove [bg: and ]
+            String content = trimmed.substring(4, trimmed.length() - 1);
+            
+            // We temporarily create a line with -1 time
+            LyricLine bgLine = new LyricLine(-1);
+            bgLine.isBackground = true;
+            
+            // Parse words. The start time will be updated to the first word's time
+            parseTextAndVocals(bgLine, content);
+            
+            // If we found words with timestamps, update the line's start time
+            if (!bgLine.words.isEmpty() && bgLine.words.get(0).time != -1) {
+                bgLine.startTime = bgLine.words.get(0).time;
+            } else {
+                // If no timestamps found inside, this line is invalid/unsynced background
+                return null; 
+            }
+            return bgLine;
+        }
+
+        // 2. Try to find Standard Line Timestamp [mm:ss.xx]
         Pattern linePattern = Pattern.compile("\\[(\\d{2}):(\\d{2})\\.(\\d{2,3})\\](.*)");
         Matcher lineMatcher = linePattern.matcher(lineContent);
 
@@ -84,21 +115,25 @@ public class LrcParser {
             String text = lineMatcher.group(4);
 
             LyricLine lyricLine = new LyricLine(startTime);
+            
+            // Check if text starts with "bg:" inside the timestamp
+            if (text != null && text.trim().startsWith("[bg:") && text.trim().endsWith("]")) {
+                 lyricLine.isBackground = true;
+                 text = text.trim().substring(4, text.trim().length() - 1);
+            }
+            
             parseTextAndVocals(lyricLine, text);
             return lyricLine;
 
         } else {
-            // 2. Plain Text (Treat as Simple Line, but start -1)
+            // 3. Plain Text
             LyricLine lyricLine = new LyricLine(-1);
             lyricLine.isWordSynced = false;
-            // Split by space for wrapping
             String[] words = lineContent.split(" ");
             for (String w : words) {
                  if(!w.isEmpty()) lyricLine.words.add(new LyricWord(-1, w + " "));
             }
-            // If empty (just spaces), add original
             if (lyricLine.words.isEmpty()) lyricLine.words.add(new LyricWord(-1, lineContent));
-            
             return lyricLine;
         }
     }
@@ -106,6 +141,7 @@ public class LrcParser {
     private static void parseTextAndVocals(LyricLine lyricLine, String content) {
         if (content == null) return;
 
+        // Cleanup vocal tags
         String trimmed = content.trim();
         if (trimmed.startsWith("v2:")) {
             lyricLine.vocalType = 2;
@@ -114,8 +150,12 @@ public class LrcParser {
             lyricLine.vocalType = 1; 
             content = content.replaceFirst("v1:", "");
         } else {
-            lyricLine.vocalType = 1;
-            content = content.replaceFirst("^[^<]*:", "");
+            // If it's NOT a BG line, remove generic prefixes. 
+            // If it IS a BG line, we already stripped [bg:].
+            if (!lyricLine.isBackground) {
+                lyricLine.vocalType = 1;
+                content = content.replaceFirst("^[^<]*:", "");
+            }
         }
 
         Pattern wordPattern = Pattern.compile("<(\\d{2}):(\\d{2})\\.(\\d{2,3})>([^<]*)");
@@ -137,18 +177,13 @@ public class LrcParser {
         if (hasWordTimestamps) {
             lyricLine.isWordSynced = true;
         } else {
-            // --- FIX FOR WRAPPING ---
-            // Split simple LRC content into individual words by whitespace
-            // This allows the SyncedLyricsView wrapping logic to break lines correctly.
             lyricLine.isWordSynced = false;
             String[] words = content.split(" ");
             for (String w : words) {
-                // Add space back to word for spacing, unless empty
                 if (!w.isEmpty()) {
                     lyricLine.words.add(new LyricWord(lyricLine.startTime, w + " "));
                 }
             }
-            // Fallback for lines without spaces
             if (lyricLine.words.isEmpty() && !content.isEmpty()) {
                  lyricLine.words.add(new LyricWord(lyricLine.startTime, content));
             }

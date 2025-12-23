@@ -337,10 +337,12 @@ public class LyricsActivity extends AppCompatActivity {
 
     private void setupButtonListeners() {
         showMetadataButton.setOnClickListener(v -> metadataManager.showMetadataDialog(filePath));
+        songFilePath.setOnClickListener(v -> metadataManager.showFilePathDialog(filePath));
         copyLyricsButton.setOnClickListener(v -> copyLyricsToClipboard());
         embedLyricsButton.setOnClickListener(v -> handleEmbedLyrics());
         saveLrcButton.setOnClickListener(v -> handleSaveLrc());
         syncedLyricsButton.setOnClickListener(v -> openSyncedLyricsView());
+        
 
         editTagsButton.setOnClickListener(
                 v -> {

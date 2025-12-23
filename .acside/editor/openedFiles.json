@@ -1,17 +1,62 @@
 {
   "allFiles": [
     {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/activity_lyrics.xml",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
       "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/LyricsActivity.java",
       "selection": {
         "end": {
-          "column": 5,
-          "index": 13090,
-          "line": 324
+          "column": 91,
+          "index": 13728,
+          "line": 339
         },
         "start": {
-          "column": 5,
-          "index": 13090,
-          "line": 324
+          "column": 91,
+          "index": 13728,
+          "line": 339
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Utilities/SongInfoDisplay.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Utilities/MetadataManager.java",
+      "selection": {
+        "end": {
+          "column": 34,
+          "index": 855,
+          "line": 33
+        },
+        "start": {
+          "column": 16,
+          "index": 837,
+          "line": 33
         }
       }
     }

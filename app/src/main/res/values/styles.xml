@@ -24,4 +24,11 @@
         <item name="android:textColor">@color/colorOnSurface</item>
     </style>
 
+
+<style name="RoundedImage">
+    <item name="cornerFamily">rounded</item>
+    <item name="cornerSize">8dp</item>
+</style>
+
+
 </resources>

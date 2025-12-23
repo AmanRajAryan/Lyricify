@@ -1,35 +1,20 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/TagEditorActivity.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/LyricsActivity.java",
       "selection": {
         "end": {
-          "column": 0,
-          "index": 0,
-          "line": 0
+          "column": 5,
+          "index": 13090,
+          "line": 324
         },
         "start": {
-          "column": 0,
-          "index": 0,
-          "line": 0
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyricsView.java",
-      "selection": {
-        "end": {
-          "column": 43,
-          "index": 4237,
-          "line": 129
-        },
-        "start": {
-          "column": 43,
-          "index": 4237,
-          "line": 129
+          "column": 5,
+          "index": 13090,
+          "line": 324
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Views/SyncedLyricsView.java"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/LyricsActivity.java"
 }

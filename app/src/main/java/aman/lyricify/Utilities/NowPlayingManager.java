@@ -13,6 +13,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.cardview.widget.CardView;
 import java.lang.ref.WeakReference;
 
 /**
@@ -24,7 +25,7 @@ public class NowPlayingManager {
     private final Handler uiHandler;
     
     // UI Views
-    private final LinearLayout nowPlayingCard;
+    private final CardView nowPlayingCard;
     private final ImageView nowPlayingArtwork;
     private final TextView nowPlayingTitle;
     private final TextView nowPlayingArtist;
@@ -76,7 +77,7 @@ public class NowPlayingManager {
         }
     };
     
-    public NowPlayingManager(Context context, LinearLayout card, ImageView artwork, 
+    public NowPlayingManager(Context context, CardView card, ImageView artwork, 
                             TextView title, TextView artist, TextView filePath) {
         this.contextRef = new WeakReference<>(context);
         this.uiHandler = new Handler(Looper.getMainLooper());

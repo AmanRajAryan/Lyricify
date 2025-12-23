@@ -8,6 +8,7 @@ import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import androidx.cardview.widget.CardView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import java.util.ArrayList;
@@ -24,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
     private Button searchButton;
     private ListView songListView;
     private ProgressBar songLoading;
-    private LinearLayout nowPlayingCard;
+    private CardView nowPlayingCard;
     private ImageView nowPlayingArtwork;
     private TextView nowPlayingTitle, nowPlayingArtist, nowPlayingFilePath;
 

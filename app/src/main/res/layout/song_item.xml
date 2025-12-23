@@ -1,110 +1,145 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_height="wrap_content"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:padding="8dp"
-    android:orientation="vertical">
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="6dp">
 
-    <LinearLayout
-        android:id="@+id/headerLayout"
-        android:layout_height="wrap_content"
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="4dp">
-
-        <ImageView
-            android:id="@+id/artworkImageView"
-            android:layout_height="60dp"
-            android:layout_width="60dp"
-            android:scaleType="centerCrop"
-            android:layout_marginEnd="8dp"
-            android:background="@drawable/artwork_bg" />
+        android:layout_height="wrap_content"
+        app:cardBackgroundColor="@color/card_background"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="4dp"
+        app:strokeColor="#33FFFFFF"
+        app:strokeWidth="1dp">
 
         <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_width="0dp"
             android:orientation="vertical"
-            android:layout_weight="1">
+            android:padding="12dp">
 
-            <TextView
-                android:id="@+id/songNameTextView"
+            <LinearLayout
+                android:id="@+id/headerLayout"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_width="wrap_content"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="#fff" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/artistNameTextView"
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/artworkImageView"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:background="@color/surface_dark"
+                    android:scaleType="centerCrop"
+                    app:shapeAppearanceOverlay="@style/RoundedImage" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="8dp">
+
+                    <TextView
+                        android:id="@+id/songNameTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Song Name"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/artistNameTextView"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="Artist Name"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:cardBackgroundColor="@color/primary_purple"
+                    app:cardCornerRadius="8dp"
+                    app:contentPadding="4dp">
+
+                    <TextView
+                        android:id="@+id/matchPercentageTextView"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingHorizontal="4dp"
+                        android:text="75%"
+                        android:textColor="#000"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:visibility="visible" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <ImageView
+                    android:id="@+id/arrowIcon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="12dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_round_expand_more"
+                    app:tint="@color/text_secondary" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/detailsLayout"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_width="wrap_content"
-                android:textSize="14sp"
-                android:textColor="#ccc" />
+                android:orientation="vertical"
+                android:paddingTop="12dp"
+                android:visibility="gone">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="#22FFFFFF" />
+
+                <TextView
+                    android:id="@+id/albumNameTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:drawablePadding="8dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/releaseDateTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/durationTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/contentRatingTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
         </LinearLayout>
-
-        <!-- Match Percentage Text -->
-        <TextView
-            android:id="@+id/matchPercentageTextView"
-            android:layout_height="wrap_content"
-            android:layout_width="wrap_content"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:textColor="#fff"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:layout_marginEnd="8dp"
-            android:visibility="gone"
-            android:text="95%" />
-
-        <ImageView
-            android:id="@+id/arrowIcon"
-            android:layout_height="60sp"
-            android:layout_width="60sp"
-            android:padding="25dp"
-            android:src="@drawable/ic_arrow_down"
-            android:rotation="0"
-            android:tint="#fff" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/detailsLayout"
-        android:layout_height="wrap_content"
-        android:layout_width="match_parent"
-        android:visibility="gone"
-        android:orientation="vertical"
-        android:paddingStart="8dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="4dp">
-
-        <TextView
-            android:id="@+id/albumNameTextView"
-            android:layout_height="wrap_content"
-            android:layout_width="wrap_content"
-            android:textSize="12sp"
-            android:textColor="#fff" />
-
-        <TextView
-            android:id="@+id/releaseDateTextView"
-            android:layout_height="wrap_content"
-            android:layout_width="wrap_content"
-            android:textSize="12sp"
-            android:textColor="#fff" />
-
-        <TextView
-            android:id="@+id/durationTextView"
-            android:layout_height="wrap_content"
-            android:layout_width="wrap_content"
-            android:textSize="12sp"
-            android:textColor="#fff" />
-
-        <TextView
-            android:id="@+id/contentRatingTextView"
-            android:layout_height="wrap_content"
-            android:layout_width="wrap_content"
-            android:textSize="12sp"
-            android:textColor="#fff" />
-    </LinearLayout>
-
-</LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</FrameLayout>

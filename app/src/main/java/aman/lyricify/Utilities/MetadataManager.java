@@ -6,6 +6,11 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.style.ForegroundColorSpan;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -21,13 +26,13 @@ import aman.taglib.TagLib;
  * Manages metadata reading and display operations
  */
 public class MetadataManager {
-    
+
     private final WeakReference<Context> contextRef;
-    
+
     public MetadataManager(Context context) {
         this.contextRef = new WeakReference<>(context);
     }
-    
+
     /**
      * Show metadata dialog with artwork and tags
      */
@@ -36,20 +41,20 @@ public class MetadataManager {
         if (context == null) {
             return;
         }
-        
+
         if (filePath == null || filePath.isEmpty()) {
             Toast.makeText(context, "No file available to read metadata", Toast.LENGTH_SHORT).show();
             return;
         }
-        
+
         TagLib tagLib = new TagLib();
         HashMap<String, String> metadataMap = tagLib.getMetadata(filePath);
         TagLib.Artwork[] artworks = tagLib.getArtwork(filePath);
-        
+
         LinearLayout layout = new LinearLayout(context);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(40, 40, 40, 40);
-        
+
         // Add artwork if available
         if (artworks != null && artworks.length > 0) {
             addArtworkToLayout(context, layout, artworks);
@@ -59,74 +64,98 @@ public class MetadataManager {
             noArtText.setPadding(0, 0, 0, 20);
             layout.addView(noArtText);
         }
-        
-        // Add metadata text
+
+        // --- UPDATED SECTION STARTS HERE ---
+
+        // Create HorizontalScrollView to handle long lines without wrapping
+        HorizontalScrollView hScrollView = new HorizontalScrollView(context);
+
+        // Create TextView for metadata
         TextView metadataText = new TextView(context);
-        StringBuilder sb = new StringBuilder();
+        metadataText.setTextIsSelectable(true);
+
+        // Use SpannableStringBuilder to color keys
+        SpannableStringBuilder ssb = new SpannableStringBuilder();
         for (String key : metadataMap.keySet()) {
-            sb.append(key).append(": ").append(metadataMap.get(key)).append("\n");
+            int start = ssb.length();
+            ssb.append(key);
+            int end = ssb.length();
+
+            // Apply Blue Color to the key
+            ssb.setSpan(new ForegroundColorSpan(Color.CYAN), start, end, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+            // Append the value
+            ssb.append(": ").append(metadataMap.get(key)).append("\n");
         }
-        metadataText.setText(sb.toString());
-        layout.addView(metadataText);
         
+        metadataText.setText(ssb);
+
+        // Add TextView to HorizontalScrollView
+        hScrollView.addView(metadataText);
+
+        // Add HorizontalScrollView to the main Vertical Layout
+        layout.addView(hScrollView);
+
+        // --- UPDATED SECTION ENDS HERE ---
+
         ScrollView scrollView = new ScrollView(context);
         scrollView.addView(layout);
-        
+
         new AlertDialog.Builder(context)
                 .setTitle("Metadata & Artwork")
                 .setView(scrollView)
                 .setPositiveButton("OK", null)
                 .show();
     }
-    
+
     /**
      * Add artwork images to layout
      */
     private void addArtworkToLayout(Context context, LinearLayout layout, TagLib.Artwork[] artworks) {
         for (int i = 0; i < artworks.length; i++) {
             Bitmap bitmap = BitmapFactory.decodeByteArray(
-                artworks[i].data, 0, artworks[i].data.length
+                    artworks[i].data, 0, artworks[i].data.length
             );
-            
+
             if (bitmap != null) {
                 ImageView imageView = new ImageView(context);
                 imageView.setImageBitmap(bitmap);
                 imageView.setAdjustViewBounds(true);
-                
+
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, 400
+                        LinearLayout.LayoutParams.MATCH_PARENT, 400
                 );
                 params.setMargins(0, 0, 0, 10);
                 imageView.setLayoutParams(params);
                 imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
                 layout.addView(imageView);
-                
+
                 TextView infoText = new TextView(context);
                 infoText.setText(
-                    "Artwork " + (i + 1) + ": " + 
-                    bitmap.getWidth() + "x" + bitmap.getHeight() + 
-                    " - " + artworks[i].mimeType
+                        "Artwork " + (i + 1) + ": " +
+                                bitmap.getWidth() + "x" + bitmap.getHeight() +
+                                " - " + artworks[i].mimeType
                 );
                 infoText.setPadding(0, 0, 0, 20);
                 layout.addView(infoText);
             }
         }
     }
-    
+
     /**
      * Show file path dialog with copy option
      */
     public void showFilePathDialog(String path) {
         Context context = contextRef.get();
         if (context == null) return;
-        
+
         new AlertDialog.Builder(context)
                 .setTitle("File Location")
                 .setMessage(path)
                 .setPositiveButton("OK", null)
                 .setNeutralButton("Copy", (dialog, which) -> {
-                    ClipboardManager clipboard = (ClipboardManager) 
-                        context.getSystemService(Context.CLIPBOARD_SERVICE);
+                    ClipboardManager clipboard = (ClipboardManager)
+                            context.getSystemService(Context.CLIPBOARD_SERVICE);
                     clipboard.setPrimaryClip(ClipData.newPlainText("File Path", path));
                     Toast.makeText(context, "Path copied to clipboard", Toast.LENGTH_SHORT).show();
                 })

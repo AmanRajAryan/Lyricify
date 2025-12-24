@@ -10,18 +10,22 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
 
 import java.lang.ref.WeakReference;
 
+import jp.wasabeef.glide.transformations.BlurTransformation;
+
 /**
- * Handles displaying song information (artwork, title, artist, file path)
+ * Handles displaying song information (artwork, background, title, artist, file path)
  */
 public class SongInfoDisplay {
     
     private final WeakReference<Context> contextRef;
     private final ImageView artworkView;
+    private final ImageView backgroundView; // Added for immersive effect
     private final TextView titleView;
     private final TextView artistView;
     private final TextView filePathView;
@@ -33,10 +37,12 @@ public class SongInfoDisplay {
         void onArtworkLoaded(Bitmap bitmap);
     }
     
-    public SongInfoDisplay(Context context, ImageView artwork, TextView title, 
-                          TextView artist, TextView filePath) {
+    // Updated Constructor
+    public SongInfoDisplay(Context context, ImageView artwork, ImageView background,
+                          TextView title, TextView artist, TextView filePath) {
         this.contextRef = new WeakReference<>(context);
         this.artworkView = artwork;
+        this.backgroundView = background;
         this.titleView = title;
         this.artistView = artist;
         this.filePathView = filePath;
@@ -46,35 +52,25 @@ public class SongInfoDisplay {
         this.artworkCallback = callback;
     }
     
-    /**
-     * Display song information
-     */
     public void displaySongInfo(String title, String artist, String artworkUrl, String filePath) {
-        // Set title
         if (title != null && !title.isEmpty()) {
             titleView.setText(title);
         } else {
             titleView.setText("Unknown Song");
         }
         
-        // Set artist
         if (artist != null && !artist.isEmpty()) {
             artistView.setText(artist);
         } else {
             artistView.setText("Unknown Artist");
         }
         
-        // Set file path
         displayFilePath(filePath);
-        
-        // Load artwork
         loadArtwork(artworkUrl);
     }
     
-    /**
-     * Display file path with click listener
-     */
     private void displayFilePath(String filePath) {
+        if (filePathView == null) return;
         if (filePath != null && !filePath.isEmpty()) {
             String fileName = extractFileName(filePath);
             filePathView.setText(fileName);
@@ -84,13 +80,15 @@ public class SongInfoDisplay {
         }
     }
     
-    /**
-     * Load and display artwork
-     */
     private void loadArtwork(String artworkUrl) {
         Context context = contextRef.get();
-        if (context == null || artworkUrl == null || artworkUrl.isEmpty()) {
+        if (context == null) return;
+
+        if (artworkUrl == null || artworkUrl.isEmpty()) {
             artworkView.setImageResource(R.drawable.ic_music_note);
+            if (backgroundView != null) {
+                backgroundView.setImageResource(android.R.color.black);
+            }
             return;
         }
         
@@ -99,6 +97,7 @@ public class SongInfoDisplay {
             .replace("{h}", "1000")
             .replace("{f}", "jpg");
         
+        // 1. Load Main Artwork
         Glide.with(context)
             .asBitmap()
             .load(formattedUrl)
@@ -119,25 +118,26 @@ public class SongInfoDisplay {
                     // Optional: handle cleanup
                 }
             });
+
+        // 2. Load Blurred Background
+        if (backgroundView != null) {
+            Glide.with(context)
+                .load(formattedUrl)
+                .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 3)))
+                .into(backgroundView);
+        }
     }
     
-    /**
-     * Get current artwork bitmap
-     */
     public Bitmap getCurrentArtwork() {
         return currentArtwork;
     }
     
-    /**
-     * Set file path click listener
-     */
     public void setFilePathClickListener(View.OnClickListener listener) {
-        filePathView.setOnClickListener(listener);
+        if (filePathView != null) {
+            filePathView.setOnClickListener(listener);
+        }
     }
     
-    /**
-     * Extract filename from path
-     */
     private String extractFileName(String filePath) {
         if (filePath == null) return "Unknown";
         int lastSlash = filePath.lastIndexOf('/');

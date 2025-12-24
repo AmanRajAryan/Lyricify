@@ -57,5 +57,7 @@ dependencies {
     implementation files("libs/library-release.aar")
     implementation files("libs/lyricsview.aar")
     
+    implementation 'jp.wasabeef:glide-transformations:4.3.0'
+    
     
 }

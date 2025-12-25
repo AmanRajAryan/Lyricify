@@ -1,20 +1,20 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/drawable/ic_lyricify_foreground.xml",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/build.gradle",
       "selection": {
         "end": {
-          "column": 26,
-          "index": 358,
-          "line": 12
+          "column": 0,
+          "index": 0,
+          "line": 0
         },
         "start": {
-          "column": 26,
-          "index": 358,
-          "line": 12
+          "column": 0,
+          "index": 0,
+          "line": 0
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/drawable/ic_lyricify_foreground.xml"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/build.gradle"
 }

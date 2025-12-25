@@ -7,14 +7,19 @@ import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.button.MaterialButton;
@@ -33,11 +38,11 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private TextView songTitleText;
     private TextView songArtistText;
     private TextView positionText;
-    
+
     private FloatingActionButton playPauseButton;
     private MaterialButton prevButton, nextButton; // Added
     private MaterialButton adjustTimingButton, fontSwitchButton;
-    
+
     private SeekBar progressSeekBar;
 
     // Logic Variables
@@ -60,6 +65,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        hideSystemUI();
         setContentView(R.layout.activity_synced_lyrics);
 
         initializeViews();
@@ -79,11 +85,11 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         songTitleText = findViewById(R.id.syncedSongTitle);
         songArtistText = findViewById(R.id.syncedSongArtist);
         positionText = findViewById(R.id.positionText);
-        
+
         playPauseButton = findViewById(R.id.playPauseButton);
         prevButton = findViewById(R.id.prevButton); // Added
         nextButton = findViewById(R.id.nextButton); // Added
-        
+
         progressSeekBar = findViewById(R.id.progressSeekBar);
         adjustTimingButton = findViewById(R.id.adjustTimingButton);
         fontSwitchButton = findViewById(R.id.fontSwitchButton);
@@ -106,15 +112,14 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                     artworkUrl.replace("{w}", "500").replace("{h}", "500").replace("{f}", "jpg");
 
             // Load small header icon (Sharp)
-            Glide.with(this)
-                    .asBitmap()
-                    .load(formattedUrl)
-                    .into(headerArtwork);
+            Glide.with(this).asBitmap().load(formattedUrl).into(headerArtwork);
 
             // Load large background with BLUR
             Glide.with(this)
                     .load(formattedUrl)
-                    .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 3))) // Blur radius 25, sampling 3
+                    .apply(
+                            RequestOptions.bitmapTransform(
+                                    new BlurTransformation(25, 3))) // Blur radius 25, sampling 3
                     .into(immersiveBackground);
         } else {
             headerArtwork.setImageResource(R.drawable.ic_music_note);
@@ -179,13 +184,16 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         int playbackState = state.getState();
         isPlaying = (playbackState == PlaybackState.STATE_PLAYING);
 
-        runOnUiThread(() -> {
-            if (isPlaying) {
-                playPauseButton.setImageResource(R.drawable.ic_pause); // Use standard M3 icon
-            } else {
-                playPauseButton.setImageResource(R.drawable.ic_play_arrow); // Use standard M3 icon
-            }
-        });
+        runOnUiThread(
+                () -> {
+                    if (isPlaying) {
+                        playPauseButton.setImageResource(
+                                R.drawable.ic_pause); // Use standard M3 icon
+                    } else {
+                        playPauseButton.setImageResource(
+                                R.drawable.ic_play_arrow); // Use standard M3 icon
+                    }
+                });
     }
 
     private void updateMetadata(MediaMetadata metadata) {
@@ -199,56 +207,71 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private void fetchAndDisplayLyrics() {
         if (lyrics != null && !lyrics.isEmpty()) {
             syncedLyricsView.setLyrics(lyrics);
-            syncedLyricsView.setSeekListener(timeMs -> {
-                if (mediaController != null) {
-                    mediaController.getTransportControls().seekTo(timeMs);
-                    Toast.makeText(this, "Seek: " + formatTime(timeMs), Toast.LENGTH_SHORT).show();
-                }
-            });
+            syncedLyricsView.setSeekListener(
+                    timeMs -> {
+                        if (mediaController != null) {
+                            mediaController.getTransportControls().seekTo(timeMs);
+                            Toast.makeText(this, "Seek: " + formatTime(timeMs), Toast.LENGTH_SHORT)
+                                    .show();
+                        }
+                    });
         } else {
             Toast.makeText(this, "No lyrics available", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void setupControls() {
-        playPauseButton.setOnClickListener(v -> {
-            if (mediaController != null) {
-                if (isPlaying) {
-                    mediaController.getTransportControls().pause();
-                } else {
-                    mediaController.getTransportControls().play();
-                }
-            }
-        });
+        playPauseButton.setOnClickListener(
+                v -> {
+                    if (mediaController != null) {
+                        if (isPlaying) {
+                            mediaController.getTransportControls().pause();
+                        } else {
+                            mediaController.getTransportControls().play();
+                        }
+                    }
+                });
 
         // Next / Previous Buttons
-        prevButton.setOnClickListener(v -> {
-            if (mediaController != null) mediaController.getTransportControls().skipToPrevious();
-        });
-        
-        nextButton.setOnClickListener(v -> {
-            if (mediaController != null) mediaController.getTransportControls().skipToNext();
-        });
+        prevButton.setOnClickListener(
+                v -> {
+                    if (mediaController != null)
+                        mediaController.getTransportControls().skipToPrevious();
+                });
+
+        nextButton.setOnClickListener(
+                v -> {
+                    if (mediaController != null)
+                        mediaController.getTransportControls().skipToNext();
+                });
 
         adjustTimingButton.setOnClickListener(v -> showTimingAdjustmentDialog());
 
-        fontSwitchButton.setOnClickListener(v -> {
-            String fontName = syncedLyricsView.cycleFont();
-            Toast.makeText(this, "Font: " + fontName, Toast.LENGTH_SHORT).show();
-        });
+        fontSwitchButton.setOnClickListener(
+                v -> {
+                    String fontName = syncedLyricsView.cycleFont();
+                    Toast.makeText(this, "Font: " + fontName, Toast.LENGTH_SHORT).show();
+                });
 
-        progressSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser && mediaController != null) {
-                    mediaController.getTransportControls().seekTo(progress);
-                }
-            }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) { isTracking = true; }
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) { isTracking = false; }
-        });
+        progressSeekBar.setOnSeekBarChangeListener(
+                new SeekBar.OnSeekBarChangeListener() {
+                    @Override
+                    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                        if (fromUser && mediaController != null) {
+                            mediaController.getTransportControls().seekTo(progress);
+                        }
+                    }
+
+                    @Override
+                    public void onStartTrackingTouch(SeekBar seekBar) {
+                        isTracking = true;
+                    }
+
+                    @Override
+                    public void onStopTrackingTouch(SeekBar seekBar) {
+                        isTracking = false;
+                    }
+                });
     }
 
     private void showTimingAdjustmentDialog() {
@@ -263,59 +286,64 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         offsetText.setGravity(android.view.Gravity.CENTER);
         offsetText.setTextSize(18);
         layout.addView(offsetText);
-        
+
         LinearLayout buttons = new LinearLayout(this);
         buttons.setGravity(android.view.Gravity.CENTER);
-        
+
         Button btnMinus = new Button(this);
         btnMinus.setText("-500ms");
-        btnMinus.setOnClickListener(v -> {
-            timingOffset -= 500;
-            offsetText.setText("Offset: " + timingOffset + "ms");
-        });
-        
+        btnMinus.setOnClickListener(
+                v -> {
+                    timingOffset -= 500;
+                    offsetText.setText("Offset: " + timingOffset + "ms");
+                });
+
         Button btnPlus = new Button(this);
         btnPlus.setText("+500ms");
-        btnPlus.setOnClickListener(v -> {
-            timingOffset += 500;
-            offsetText.setText("Offset: " + timingOffset + "ms");
-        });
-        
+        btnPlus.setOnClickListener(
+                v -> {
+                    timingOffset += 500;
+                    offsetText.setText("Offset: " + timingOffset + "ms");
+                });
+
         buttons.addView(btnMinus);
         buttons.addView(btnPlus);
         layout.addView(buttons);
-        
+
         builder.setView(layout);
         builder.setPositiveButton("Done", null);
-        builder.setNeutralButton("Reset", (d, w) -> {
-            timingOffset = 0;
-            Toast.makeText(this, "Timing reset", Toast.LENGTH_SHORT).show();
-        });
-        
+        builder.setNeutralButton(
+                "Reset",
+                (d, w) -> {
+                    timingOffset = 0;
+                    Toast.makeText(this, "Timing reset", Toast.LENGTH_SHORT).show();
+                });
+
         builder.show();
     }
 
     private void startPositionUpdates() {
-        updateRunnable = new Runnable() {
-            @Override
-            public void run() {
-                if (mediaController != null) {
-                    PlaybackState state = mediaController.getPlaybackState();
-                    if (state != null) {
-                        long position = state.getPosition();
-                        long adjustedPosition = position + timingOffset;
-                        
-                        syncedLyricsView.updateTime(adjustedPosition);
+        updateRunnable =
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        if (mediaController != null) {
+                            PlaybackState state = mediaController.getPlaybackState();
+                            if (state != null) {
+                                long position = state.getPosition();
+                                long adjustedPosition = position + timingOffset;
 
-                        if (!isTracking) {
-                            progressSeekBar.setProgress((int) position);
+                                syncedLyricsView.updateTime(adjustedPosition);
+
+                                if (!isTracking) {
+                                    progressSeekBar.setProgress((int) position);
+                                }
+                                positionText.setText(formatTime(position));
+                            }
                         }
-                        positionText.setText(formatTime(position));
+                        updateHandler.postDelayed(this, 16);
                     }
-                }
-                updateHandler.postDelayed(this, 16);
-            }
-        };
+                };
         updateHandler.post(updateRunnable);
     }
 
@@ -332,6 +360,40 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         if (updateHandler != null) updateHandler.removeCallbacks(updateRunnable);
         if (mediaController != null && mediaControllerCallback != null) {
             mediaController.unregisterCallback(mediaControllerCallback);
+        }
+    }
+
+    private void hideSystemUI() {
+        // 1. The "Nuclear" Option: Forces layout to ignore all screen boundaries
+        getWindow()
+                .setFlags(
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+
+        // 2. Standard method to hide bars (for clean immersive mode)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+            WindowInsetsControllerCompat controller =
+                    WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+            if (controller != null) {
+                controller.hide(WindowInsetsCompat.Type.systemBars());
+                controller.setSystemBarsBehavior(
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            // Legacy method for older Android versions
+            View decorView = getWindow().getDecorView();
+            int uiOptions =
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+            decorView.setSystemUiVisibility(uiOptions);
+        }
+
+        // 3. Cutout mode (Essential for notches)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            getWindow().getAttributes().layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         }
     }
 }

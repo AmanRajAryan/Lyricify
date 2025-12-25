@@ -28,6 +28,7 @@ public class TagEditorDataManager {
                             "TITLE",
                             "ARTIST",
                             "ALBUM",
+                            "ALBUMARTIST",
                             "GENRE",
                             "DATE",
                             "TRACKNUMBER",
@@ -137,6 +138,7 @@ public class TagEditorDataManager {
         TextInputEditText titleEditText = activity.findViewById(R.id.titleEditText);
         TextInputEditText artistEditText = activity.findViewById(R.id.artistEditText);
         TextInputEditText albumEditText = activity.findViewById(R.id.albumEditText);
+        TextInputEditText albumArtistEditText = activity.findViewById(R.id.albumArtistEditText);
         TextInputEditText genreEditText = activity.findViewById(R.id.genreEditText);
         TextInputEditText yearEditText = activity.findViewById(R.id.yearEditText);
         TextInputEditText trackNumberEditText = activity.findViewById(R.id.trackNumberEditText);
@@ -156,6 +158,7 @@ public class TagEditorDataManager {
         titleEditText.setText(uiMetadata.get("TITLE"));
         artistEditText.setText(uiMetadata.get("ARTIST"));
         albumEditText.setText(uiMetadata.get("ALBUM"));
+        albumArtistEditText.setText(uiMetadata.get("ALBUMARTIST"));
         genreEditText.setText(uiMetadata.get("GENRE"));
         yearEditText.setText(uiMetadata.get("DATE"));
         trackNumberEditText.setText(uiMetadata.get("TRACKNUMBER"));
@@ -203,6 +206,7 @@ public class TagEditorDataManager {
             TextInputEditText titleEditText,
             TextInputEditText artistEditText,
             TextInputEditText albumEditText,
+            TextInputEditText albumArtistEditText,
             TextInputEditText genreEditText,
             TextInputEditText yearEditText,
             TextInputEditText trackNumberEditText,
@@ -221,6 +225,7 @@ public class TagEditorDataManager {
             titleEditText.setText(originalMetadata.getOrDefault("TITLE", ""));
             artistEditText.setText(originalMetadata.getOrDefault("ARTIST", ""));
             albumEditText.setText(originalMetadata.getOrDefault("ALBUM", ""));
+            albumArtistEditText.setText(originalMetadata.getOrDefault("ALBUMARTIST", ""));
             genreEditText.setText(originalMetadata.getOrDefault("GENRE", ""));
             yearEditText.setText(originalMetadata.getOrDefault("DATE", ""));
             trackNumberEditText.setText(originalMetadata.getOrDefault("TRACKNUMBER", ""));
@@ -263,6 +268,7 @@ public class TagEditorDataManager {
                     titleEditText,
                     artistEditText,
                     albumEditText,
+                    albumArtistEditText,
                     genreEditText,
                     yearEditText,
                     trackNumberEditText,
@@ -286,6 +292,7 @@ public class TagEditorDataManager {
             TextInputEditText titleEditText,
             TextInputEditText artistEditText,
             TextInputEditText albumEditText,
+            TextInputEditText albumArtistEditText,
             TextInputEditText genreEditText,
             TextInputEditText yearEditText,
             TextInputEditText trackNumberEditText,
@@ -303,6 +310,7 @@ public class TagEditorDataManager {
         titleEditText.setText("");
         artistEditText.setText("");
         albumEditText.setText("");
+        albumArtistEditText.setText("");
         genreEditText.setText("");
         yearEditText.setText("");
         trackNumberEditText.setText("");
@@ -330,6 +338,7 @@ public class TagEditorDataManager {
             TextInputEditText titleEditText,
             TextInputEditText artistEditText,
             TextInputEditText albumEditText,
+            TextInputEditText albumArtistEditText,
             TextInputEditText genreEditText,
             TextInputEditText yearEditText,
             TextInputEditText trackNumberEditText,
@@ -358,6 +367,8 @@ public class TagEditorDataManager {
                                         "ARTIST", artistEditText.getText().toString().trim());
                                 newMetadataMap.put(
                                         "ALBUM", albumEditText.getText().toString().trim());
+                                newMetadataMap.put(
+                                        "ALBUMARTIST", albumArtistEditText.getText().toString().trim());
                                 newMetadataMap.put(
                                         "GENRE", genreEditText.getText().toString().trim());
                                 newMetadataMap.put(
@@ -577,6 +588,7 @@ public class TagEditorDataManager {
             TextInputEditText titleEditText,
             TextInputEditText artistEditText,
             TextInputEditText albumEditText,
+            TextInputEditText albumArtistEditText,
             TextInputEditText genreEditText,
             TextInputEditText yearEditText,
             TextInputEditText trackNumberEditText,
@@ -603,6 +615,7 @@ public class TagEditorDataManager {
         if (!equals(titleEditText.getText().toString(), normalizedOriginal.get("TITLE"))) return true;
         if (!equals(artistEditText.getText().toString(), normalizedOriginal.get("ARTIST"))) return true;
         if (!equals(albumEditText.getText().toString(), normalizedOriginal.get("ALBUM"))) return true;
+        if (!equals(albumArtistEditText.getText().toString(), normalizedOriginal.get("ALBUMARTIST"))) return true;
         if (!equals(genreEditText.getText().toString(), normalizedOriginal.get("GENRE"))) return true;
         if (!equals(yearEditText.getText().toString(), normalizedOriginal.get("DATE"))) return true;
         if (!equals(trackNumberEditText.getText().toString(), normalizedOriginal.get("TRACKNUMBER"))) return true;

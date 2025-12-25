@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
@@ -23,25 +24,25 @@
         android:layout_height="match_parent"
         android:background="#CC000000"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"/>
+        app:layout_constraintBottom_toBottomOf="parent" />
 
     <aman.lyricify.SyncedLyricsView
         android:id="@+id/syncedLyricsView"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginBottom="24dp"
-        
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" /> 
-        <com.google.android.material.card.MaterialCardView
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/headerCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="24dp"
-        android:layout_marginTop="24dp" 
-        app:cardBackgroundColor="#CC1E1E1E" 
+        android:layout_marginTop="40dp"
+        app:cardBackgroundColor="#CC1E1E1E"
         app:cardCornerRadius="24dp"
         app:cardElevation="0dp"
         app:strokeColor="#33FFFFFF"
@@ -132,7 +133,7 @@
                 android:text="0:00"
                 android:textColor="#FFFFFF"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium"/>
+                android:fontFamily="sans-serif-medium" />
 
             <SeekBar
                 android:id="@+id/progressSeekBar"
@@ -141,7 +142,7 @@
                 android:layout_weight="1"
                 android:progressTint="#FFFFFF"
                 android:thumbTint="#FFFFFF"
-                android:progressBackgroundTint="#50FFFFFF"/>
+                android:progressBackgroundTint="#50FFFFFF" />
         </LinearLayout>
 
         <LinearLayout
@@ -165,7 +166,10 @@
                 app:cornerRadius="24dp"
                 android:tooltipText="Adjust Sync" />
 
-            <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1"/>
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/prevButton"
@@ -204,7 +208,10 @@
                 app:iconPadding="0dp"
                 app:cornerRadius="24dp" />
 
-            <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1"/>
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/fontSwitchButton"

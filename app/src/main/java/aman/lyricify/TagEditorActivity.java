@@ -5,17 +5,22 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-import android.provider.DocumentsContract; // Added import
+import android.provider.DocumentsContract;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.*;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import com.bumptech.glide.Glide;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
@@ -36,7 +41,7 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     // UI Components
     private ImageView artworkImageView;
     private TextView fileNameText;
-    private TextInputEditText titleEditText, artistEditText, albumEditText;
+    private TextInputEditText titleEditText, artistEditText, albumEditText, albumArtistEditText;
     private TextInputEditText genreEditText, yearEditText, releaseDateEditText;
     private TextInputEditText trackNumberEditText, discNumberEditText;
     private TextInputEditText audioLocaleEditText, languageEditText;
@@ -92,7 +97,7 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
     // Launchers
     private ActivityResultLauncher<Intent> imagePickerLauncher;
-    private ActivityResultLauncher<Intent> directoryPickerLauncher; // Added
+    private ActivityResultLauncher<Intent> directoryPickerLauncher;
 
     // Delegates
     private TagEditorUIManager uiManager;
@@ -102,18 +107,19 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_tag_editor);
+        hideSystemUI();
 
         tagLib = new TagLib();
-        
+
         initializeViews();
-        
+
         // Initialize delegates
         uiManager = new TagEditorUIManager(this);
         dataManager = new TagEditorDataManager(this, tagLib);
-        
+
         setupToolbar();
         setupImagePickerLauncher();
-        setupDirectoryPickerLauncher(); // Added setup
+        setupDirectoryPickerLauncher();
         extractIntentData();
         loadCurrentTags();
         setupListeners();
@@ -127,6 +133,14 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         super.onDestroy();
         // Unregister to prevent leaks
         ApiClient.unregisterCacheListener(this);
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            hideSystemUI();
+        }
     }
 
     // --- Cache Listener Interface ---
@@ -155,6 +169,7 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         titleEditText = findViewById(R.id.titleEditText);
         artistEditText = findViewById(R.id.artistEditText);
         albumEditText = findViewById(R.id.albumEditText);
+        albumArtistEditText = findViewById(R.id.albumArtistEditText);
 
         genreEditText = findViewById(R.id.genreEditText);
         languageEditText = findViewById(R.id.languageEditText);
@@ -232,7 +247,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                         });
     }
 
-    // --- NEW METHOD: Setup directory picker ---
     private void setupDirectoryPickerLauncher() {
         directoryPickerLauncher =
                 registerForActivityResult(
@@ -245,14 +259,18 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                                             .takePersistableUriPermission(
                                                     treeUri,
                                                     Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                                    Toast.makeText(this, "✓ Access granted! Try saving again.", Toast.LENGTH_LONG).show();
+                                                            | Intent
+                                                                    .FLAG_GRANT_WRITE_URI_PERMISSION);
+                                    Toast.makeText(
+                                                    this,
+                                                    "✓ Access granted! Try saving again.",
+                                                    Toast.LENGTH_LONG)
+                                            .show();
                                 }
                             }
                         });
     }
 
-    // --- NEW METHOD: Public method to be called by DataManager ---
     public void openDirectoryPicker(String folderPath) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         Uri initialUri = FileSaver.getFolderUriForPath(folderPath);
@@ -283,16 +301,15 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
     private void loadCurrentTags() {
         dataManager.loadCurrentTags(
-            filePath,
-            intentArtworkUrl,
-            this::showLoading,
-            this::hideLoading,
-            this::updateRestoreButtonState,
-            (metadata, artwork) -> {
-                this.originalMetadata = metadata;
-                this.originalArtwork = artwork;
-            }
-        );
+                filePath,
+                intentArtworkUrl,
+                this::showLoading,
+                this::hideLoading,
+                this::updateRestoreButtonState,
+                (metadata, artwork) -> {
+                    this.originalMetadata = metadata;
+                    this.originalArtwork = artwork;
+                });
     }
 
     private void setupListeners() {
@@ -311,7 +328,10 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                 });
 
         restoreTagsButton.setOnClickListener(v -> showRestoreConfirmation());
-        addFieldButton.setOnClickListener(v -> uiManager.showAddCustomFieldDialog(customFields, this::updateRestoreButtonState));
+        addFieldButton.setOnClickListener(
+                v ->
+                        uiManager.showAddCustomFieldDialog(
+                                customFields, this::updateRestoreButtonState));
 
         extendedTagsHeader.setOnClickListener(v -> toggleExtendedTags());
         lyricsHeader.setOnClickListener(v -> toggleLyrics());
@@ -334,6 +354,7 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         titleEditText.addTextChangedListener(changeWatcher);
         artistEditText.addTextChangedListener(changeWatcher);
         albumEditText.addTextChangedListener(changeWatcher);
+        albumArtistEditText.addTextChangedListener(changeWatcher);
         genreEditText.addTextChangedListener(changeWatcher);
         audioLocaleEditText.addTextChangedListener(changeWatcher);
         languageEditText.addTextChangedListener(changeWatcher);
@@ -365,15 +386,29 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     }
 
     private void updateRestoreButtonState() {
-        boolean hasChanges = dataManager.hasUnsavedChanges(
-            originalMetadata,
-            artworkChanged,
-            customFields,
-            titleEditText, artistEditText, albumEditText, genreEditText, yearEditText,
-            trackNumberEditText, discNumberEditText, composerEditText, songwriterEditText,
-            commentEditText, releaseDateEditText, audioLocaleEditText, languageEditText,
-            unsyncedLyricsEditText, lrcEditText, elrcEditText, lyricsMultiEditText
-        );
+        boolean hasChanges =
+                dataManager.hasUnsavedChanges(
+                        originalMetadata,
+                        artworkChanged,
+                        customFields,
+                        titleEditText,
+                        artistEditText,
+                        albumEditText,
+                        albumArtistEditText,
+                        genreEditText,
+                        yearEditText,
+                        trackNumberEditText,
+                        discNumberEditText,
+                        composerEditText,
+                        songwriterEditText,
+                        commentEditText,
+                        releaseDateEditText,
+                        audioLocaleEditText,
+                        languageEditText,
+                        unsyncedLyricsEditText,
+                        lrcEditText,
+                        elrcEditText,
+                        lyricsMultiEditText);
         restoreTagsButton.setEnabled(hasChanges);
     }
 
@@ -388,15 +423,28 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
     private void restoreOriginalTags() {
         dataManager.restoreOriginalTags(
-            originalMetadata,
-            customFields,
-            extendedTagsContainer,
-            tagFieldsContainer,
-            titleEditText, artistEditText, albumEditText, genreEditText, yearEditText,
-            trackNumberEditText, discNumberEditText, composerEditText, songwriterEditText,
-            commentEditText, releaseDateEditText, audioLocaleEditText, languageEditText,
-            unsyncedLyricsEditText, lrcEditText, elrcEditText, lyricsMultiEditText
-        );
+                originalMetadata,
+                customFields,
+                extendedTagsContainer,
+                tagFieldsContainer,
+                titleEditText,
+                artistEditText,
+                albumEditText,
+                albumArtistEditText,
+                genreEditText,
+                yearEditText,
+                trackNumberEditText,
+                discNumberEditText,
+                composerEditText,
+                songwriterEditText,
+                commentEditText,
+                releaseDateEditText,
+                audioLocaleEditText,
+                languageEditText,
+                unsyncedLyricsEditText,
+                lrcEditText,
+                elrcEditText,
+                lyricsMultiEditText);
 
         resetArtwork();
         restoreTagsButton.setEnabled(false);
@@ -455,9 +503,19 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
                         if (cachedMetadata.contentRating != null
                                 && !cachedMetadata.contentRating.isEmpty())
-                            uiManager.addOrUpdateCustomField("CONTENTRATING", cachedMetadata.contentRating, customFields, extendedTagsContainer, this::updateRestoreButtonState);
+                            uiManager.addOrUpdateCustomField(
+                                    "CONTENTRATING",
+                                    cachedMetadata.contentRating,
+                                    customFields,
+                                    extendedTagsContainer,
+                                    this::updateRestoreButtonState);
                         if (cachedMetadata.isrc != null && !cachedMetadata.isrc.isEmpty())
-                            uiManager.addOrUpdateCustomField("ISRC", cachedMetadata.isrc, customFields, extendedTagsContainer, this::updateRestoreButtonState);
+                            uiManager.addOrUpdateCustomField(
+                                    "ISRC",
+                                    cachedMetadata.isrc,
+                                    customFields,
+                                    extendedTagsContainer,
+                                    this::updateRestoreButtonState);
 
                         // Populate Lyrics
                         if (cachedMetadata.plain != null && !cachedMetadata.plain.isEmpty())
@@ -567,18 +625,31 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
     private void saveTags() {
         dataManager.saveTags(
-            filePath,
-            customFields,
-            artworkChanged,
-            selectedArtwork,
-            originalMetadata,
-            this::showLoading,
-            this::hideLoading,
-            titleEditText, artistEditText, albumEditText, genreEditText, yearEditText,
-            trackNumberEditText, discNumberEditText, composerEditText, songwriterEditText,
-            commentEditText, releaseDateEditText, audioLocaleEditText, languageEditText,
-            unsyncedLyricsEditText, lrcEditText, elrcEditText, lyricsMultiEditText
-        );
+                filePath,
+                customFields,
+                artworkChanged,
+                selectedArtwork,
+                originalMetadata,
+                this::showLoading,
+                this::hideLoading,
+                titleEditText,
+                artistEditText,
+                albumEditText,
+                albumArtistEditText,
+                genreEditText,
+                yearEditText,
+                trackNumberEditText,
+                discNumberEditText,
+                composerEditText,
+                songwriterEditText,
+                commentEditText,
+                releaseDateEditText,
+                audioLocaleEditText,
+                languageEditText,
+                unsyncedLyricsEditText,
+                lrcEditText,
+                elrcEditText,
+                lyricsMultiEditText);
     }
 
     void showLoading(String m) {
@@ -595,16 +666,30 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
     @Override
     public void onBackPressed() {
-        boolean hasChanges = dataManager.hasUnsavedChanges(
-            originalMetadata,
-            artworkChanged,
-            customFields,
-            titleEditText, artistEditText, albumEditText, genreEditText, yearEditText,
-            trackNumberEditText, discNumberEditText, composerEditText, songwriterEditText,
-            commentEditText, releaseDateEditText, audioLocaleEditText, languageEditText,
-            unsyncedLyricsEditText, lrcEditText, elrcEditText, lyricsMultiEditText
-        );
-        
+        boolean hasChanges =
+                dataManager.hasUnsavedChanges(
+                        originalMetadata,
+                        artworkChanged,
+                        customFields,
+                        titleEditText,
+                        artistEditText,
+                        albumEditText,
+                        albumArtistEditText,
+                        genreEditText,
+                        yearEditText,
+                        trackNumberEditText,
+                        discNumberEditText,
+                        composerEditText,
+                        songwriterEditText,
+                        commentEditText,
+                        releaseDateEditText,
+                        audioLocaleEditText,
+                        languageEditText,
+                        unsyncedLyricsEditText,
+                        lrcEditText,
+                        elrcEditText,
+                        lyricsMultiEditText);
+
         if (hasChanges)
             new AlertDialog.Builder(this)
                     .setTitle("Discard?")
@@ -615,16 +700,64 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     }
 
     // Getters for delegates
-    public ImageView getArtworkImageView() { return artworkImageView; }
-    public LinearLayout getExtendedTagsContainer() { return extendedTagsContainer; }
-    public LinearLayout getTagFieldsContainer() { return tagFieldsContainer; }
-    public TextView getLoadingText() { return loadingText; }
-    public List<CustomField> getCustomFields() { return customFields; }
+    public ImageView getArtworkImageView() {
+        return artworkImageView;
+    }
+
+    public LinearLayout getExtendedTagsContainer() {
+        return extendedTagsContainer;
+    }
+
+    public LinearLayout getTagFieldsContainer() {
+        return tagFieldsContainer;
+    }
+
+    public TextView getLoadingText() {
+        return loadingText;
+    }
+
+    public List<CustomField> getCustomFields() {
+        return customFields;
+    }
 
     static class CustomField {
         String tag;
         String value;
         TextInputEditText editText;
         TextInputLayout layout;
+    }
+
+    private void hideSystemUI() {
+        // 1. The "Nuclear" Option: Forces layout to ignore all screen boundaries
+        getWindow()
+                .setFlags(
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+
+        // 2. Standard method to hide bars (for clean immersive mode)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+            WindowInsetsControllerCompat controller =
+                    WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+            if (controller != null) {
+                controller.hide(WindowInsetsCompat.Type.systemBars());
+                controller.setSystemBarsBehavior(
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            // Legacy method for older Android versions
+            View decorView = getWindow().getDecorView();
+            int uiOptions =
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+            decorView.setSystemUiVisibility(uiOptions);
+        }
+
+        // 3. Cutout mode (Essential for notches)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            getWindow().getAttributes().layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        }
     }
 }

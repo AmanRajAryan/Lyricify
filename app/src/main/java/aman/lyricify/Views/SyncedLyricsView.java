@@ -28,6 +28,8 @@ import java.util.Map;
 
 public class SyncedLyricsView extends View {
 
+    // ... (Keep existing Interface and WrappedLine class) ...
+
     public interface SeekListener {
         void onSeek(long timeMs);
     }
@@ -45,6 +47,7 @@ public class SyncedLyricsView extends View {
         }
     }
 
+    // ... (Keep existing variables: lyrics, paints, scroller, etc.) ...
     private List<LyricLine> lyrics = new ArrayList<>();
     private List<WrappedLine> wrappedLines = new ArrayList<>();
     private Map<LyricLine, Float> lineCenterYMap = new HashMap<>();
@@ -52,12 +55,9 @@ public class SyncedLyricsView extends View {
 
     private long currentTime = 0;
 
-    // Standard Paints
     private Paint paintActive, paintDefault, paintPast;
     private Paint paintFill, paintBloom;
     private Paint paintFillV2, paintBloomV2;
-
-    // OPTIMIZATION: Dedicated Paints for Background Vocals (Avoids switching states in onDraw)
     private Paint paintActiveBG, paintDefaultBG;
     private Paint paintFillBG, paintBloomBG;
     private Paint paintFillV2BG, paintBloomV2BG;
@@ -138,12 +138,12 @@ public class SyncedLyricsView extends View {
         baseTextSize = 32 * density;
         float layoutTextSize = baseTextSize * LAYOUT_SCALE;
 
-        spacingBetweenWrappedLines = 10 * density;
-        spacingBetweenLyrics = 60 * density;
+        spacingBetweenWrappedLines = 1/2 * density;
+        spacingBetweenLyrics = 40 * density;
 
         bgBlurFilter = new BlurMaskFilter(5f * density, BlurMaskFilter.Blur.NORMAL);
 
-        // --- Standard Paints ---
+        // --- Initialize Paints (Same as before) ---
         paintActive = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintActive.setTextSize(layoutTextSize);
         paintActive.setColor(Color.WHITE);
@@ -177,9 +177,7 @@ public class SyncedLyricsView extends View {
         paintBloomV2.setFakeBoldText(true);
         paintBloomV2.setShadowLayer(25, 0, 0, COLOR_V2);
 
-        // --- OPTIMIZATION: Background Vocal Paints (Pre-configured) ---
-        // We create copies of the main paints and apply the Blur + Scale permanently.
-
+        // BG Paints
         paintActiveBG = new Paint(paintActive);
         paintActiveBG.setMaskFilter(bgBlurFilter);
         paintActiveBG.setTextScaleX(BG_HORIZONTAL_STRETCH);
@@ -242,6 +240,8 @@ public class SyncedLyricsView extends View {
         textHeight = fm.descent - fm.ascent;
     }
 
+    // ... (Keep cycleFont, setLyrics, updateTime methods) ...
+
     public void setSeekListener(SeekListener listener) {
         this.seekListener = listener;
     }
@@ -251,7 +251,6 @@ public class SyncedLyricsView extends View {
         Typeface tf = Typeface.create(FONTS[currentFontIndex], Typeface.BOLD);
         float layoutTextSize = baseTextSize * LAYOUT_SCALE;
 
-        // Update Standard Paints
         paintActive.setTypeface(tf);
         paintActive.setTextSize(layoutTextSize);
         paintDefault.setTypeface(tf);
@@ -267,7 +266,6 @@ public class SyncedLyricsView extends View {
         paintBloomV2.setTypeface(tf);
         paintBloomV2.setTextSize(layoutTextSize);
 
-        // OPTIMIZATION: Update BG Paints
         paintActiveBG.setTypeface(tf);
         paintActiveBG.setTextSize(layoutTextSize);
         paintDefaultBG.setTypeface(tf);
@@ -324,6 +322,7 @@ public class SyncedLyricsView extends View {
         return false;
     }
 
+    // ... (Keep updateScrollLogic, onMeasure, wrapLines, getFocusRatio) ...
     private boolean updateScrollLogic() {
         if (isFlinging) {
             if (scroller.computeScrollOffset()) {
@@ -389,32 +388,6 @@ public class SyncedLyricsView extends View {
         setMeasuredDimension(width, height);
     }
 
-    @Override
-    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        super.onSizeChanged(w, h, oldw, oldh);
-        if (w > 0) {
-            masterGradient =
-                    new LinearGradient(
-                            0,
-                            0,
-                            100,
-                            0,
-                            new int[] {Color.WHITE, Color.TRANSPARENT},
-                            null,
-                            Shader.TileMode.CLAMP);
-            masterGradientV2 =
-                    new LinearGradient(
-                            0,
-                            0,
-                            100,
-                            0,
-                            new int[] {COLOR_V2, Color.TRANSPARENT},
-                            null,
-                            Shader.TileMode.CLAMP);
-        }
-        updateScrollBounds(h);
-    }
-
     private void updateScrollBounds(int viewHeight) {
         if (totalContentHeight <= 0) {
             minScrollY = 0;
@@ -455,26 +428,19 @@ public class SyncedLyricsView extends View {
                 float clusterWidth = 0;
 
                 LyricWord firstPiece = line.words.get(i);
-
-                // OPTIMIZATION 1 (Previous): Read directly
                 firstPiece.width = paintActive.measureText(firstPiece.text);
-
                 cluster.add(firstPiece);
                 clusterWidth += firstPiece.width * effectiveMeasureScale;
                 i++;
 
                 while (i < line.words.size()) {
                     LyricWord lastAdded = cluster.get(cluster.size() - 1);
-
                     if (lastAdded.text.endsWith(" ")
                             || lastAdded.text.endsWith("\u3000")
-                            || lastAdded.text.endsWith("-")) {
-                        break;
-                    }
+                            || lastAdded.text.endsWith("-")) break;
 
                     LyricWord nextPiece = line.words.get(i);
                     nextPiece.width = paintActive.measureText(nextPiece.text);
-
                     cluster.add(nextPiece);
                     clusterWidth += nextPiece.width * effectiveMeasureScale;
                     i++;
@@ -483,35 +449,26 @@ public class SyncedLyricsView extends View {
                 if (currentLineWidth + clusterWidth > maxAllowedWidth
                         && !currentLineWords.isEmpty()) {
                     WrappedLine wl = new WrappedLine(line, new ArrayList<>(currentLineWords));
+                    wl.xOffset =
+                            line.isBackground ? (viewWidth - currentLineWidth) / 2f - padding : 0;
 
-                    if (line.isBackground) {
-                        wl.xOffset = (viewWidth - currentLineWidth) / 2f - padding;
-                    } else {
-                        wl.xOffset = 0;
-                    }
-
-                    float spacing;
-                    if (previousParent == null) spacing = 0;
-                    else if (line.isBackground) spacing = 0;
-                    else if (previousParent.isBackground) spacing = 0;
-                    else
-                        spacing =
-                                (previousParent == line)
-                                        ? spacingBetweenWrappedLines
-                                        : spacingBetweenLyrics;
+                    float spacing =
+                            (previousParent == null
+                                            || line.isBackground
+                                            || previousParent.isBackground)
+                                    ? 0
+                                    : (previousParent == line)
+                                            ? spacingBetweenWrappedLines
+                                            : spacingBetweenLyrics;
 
                     currentY += spacing;
                     if (parentStartY == -1) parentStartY = currentY;
-
                     wl.y = currentY;
                     wl.nextStartTime = nextStartTime;
                     wrappedLines.add(wl);
-
                     parentLastLineY = currentY;
 
-                    if (line.isBackground) currentY += textHeight * BG_SCALE_SIZE;
-                    else currentY += textHeight;
-
+                    currentY += line.isBackground ? textHeight * BG_SCALE_SIZE : textHeight;
                     previousParent = line;
                     currentLineWords.clear();
                     currentLineWidth = 0;
@@ -522,41 +479,28 @@ public class SyncedLyricsView extends View {
 
             if (!currentLineWords.isEmpty()) {
                 WrappedLine wl = new WrappedLine(line, new ArrayList<>(currentLineWords));
+                wl.xOffset = line.isBackground ? (viewWidth - currentLineWidth) / 2f - padding : 0;
 
-                if (line.isBackground) {
-                    wl.xOffset = (viewWidth - currentLineWidth) / 2f - padding;
-                } else {
-                    wl.xOffset = 0;
-                }
-
-                float spacing;
-                if (previousParent == null) spacing = 0;
-                else if (line.isBackground) spacing = 0;
-                else if (previousParent.isBackground) spacing = 0;
-                else
-                    spacing =
-                            (previousParent == line)
-                                    ? spacingBetweenWrappedLines
-                                    : spacingBetweenLyrics;
+                float spacing =
+                        (previousParent == null || line.isBackground || previousParent.isBackground)
+                                ? 0
+                                : (previousParent == line)
+                                        ? spacingBetweenWrappedLines
+                                        : spacingBetweenLyrics;
 
                 currentY += spacing;
                 if (parentStartY == -1) parentStartY = currentY;
-
                 wl.y = currentY;
                 wl.nextStartTime = nextStartTime;
                 wrappedLines.add(wl);
-
                 parentLastLineY = currentY;
 
-                if (line.isBackground) currentY += textHeight * BG_SCALE_SIZE;
-                else currentY += textHeight;
-
+                currentY += line.isBackground ? textHeight * BG_SCALE_SIZE : textHeight;
                 previousParent = line;
             }
 
             if (parentStartY != -1 && parentLastLineY != -1) {
-                float centerY = (parentStartY + parentLastLineY) / 2f;
-                lineCenterYMap.put(line, centerY);
+                lineCenterYMap.put(line, (parentStartY + parentLastLineY) / 2f);
             }
         }
         totalContentHeight = currentY;
@@ -617,6 +561,38 @@ public class SyncedLyricsView extends View {
     }
 
     @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        if (w > 0) {
+            // --- SMART SOLUTION 2: Smoother Gradients ---
+            // Instead of just WHITE -> TRANSPARENT, we use intermediate stops to
+            // soften the start of the gradient, effectively hiding the "vertical line".
+
+            int[] colors = {
+                Color.WHITE,
+                Color.argb(220, 255, 255, 255),
+                Color.argb(100, 255, 255, 255),
+                Color.TRANSPARENT
+            };
+            float[] positions = {0f, 0.3f, 0.7f, 1f};
+
+            int[] colorsV2 = {
+                COLOR_V2,
+                Color.argb(220, 0, 229, 255),
+                Color.argb(100, 0, 229, 255),
+                Color.TRANSPARENT
+            };
+
+            masterGradient =
+                    new LinearGradient(0, 0, 100, 0, colors, positions, Shader.TileMode.CLAMP);
+
+            masterGradientV2 =
+                    new LinearGradient(0, 0, 100, 0, colorsV2, positions, Shader.TileMode.CLAMP);
+        }
+        updateScrollBounds(h);
+    }
+
+    @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         long now = System.currentTimeMillis();
@@ -634,29 +610,18 @@ public class SyncedLyricsView extends View {
         canvas.save();
         canvas.translate(0, -currentScrollY);
 
-        // --- FIX STARTS HERE ---
-        // We increase the buffer significantly (4x text height) to ensure lines
-        // that are partially visible (or just outside due to bloom/shadows) are still drawn.
         float buffer = textHeight * 4;
         float viewTop = currentScrollY - buffer;
         float viewBottom = currentScrollY + getHeight() + buffer;
-        // --- FIX ENDS HERE ---
 
         for (WrappedLine wl : wrappedLines) {
             float y = wl.y;
-
-            // --- VISIBILITY CHECK FIX ---
-            // Relaxed check: Only skip if the line is COMPLETELY out of the buffered view.
-            // "y + textHeight < viewTop" checks if the bottom of the text is above the view.
-            // "y - textHeight > viewBottom" checks if the top of the text is below the view.
             if (y - textHeight > viewBottom || y + textHeight < viewTop) continue;
-            // -----------------------------
 
             float focusRatio = getFocusRatio(wl.parentLine, wl.nextStartTime);
             focusRatio = Math.max(0f, Math.min(1f, focusRatio));
 
             float targetScale;
-
             if (wl.parentLine.isBackground) {
                 targetScale = BG_SCALE_SIZE;
             } else {
@@ -672,22 +637,16 @@ public class SyncedLyricsView extends View {
             boolean isTimePast = (currentTime > wl.parentLine.endTime);
             boolean isV2 = (wl.parentLine.vocalType == 2);
 
-            // Select the base Paint (Normal vs BG)
             Paint currentPaintActive = wl.parentLine.isBackground ? paintActiveBG : paintActive;
             Paint currentPaintDefault = wl.parentLine.isBackground ? paintDefaultBG : paintDefault;
             Paint currentPaintFillV2 = wl.parentLine.isBackground ? paintFillV2BG : paintFillV2;
 
             int targetAlpha = 255;
-            if (!wl.parentLine.isBackground) {
-                if (isTimePast && wl.parentLine.startTime != -1) {
-                    if (!wl.parentLine.isWordSynced) {
-                        float adjustedRatio = (float) Math.pow(focusRatio, 3);
-                        targetAlpha = (int) (102 + (255 - 102) * adjustedRatio);
-                    } else {
-                        targetAlpha = (int) (102 + (255 - 102) * focusRatio);
-                    }
-                    targetAlpha = Math.max(102, Math.min(255, targetAlpha));
-                }
+            if (!wl.parentLine.isBackground && isTimePast && wl.parentLine.startTime != -1) {
+                float ratio =
+                        wl.parentLine.isWordSynced ? focusRatio : (float) Math.pow(focusRatio, 3);
+                targetAlpha = (int) (102 + (255 - 102) * ratio);
+                targetAlpha = Math.max(102, Math.min(255, targetAlpha));
             }
 
             float x = padding + wl.xOffset;
@@ -700,18 +659,10 @@ public class SyncedLyricsView extends View {
                 if (wl.parentLine.isBackground) wordWidth *= BG_HORIZONTAL_STRETCH;
 
                 int dispersedAlpha = 255;
-
                 if (wl.parentLine.isBackground) {
                     dispersedAlpha = 120;
                     currentPaintActive.setAlpha(dispersedAlpha);
                     currentPaintDefault.setAlpha(dispersedAlpha);
-
-                    // We also set these just in case they are used
-                    if (wl.parentLine.isBackground) {
-                        paintFillBG.setAlpha(dispersedAlpha);
-                        paintFillV2BG.setAlpha(dispersedAlpha);
-                        paintBloomBG.setAlpha(dispersedAlpha);
-                    }
                 }
 
                 if (isPlain) {
@@ -728,7 +679,6 @@ public class SyncedLyricsView extends View {
                                 fadeOutFactor = Math.max(0f, fadeOutFactor);
                             }
                         }
-
                         int fadingAlpha = (int) (dispersedAlpha * fadeOutFactor);
                         animatingGlow = true;
                         drawActiveWord(canvas, word, wl, x, y, wordWidth, fadingAlpha);
@@ -748,16 +698,15 @@ public class SyncedLyricsView extends View {
                         Paint activeP = isV2 ? currentPaintActive : currentPaintActive;
                         if (isV2) activeP.setColor(COLOR_V2);
                         else activeP.setColor(Color.WHITE);
-
-                        int finalAlpha = targetAlpha;
-                        if (wl.parentLine.isBackground) {
-                            finalAlpha =
-                                    (int) ((targetAlpha / 255f) * (dispersedAlpha / 255f) * 255);
-                        }
-
+                        int finalAlpha =
+                                wl.parentLine.isBackground
+                                        ? (int)
+                                                ((targetAlpha / 255f)
+                                                        * (dispersedAlpha / 255f)
+                                                        * 255)
+                                        : targetAlpha;
                         activeP.setAlpha(finalAlpha);
                         canvas.drawText(word.text, x, y, activeP);
-
                         activeP.setAlpha(255);
                         activeP.setColor(Color.WHITE);
                     } else {
@@ -780,27 +729,15 @@ public class SyncedLyricsView extends View {
                 if (wl.parentLine.isBackground) {
                     currentPaintActive.setAlpha(255);
                     currentPaintDefault.setAlpha(102);
-                    paintFillBG.setAlpha(255);
-                    paintFillV2BG.setAlpha(255);
-                    paintBloomBG.setAlpha(255);
                 }
-
                 x += wordWidth;
             }
             canvas.restore();
-
-            if (focusRatio > 0.0f && focusRatio < 1.0f) {
-                animatingGlow = true;
-            }
+            if (focusRatio > 0.0f && focusRatio < 1.0f) animatingGlow = true;
         }
         canvas.restore();
-
-        // Debug FPS counter
         canvas.drawText(String.valueOf(currentFps), getWidth() - 50, 100, paintFps);
-
-        if (animatingScroll || animatingGlow) {
-            postInvalidateOnAnimation();
-        }
+        if (animatingScroll || animatingGlow) postInvalidateOnAnimation();
     }
 
     private void drawActiveWord(
@@ -812,21 +749,15 @@ public class SyncedLyricsView extends View {
             float wordWidth,
             int alphaOverride) {
         boolean isV2 = (wl.parentLine.vocalType == 2);
-
-        // OPTIMIZATION: Select correct paint (Normal vs BG)
         Paint targetFill =
                 isV2
                         ? (wl.parentLine.isBackground ? paintFillV2BG : paintFillV2)
                         : (wl.parentLine.isBackground ? paintFillBG : paintFill);
-
         Paint targetBloom =
                 isV2
                         ? (wl.parentLine.isBackground ? paintBloomV2BG : paintBloomV2)
                         : (wl.parentLine.isBackground ? paintBloomBG : paintBloom);
-
         LinearGradient targetGrad = isV2 ? masterGradientV2 : masterGradient;
-
-        // Use the BG version of default paint if needed
         Paint currentDefault = wl.parentLine.isBackground ? paintDefaultBG : paintDefault;
 
         long nextWordTime = wl.parentLine.endTime;
@@ -843,7 +774,10 @@ public class SyncedLyricsView extends View {
         canvas.drawText(word.text, x, y, currentDefault);
 
         if (targetGrad != null) {
-            float edgeWidth = Math.min(120f, wordWidth);
+            // --- SMART SOLUTION 1: Dynamic Edge Width ---
+            // If word is huge (500px), edge is 300px (Very soft, no line).
+            // If word is tiny (20px), edge is 20px (Tighter, preserves sweep).
+            float edgeWidth = Math.min(300f, wordWidth);
 
             float currentX = x + (wordWidth + edgeWidth) * progress;
 
@@ -859,12 +793,10 @@ public class SyncedLyricsView extends View {
             if (progress < 1.0f) {
                 float bloomAlpha = 1.0f;
                 if (progress >= 0.7f) {
-                    bloomAlpha = (1.0f - progress) / (1.0f - 0.7f);
+                    bloomAlpha = (1.0f - progress) / 0.3f;
                     bloomAlpha = Math.max(0f, Math.min(1.0f, bloomAlpha));
                 }
-
                 int finalBloomAlpha = (int) (alphaOverride * bloomAlpha);
-
                 int shadowColor = isV2 ? COLOR_V2 : Color.WHITE;
                 int fadedShadowColor =
                         Color.argb(
@@ -873,19 +805,12 @@ public class SyncedLyricsView extends View {
                                 Color.green(shadowColor),
                                 Color.blue(shadowColor));
 
-                // Note: We still set ShadowLayer here for the dynamic color fade.
-                // This is expensive but necessary for the specific look you want.
-                // However, since we now use dedicated Paints, we aren't re-setting the MaskFilter
-                // constantly, so this call is less likely to cause stutter.
                 targetBloom.setShadowLayer(25, 0, 0, fadedShadowColor);
-
                 targetBloom.setShader(targetGrad);
                 targetBloom.setAlpha(finalBloomAlpha);
                 canvas.drawText(word.text, x, y, targetBloom);
-
                 targetBloom.setShadowLayer(25, 0, 0, shadowColor);
             }
-
             targetFill.setAlpha(255);
         }
     }

@@ -32,7 +32,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: APKs
           path: app/build/outputs/apk/**/*.apk
 
       # Upload AARs (library modules, if any)

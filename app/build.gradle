@@ -18,40 +18,34 @@ android {
         }
     }
 
-    buildTypes {
-        release {
-            if (signingConfigs.findByName("release") != null) {
-                signingConfig signingConfigs.release
-            }
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-    }
-    
-    
     signingConfigs {
-        if (project.hasProperty("RELEASE_STORE_FILE")) {
-            release {
+        release {
+            if (
+                project.hasProperty("RELEASE_STORE_FILE") &&
+                project.hasProperty("RELEASE_STORE_PASSWORD") &&
+                project.hasProperty("RELEASE_KEY_ALIAS") &&
+                project.hasProperty("RELEASE_KEY_PASSWORD")
+            ) {
                 storeFile file(RELEASE_STORE_FILE)
                 storePassword RELEASE_STORE_PASSWORD
                 keyAlias RELEASE_KEY_ALIAS
                 keyPassword RELEASE_KEY_PASSWORD
+            } else {
+                throw new GradleException("Release signing properties are missing")
             }
         }
     }
 
-    
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
-
-    
 
     buildFeatures {
         viewBinding true
@@ -59,7 +53,6 @@ android {
 }
 
 dependencies {
-    
 
     // Networking
     implementation 'com.squareup.okhttp3:okhttp:4.11.0'
@@ -67,18 +60,15 @@ dependencies {
     // Glide
     implementation 'com.github.bumptech.glide:glide:4.16.0'
     annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
+    implementation 'jp.wasabeef:glide-transformations:4.3.0'
 
     // AndroidX
     implementation "androidx.appcompat:appcompat:1.6.1"
     implementation "com.google.android.material:material:1.9.0"
 
-    
-
     // TagLib AAR
     implementation files("libs/library-release.aar")
     implementation files("libs/lyricsview.aar")
-    
-    implementation 'jp.wasabeef:glide-transformations:4.3.0'
-    
+
     
 }

@@ -15,10 +15,6 @@ import android.widget.Toast;
 import java.lang.ref.WeakReference;
 import java.util.List;
 
-/**
- * Handles all MediaSession related operations including: - Finding active media controllers -
- * Extracting metadata and artwork - Managing controller callbacks
- */
 public class MediaSessionHandler {
 
     private final WeakReference<Context> contextRef;
@@ -30,9 +26,7 @@ public class MediaSessionHandler {
 
     public interface MediaSessionCallback {
         void onMediaFound(String title, String artist, Bitmap artwork);
-
         void onMediaLost();
-
         void onMetadataChanged();
     }
 
@@ -46,10 +40,64 @@ public class MediaSessionHandler {
         this.callback = callback;
     }
 
+    /** * Check if Notification Listener permission is granted 
+     */
+    public boolean hasNotificationAccess() {
+        Context context = contextRef.get();
+        if (context == null) return false;
+
+        String enabledListeners = Settings.Secure.getString(
+                context.getContentResolver(),
+                "enabled_notification_listeners");
+        
+        String myPackageName = context.getPackageName();
+        
+        return enabledListeners != null && enabledListeners.contains(myPackageName);
+    }
+
+    /** * Request the user to enable notification access
+     */
+    public void requestNotificationAccess() {
+        Context context = contextRef.get();
+        if (context == null) return;
+        
+        try {
+            Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+            Toast.makeText(context, "Please find Lyricify and enable the switch", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(context, "Could not open settings", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    /** * Open App Info page (For Restricted Settings fix)
+     */
+    public void openAppInfo() {
+        Context context = contextRef.get();
+        if (context == null) return;
+        
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.parse("package:" + context.getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+            Toast.makeText(context, "Tap 'Three Dots' > 'Allow Restricted Settings' \n Or Scroll Down to Find it", Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            // Ignore
+        }
+    }
+
     /** Initialize media session listener */
     public void initialize() {
         Context context = contextRef.get();
         if (context == null) return;
+
+        // REMOVED: The automatic SecurityException catch block that forced a toast
+        if (!hasNotificationAccess()) {
+            // Do nothing silently. MainActivity will handle the UI prompt.
+            return;
+        }
 
         try {
             sessionListener =
@@ -66,8 +114,7 @@ public class MediaSessionHandler {
             mediaSessionManager.addOnActiveSessionsChangedListener(
                     sessionListener, new ComponentName(context, SongNotificationListener.class));
         } catch (SecurityException e) {
-            Toast.makeText(context, "Enable Notification Access for Lyricify", Toast.LENGTH_LONG)
-                    .show();
+            // Permission lost/revoked
         }
     }
 
@@ -75,6 +122,8 @@ public class MediaSessionHandler {
     public void checkActiveSessions() {
         Context context = contextRef.get();
         if (context == null || mediaSessionManager == null) return;
+
+        if (!hasNotificationAccess()) return;
 
         try {
             List<MediaController> controllers =
@@ -89,17 +138,10 @@ public class MediaSessionHandler {
                 notifyMediaLost();
             }
         } catch (SecurityException e) {
-            try {
-                Intent intent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(intent);
-            } catch (Exception ex) {
-                Log.e("MediaSessionCheck", "Unable to open notification access settings", ex);
-            }
+            // Ignore
         }
     }
 
-    /** Find an active controller from the list */
     private MediaController findActiveController(List<MediaController> controllers) {
         for (MediaController controller : controllers) {
             PlaybackState state = controller.getPlaybackState();
@@ -118,7 +160,6 @@ public class MediaSessionHandler {
         return null;
     }
 
-    /** Check if metadata has valid track information */
     private boolean hasValidTrackInfo(MediaMetadata metadata) {
         String title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
         String artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
@@ -126,9 +167,7 @@ public class MediaSessionHandler {
                 || (artist != null && !artist.trim().isEmpty());
     }
 
-    /** Assign a new media controller and set up callbacks */
     private void assignController(MediaController controller) {
-        // Unregister old callback
         if (currentController != null && controllerCallback != null) {
             try {
                 currentController.unregisterCallback(controllerCallback);
@@ -169,7 +208,6 @@ public class MediaSessionHandler {
         }
     }
 
-    /** Extract and notify about found media */
     private void notifyMediaFound(MediaController controller) {
         if (callback == null || controller == null) return;
 
@@ -191,7 +229,6 @@ public class MediaSessionHandler {
         String title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
         String artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
 
-        // Fallback for artist
         if (artist == null || artist.trim().isEmpty()) {
             artist = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST);
         }
@@ -207,14 +244,12 @@ public class MediaSessionHandler {
         callback.onMediaFound(title, artist, artwork);
     }
 
-    /** Notify that media is lost */
     private void notifyMediaLost() {
         if (callback != null) {
             callback.onMediaLost();
         }
     }
 
-    /** Extract artwork from metadata */
     public static Bitmap extractArtwork(MediaMetadata metadata) {
         if (metadata == null) return null;
 
@@ -236,7 +271,6 @@ public class MediaSessionHandler {
         return null;
     }
 
-    /** Check if bitmap is valid */
     public static boolean isValidBitmap(Bitmap bitmap) {
         return bitmap != null
                 && !bitmap.isRecycled()
@@ -244,7 +278,6 @@ public class MediaSessionHandler {
                 && bitmap.getHeight() > 0;
     }
 
-    /** Clean up resources */
     public void cleanup() {
         if (currentController != null && controllerCallback != null) {
             try {

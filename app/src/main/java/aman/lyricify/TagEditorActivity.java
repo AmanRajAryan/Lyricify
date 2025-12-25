@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.DocumentsContract; // Added import
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -89,8 +90,9 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     // Custom fields list
     private List<CustomField> customFields = new ArrayList<>();
 
-    // Launcher for image picker
+    // Launchers
     private ActivityResultLauncher<Intent> imagePickerLauncher;
+    private ActivityResultLauncher<Intent> directoryPickerLauncher; // Added
 
     // Delegates
     private TagEditorUIManager uiManager;
@@ -111,6 +113,7 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         
         setupToolbar();
         setupImagePickerLauncher();
+        setupDirectoryPickerLauncher(); // Added setup
         extractIntentData();
         loadCurrentTags();
         setupListeners();
@@ -132,17 +135,10 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         runOnUiThread(
                 () -> {
                     this.cachedMetadata = response;
-
-                    // Check if we were actively waiting for this data (loading screen visible with
-                    // specific text)
                     if (loadingOverlay.getVisibility() == View.VISIBLE
                             && loadingText.getText().toString().equals(WAITING_MESSAGE)) {
 
                         populateFieldsFromCachedData();
-                        // hideLoading() is called inside populateFieldsFromCachedData's error
-                        // handling
-                        // but usually handled by image loader callback.
-                        // We should ensure it closes if no image URL is involved.
                         if (intentArtworkUrl == null) {
                             hideLoading();
                         }
@@ -236,6 +232,36 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                         });
     }
 
+    // --- NEW METHOD: Setup directory picker ---
+    private void setupDirectoryPickerLauncher() {
+        directoryPickerLauncher =
+                registerForActivityResult(
+                        new ActivityResultContracts.StartActivityForResult(),
+                        result -> {
+                            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                                Uri treeUri = result.getData().getData();
+                                if (treeUri != null) {
+                                    getContentResolver()
+                                            .takePersistableUriPermission(
+                                                    treeUri,
+                                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                                    Toast.makeText(this, "✓ Access granted! Try saving again.", Toast.LENGTH_LONG).show();
+                                }
+                            }
+                        });
+    }
+
+    // --- NEW METHOD: Public method to be called by DataManager ---
+    public void openDirectoryPicker(String folderPath) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        Uri initialUri = FileSaver.getFolderUriForPath(folderPath);
+        if (initialUri != null) {
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri);
+        }
+        directoryPickerLauncher.launch(intent);
+    }
+
     private void extractIntentData() {
         filePath = getIntent().getStringExtra("FILE_PATH");
         intentTitle = getIntent().getStringExtra("SONG_TITLE");
@@ -274,7 +300,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         changeArtworkButton.setOnClickListener(v -> selectArtwork());
         resetArtworkButton.setOnClickListener(v -> resetArtwork());
 
-        // MODIFIED: Only checks cache, effectively waits for background process
         fetchFromApiButton.setOnClickListener(
                 v -> {
                     if (cachedMetadata != null) {
@@ -594,17 +619,12 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     public LinearLayout getExtendedTagsContainer() { return extendedTagsContainer; }
     public LinearLayout getTagFieldsContainer() { return tagFieldsContainer; }
     public TextView getLoadingText() { return loadingText; }
-    
+    public List<CustomField> getCustomFields() { return customFields; }
+
     static class CustomField {
         String tag;
         String value;
         TextInputEditText editText;
         TextInputLayout layout;
     }
-
-// Add this inside TagEditorActivity.java
-public List<CustomField> getCustomFields() { 
-    return customFields; 
-}
-
 }

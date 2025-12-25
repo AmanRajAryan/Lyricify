@@ -1,6 +1,6 @@
 package aman.lyricify;
 
-
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.media.MediaMetadata;
@@ -15,20 +15,32 @@ import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.RequestOptions;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
+import jp.wasabeef.glide.transformations.BlurTransformation;
+
 import java.util.List;
 
 public class SyncedLyricsActivity extends AppCompatActivity {
 
+    // UI Components
     private SyncedLyricsView syncedLyricsView;
     private ImageView headerArtwork;
+    private ImageView immersiveBackground;
     private TextView songTitleText;
     private TextView songArtistText;
     private TextView positionText;
-    private ImageView playPauseButton;
+    
+    private FloatingActionButton playPauseButton;
+    private MaterialButton prevButton, nextButton; // Added
+    private MaterialButton adjustTimingButton, fontSwitchButton;
+    
     private SeekBar progressSeekBar;
-    private Button adjustTimingButton;
-    private Button fontSwitchButton;
 
+    // Logic Variables
     private MediaSessionManager mediaSessionManager;
     private MediaController mediaController;
     private MediaController.Callback mediaControllerCallback;
@@ -61,12 +73,17 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     }
 
     private void initializeViews() {
+        immersiveBackground = findViewById(R.id.immersiveBackground);
         syncedLyricsView = findViewById(R.id.syncedLyricsView);
         headerArtwork = findViewById(R.id.headerArtwork);
         songTitleText = findViewById(R.id.syncedSongTitle);
         songArtistText = findViewById(R.id.syncedSongArtist);
         positionText = findViewById(R.id.positionText);
+        
         playPauseButton = findViewById(R.id.playPauseButton);
+        prevButton = findViewById(R.id.prevButton); // Added
+        nextButton = findViewById(R.id.nextButton); // Added
+        
         progressSeekBar = findViewById(R.id.progressSeekBar);
         adjustTimingButton = findViewById(R.id.adjustTimingButton);
         fontSwitchButton = findViewById(R.id.fontSwitchButton);
@@ -88,12 +105,20 @@ public class SyncedLyricsActivity extends AppCompatActivity {
             String formattedUrl =
                     artworkUrl.replace("{w}", "500").replace("{h}", "500").replace("{f}", "jpg");
 
-            com.bumptech.glide.Glide.with(this)
+            // Load small header icon (Sharp)
+            Glide.with(this)
                     .asBitmap()
                     .load(formattedUrl)
                     .into(headerArtwork);
+
+            // Load large background with BLUR
+            Glide.with(this)
+                    .load(formattedUrl)
+                    .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 3))) // Blur radius 25, sampling 3
+                    .into(immersiveBackground);
         } else {
             headerArtwork.setImageResource(R.drawable.ic_music_note);
+            immersiveBackground.setImageResource(R.drawable.ic_music_note);
         }
     }
 
@@ -156,9 +181,9 @@ public class SyncedLyricsActivity extends AppCompatActivity {
 
         runOnUiThread(() -> {
             if (isPlaying) {
-                playPauseButton.setImageResource(android.R.drawable.ic_media_pause);
+                playPauseButton.setImageResource(R.drawable.ic_pause); // Use standard M3 icon
             } else {
-                playPauseButton.setImageResource(android.R.drawable.ic_media_play);
+                playPauseButton.setImageResource(R.drawable.ic_play_arrow); // Use standard M3 icon
             }
         });
     }
@@ -174,15 +199,12 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private void fetchAndDisplayLyrics() {
         if (lyrics != null && !lyrics.isEmpty()) {
             syncedLyricsView.setLyrics(lyrics);
-            
-            // --- NEW: Line Click to Seek ---
             syncedLyricsView.setSeekListener(timeMs -> {
                 if (mediaController != null) {
                     mediaController.getTransportControls().seekTo(timeMs);
-                    Toast.makeText(this, "Seek to " + formatTime(timeMs), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Seek: " + formatTime(timeMs), Toast.LENGTH_SHORT).show();
                 }
             });
-            
         } else {
             Toast.makeText(this, "No lyrics available", Toast.LENGTH_SHORT).show();
         }
@@ -199,9 +221,17 @@ public class SyncedLyricsActivity extends AppCompatActivity {
             }
         });
 
+        // Next / Previous Buttons
+        prevButton.setOnClickListener(v -> {
+            if (mediaController != null) mediaController.getTransportControls().skipToPrevious();
+        });
+        
+        nextButton.setOnClickListener(v -> {
+            if (mediaController != null) mediaController.getTransportControls().skipToNext();
+        });
+
         adjustTimingButton.setOnClickListener(v -> showTimingAdjustmentDialog());
 
-        // --- NEW: Font Switcher ---
         fontSwitchButton.setOnClickListener(v -> {
             String fontName = syncedLyricsView.cycleFont();
             Toast.makeText(this, "Font: " + fontName, Toast.LENGTH_SHORT).show();
@@ -222,12 +252,46 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     }
 
     private void showTimingAdjustmentDialog() {
-        // (Keep your existing dialog code here)
-        // I omitted it to keep the answer concise, but DO NOT DELETE IT from your file.
-        // It's the exact same logic as before.
-        android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
-        builder.setTitle("Adjust Lyrics Timing");
-        // ... rest of dialog logic ...
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Adjust Lyrics Sync");
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(50, 20, 50, 20);
+
+        final TextView offsetText = new TextView(this);
+        offsetText.setText("Offset: " + timingOffset + "ms");
+        offsetText.setGravity(android.view.Gravity.CENTER);
+        offsetText.setTextSize(18);
+        layout.addView(offsetText);
+        
+        LinearLayout buttons = new LinearLayout(this);
+        buttons.setGravity(android.view.Gravity.CENTER);
+        
+        Button btnMinus = new Button(this);
+        btnMinus.setText("-500ms");
+        btnMinus.setOnClickListener(v -> {
+            timingOffset -= 500;
+            offsetText.setText("Offset: " + timingOffset + "ms");
+        });
+        
+        Button btnPlus = new Button(this);
+        btnPlus.setText("+500ms");
+        btnPlus.setOnClickListener(v -> {
+            timingOffset += 500;
+            offsetText.setText("Offset: " + timingOffset + "ms");
+        });
+        
+        buttons.addView(btnMinus);
+        buttons.addView(btnPlus);
+        layout.addView(buttons);
+        
+        builder.setView(layout);
+        builder.setPositiveButton("Done", null);
+        builder.setNeutralButton("Reset", (d, w) -> {
+            timingOffset = 0;
+            Toast.makeText(this, "Timing reset", Toast.LENGTH_SHORT).show();
+        });
+        
         builder.show();
     }
 
@@ -249,7 +313,6 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                         positionText.setText(formatTime(position));
                     }
                 }
-                // 16ms ~ 60fps updates
                 updateHandler.postDelayed(this, 16);
             }
         };

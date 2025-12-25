@@ -3,21 +3,20 @@ package aman.lyricify;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
 
 import androidx.cardview.widget.CardView;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 
-/**
- * Main activity - handles UI and coordinates between managers
- */
 public class MainActivity extends AppCompatActivity {
 
     // UI Components
@@ -32,13 +31,15 @@ public class MainActivity extends AppCompatActivity {
     // Data
     private ArrayList<Song> songs = new ArrayList<>();
     private SongAdapter adapter;
-    private Song currentPlayingSong;
     private String lastSearchQuery = "";
 
     // Managers
     private MediaSessionHandler mediaSessionHandler;
     private NowPlayingManager nowPlayingManager;
     private PermissionManager permissionManager;
+
+    // State to prevent double-showing sheets
+    private boolean isShowingSheet = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,21 +49,126 @@ public class MainActivity extends AppCompatActivity {
         initializeViews();
         initializeManagers();
         setupListeners();
-        
 
-        android.util.Log.d("test" , "test logwire"); 
-        
-        permissionManager.checkAndRequestStoragePermission();
-        mediaSessionHandler.initialize();
+        // REMOVED: checkPermissionAndOnboard(); 
+        // We moved this to onResume so it handles "Returning from Settings" too.
+
         nowPlayingManager.register();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
         
-        // Initial media check with delay
-        nowPlayingCard.postDelayed(() -> mediaSessionHandler.checkActiveSessions(), 200);
+        // 1. Check permissions every time the app comes to foreground
+        checkPermissionAndOnboard();
+        
+        // 2. Initialize Media Handler if we have permission
+        if (mediaSessionHandler.hasNotificationAccess()) {
+            mediaSessionHandler.initialize();
+            
+            // Refresh Now Playing
+            if (!nowPlayingManager.hasActiveMedia()) {
+                nowPlayingCard.postDelayed(() -> mediaSessionHandler.checkActiveSessions(), 200);
+            }
+        }
     }
 
     /**
-     * Initialize all views
+     * Central method to check permissions in order
      */
+    private void checkPermissionAndOnboard() {
+        if (isShowingSheet) return; // Don't stack sheets
+
+        // Step 1: Storage Permission
+        if (!permissionManager.hasStoragePermission()) {
+            isShowingSheet = true;
+            // Delay slightly to be smooth
+            nowPlayingCard.postDelayed(this::showStoragePermissionSheet, 500);
+        } 
+        // Step 2: Notification Permission
+        else if (!mediaSessionHandler.hasNotificationAccess()) {
+            isShowingSheet = true;
+            nowPlayingCard.postDelayed(this::showNotificationPermissionSheet, 500);
+        }
+    }
+
+    private void showStoragePermissionSheet() {
+        if (isFinishing()) return;
+        
+        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
+        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_permission, null);
+        bottomSheetDialog.setContentView(sheetView);
+
+        if (bottomSheetDialog.getWindow() != null) {
+            bottomSheetDialog.getWindow().findViewById(com.google.android.material.R.id.design_bottom_sheet)
+                    .setBackgroundResource(android.R.color.transparent);
+        }
+
+        MaterialButton btnGrant = sheetView.findViewById(R.id.btnGrantAccess);
+        MaterialButton btnNotNow = sheetView.findViewById(R.id.btnNotNow);
+
+        btnGrant.setOnClickListener(v -> {
+            bottomSheetDialog.dismiss();
+            permissionManager.requestStoragePermission();
+        });
+
+        btnNotNow.setOnClickListener(v -> {
+            bottomSheetDialog.dismiss();
+            // Proceed to check next permission immediately
+            if (!mediaSessionHandler.hasNotificationAccess()) {
+                showNotificationPermissionSheet();
+            } else {
+                isShowingSheet = false;
+            }
+        });
+
+        bottomSheetDialog.setOnDismissListener(dialog -> isShowingSheet = false);
+        bottomSheetDialog.setCancelable(false);
+        bottomSheetDialog.show();
+    }
+
+    private void showNotificationPermissionSheet() {
+        if (isFinishing()) return;
+
+        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
+        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_notification_access, null);
+        bottomSheetDialog.setContentView(sheetView);
+
+        if (bottomSheetDialog.getWindow() != null) {
+            bottomSheetDialog.getWindow().findViewById(com.google.android.material.R.id.design_bottom_sheet)
+                    .setBackgroundResource(android.R.color.transparent);
+        }
+
+        MaterialButton btnConnect = sheetView.findViewById(R.id.btnConnectApps);
+        TextView btnTroubleshoot = sheetView.findViewById(R.id.btnTroubleshoot);
+        MaterialButton btnNotNow = sheetView.findViewById(R.id.btnNotNow);
+
+        // Standard "Connect" button
+        btnConnect.setOnClickListener(v -> {
+            bottomSheetDialog.dismiss();
+            mediaSessionHandler.requestNotificationAccess();
+            // isShowingSheet becomes false via OnDismissListener
+            // When user returns, onResume runs -> checks permission -> if still missing, shows sheet again!
+        });
+
+        // "Restricted Settings" Fix Button
+        btnTroubleshoot.setOnClickListener(v -> {
+            bottomSheetDialog.dismiss();
+            mediaSessionHandler.openAppInfo();
+        });
+
+        btnNotNow.setOnClickListener(v -> {
+            bottomSheetDialog.dismiss();
+            Toast.makeText(this, "Auto-detect disabled", Toast.LENGTH_SHORT).show();
+        });
+
+        bottomSheetDialog.setOnDismissListener(dialog -> isShowingSheet = false);
+        bottomSheetDialog.show();
+    }
+
+    // ... (Keep existing initializeViews, initializeManagers, etc.) ...
+
     private void initializeViews() {
         searchEditText = findViewById(R.id.searchEditText);
         searchButton = findViewById(R.id.searchButton);
@@ -74,14 +180,10 @@ public class MainActivity extends AppCompatActivity {
         nowPlayingArtist = findViewById(R.id.nowPlayingArtist);
         nowPlayingFilePath = findViewById(R.id.nowPlayingFilePath);
 
-        // Set up adapter
         adapter = new SongAdapter(this, songs);
         songListView.setAdapter(adapter);
     }
 
-    /**
-     * Initialize all managers
-     */
     private void initializeManagers() {
         // Media session handler
         mediaSessionHandler = new MediaSessionHandler(this);
@@ -98,9 +200,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onMetadataChanged() {
-                // Metadata changed - will trigger onMediaFound
-            }
+            public void onMetadataChanged() { }
         });
 
         // Now playing manager
@@ -115,9 +215,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFileFound(String filePath, Uri fileUri) {
-                // File found - stored in manager
-            }
+            public void onFileFound(String filePath, Uri fileUri) { }
         });
 
         // Permission manager
@@ -125,8 +223,9 @@ public class MainActivity extends AppCompatActivity {
         permissionManager.setCallback(new PermissionManager.PermissionCallback() {
             @Override
             public void onStoragePermissionGranted() {
+                // Storage done. The onResume check will handle the notification part next time it runs.
+                // Or we can manually trigger update
                 if (nowPlayingManager.hasActiveMedia()) {
-                    // Retry file search if we have active media
                     String title = nowPlayingManager.getCurrentTitle();
                     String artist = nowPlayingManager.getCurrentArtist();
                     if (title != null && artist != null) {
@@ -136,15 +235,10 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onStoragePermissionDenied() {
-                // Permission denied - already shown toast
-            }
+            public void onStoragePermissionDenied() { }
         });
     }
 
-    /**
-     * Setup UI listeners
-     */
     private void setupListeners() {
         searchButton.setOnClickListener(v -> {
             String query = searchEditText.getText().toString().trim();
@@ -160,14 +254,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        if (!nowPlayingManager.hasActiveMedia() || nowPlayingManager.getCurrentArtwork() == null) {
-            nowPlayingCard.postDelayed(() -> mediaSessionHandler.checkActiveSessions(), 100);
-        }
-    }
-
-    @Override
     protected void onDestroy() {
         super.onDestroy();
         nowPlayingManager.unregister();
@@ -180,17 +266,11 @@ public class MainActivity extends AppCompatActivity {
         permissionManager.handlePermissionResult(requestCode, permissions, grantResults);
     }
 
-    /**
-     * Search for lyrics by title and artist
-     */
     private void searchLyricsByTitleAndArtist(String title, String artist) {
         searchEditText.setText(title + " " + artist);
         searchSongs(title + " " + artist);
     }
 
-    /**
-     * Open lyrics activity for a song
-     */
     private void openLyricsActivity(Song song) {
         Intent intent = new Intent(this, LyricsActivity.class);
         intent.putExtra("SONG_ID", song.getId());
@@ -198,7 +278,6 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("SONG_ARTIST", song.getArtistName());
         intent.putExtra("SONG_ARTWORK", song.getArtwork());
 
-        // Pass the current file path if available
         String filePath = nowPlayingManager.getCurrentFilePath();
         Uri fileUri = nowPlayingManager.getCurrentFileUri();
         
@@ -212,12 +291,8 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    /**
-     * Search for songs via API
-     */
     private void searchSongs(String query) {
         lastSearchQuery = query;
-        
         runOnUiThread(() -> {
             songLoading.setVisibility(View.VISIBLE);
             songs.clear();
@@ -228,12 +303,10 @@ public class MainActivity extends AppCompatActivity {
         ApiClient.searchSongs(query, new ApiClient.SearchCallback() {
             @Override
             public void onSuccess(ArrayList<Song> results) {
-                // Calculate match scores for all songs
                 for (Song song : results) {
                     song.calculateMatchScore(lastSearchQuery);
                 }
                 
-                // Sort by match score (highest first)
                 Collections.sort(results, new Comparator<Song>() {
                     @Override
                     public int compare(Song s1, Song s2) {

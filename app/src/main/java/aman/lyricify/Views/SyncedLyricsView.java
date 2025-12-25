@@ -455,10 +455,10 @@ public class SyncedLyricsView extends View {
                 float clusterWidth = 0;
 
                 LyricWord firstPiece = line.words.get(i);
-                
+
                 // OPTIMIZATION 1 (Previous): Read directly
                 firstPiece.width = paintActive.measureText(firstPiece.text);
-                
+
                 cluster.add(firstPiece);
                 clusterWidth += firstPiece.width * effectiveMeasureScale;
                 i++;
@@ -474,7 +474,7 @@ public class SyncedLyricsView extends View {
 
                     LyricWord nextPiece = line.words.get(i);
                     nextPiece.width = paintActive.measureText(nextPiece.text);
-                    
+
                     cluster.add(nextPiece);
                     clusterWidth += nextPiece.width * effectiveMeasureScale;
                     i++;
@@ -634,12 +634,23 @@ public class SyncedLyricsView extends View {
         canvas.save();
         canvas.translate(0, -currentScrollY);
 
-        float viewTop = currentScrollY - textHeight;
-        float viewBottom = currentScrollY + getHeight();
+        // --- FIX STARTS HERE ---
+        // We increase the buffer significantly (4x text height) to ensure lines
+        // that are partially visible (or just outside due to bloom/shadows) are still drawn.
+        float buffer = textHeight * 4;
+        float viewTop = currentScrollY - buffer;
+        float viewBottom = currentScrollY + getHeight() + buffer;
+        // --- FIX ENDS HERE ---
 
         for (WrappedLine wl : wrappedLines) {
             float y = wl.y;
-            if (y > viewBottom || y < viewTop) continue;
+
+            // --- VISIBILITY CHECK FIX ---
+            // Relaxed check: Only skip if the line is COMPLETELY out of the buffered view.
+            // "y + textHeight < viewTop" checks if the bottom of the text is above the view.
+            // "y - textHeight > viewBottom" checks if the top of the text is below the view.
+            if (y - textHeight > viewBottom || y + textHeight < viewTop) continue;
+            // -----------------------------
 
             float focusRatio = getFocusRatio(wl.parentLine, wl.nextStartTime);
             focusRatio = Math.max(0f, Math.min(1f, focusRatio));
@@ -654,9 +665,6 @@ public class SyncedLyricsView extends View {
                                 + ((1.0f - (INACTIVE_SCALE / LAYOUT_SCALE)) * focusRatio);
             }
 
-            // OPTIMIZATION: Removed expensive setMaskFilter/setTextScaleX state switching.
-            // We now select the correct Paint object directly.
-
             boolean isPlain = (wl.parentLine.startTime == -1);
             boolean isTimeActive =
                     (currentTime >= wl.parentLine.startTime
@@ -668,9 +676,7 @@ public class SyncedLyricsView extends View {
             Paint currentPaintActive = wl.parentLine.isBackground ? paintActiveBG : paintActive;
             Paint currentPaintDefault = wl.parentLine.isBackground ? paintDefaultBG : paintDefault;
             Paint currentPaintFillV2 = wl.parentLine.isBackground ? paintFillV2BG : paintFillV2;
-            
-            // NOTE: We don't need 'paintPast' for BG logic specifically as it uses Default/Active alpha.
-            
+
             int targetAlpha = 255;
             if (!wl.parentLine.isBackground) {
                 if (isTimePast && wl.parentLine.startTime != -1) {
@@ -699,7 +705,7 @@ public class SyncedLyricsView extends View {
                     dispersedAlpha = 120;
                     currentPaintActive.setAlpha(dispersedAlpha);
                     currentPaintDefault.setAlpha(dispersedAlpha);
-                    
+
                     // We also set these just in case they are used
                     if (wl.parentLine.isBackground) {
                         paintFillBG.setAlpha(dispersedAlpha);
@@ -782,13 +788,14 @@ public class SyncedLyricsView extends View {
                 x += wordWidth;
             }
             canvas.restore();
-            
+
             if (focusRatio > 0.0f && focusRatio < 1.0f) {
                 animatingGlow = true;
             }
         }
         canvas.restore();
 
+        // Debug FPS counter
         canvas.drawText(String.valueOf(currentFps), getWidth() - 50, 100, paintFps);
 
         if (animatingScroll || animatingGlow) {
@@ -805,18 +812,20 @@ public class SyncedLyricsView extends View {
             float wordWidth,
             int alphaOverride) {
         boolean isV2 = (wl.parentLine.vocalType == 2);
-        
+
         // OPTIMIZATION: Select correct paint (Normal vs BG)
-        Paint targetFill = isV2 
-                ? (wl.parentLine.isBackground ? paintFillV2BG : paintFillV2) 
-                : (wl.parentLine.isBackground ? paintFillBG : paintFill);
-                
-        Paint targetBloom = isV2 
-                ? (wl.parentLine.isBackground ? paintBloomV2BG : paintBloomV2)
-                : (wl.parentLine.isBackground ? paintBloomBG : paintBloom);
-                
+        Paint targetFill =
+                isV2
+                        ? (wl.parentLine.isBackground ? paintFillV2BG : paintFillV2)
+                        : (wl.parentLine.isBackground ? paintFillBG : paintFill);
+
+        Paint targetBloom =
+                isV2
+                        ? (wl.parentLine.isBackground ? paintBloomV2BG : paintBloomV2)
+                        : (wl.parentLine.isBackground ? paintBloomBG : paintBloom);
+
         LinearGradient targetGrad = isV2 ? masterGradientV2 : masterGradient;
-        
+
         // Use the BG version of default paint if needed
         Paint currentDefault = wl.parentLine.isBackground ? paintDefaultBG : paintDefault;
 
@@ -863,7 +872,7 @@ public class SyncedLyricsView extends View {
                                 Color.red(shadowColor),
                                 Color.green(shadowColor),
                                 Color.blue(shadowColor));
-                
+
                 // Note: We still set ShadowLayer here for the dynamic color fade.
                 // This is expensive but necessary for the specific look you want.
                 // However, since we now use dedicated Paints, we aren't re-setting the MaskFilter

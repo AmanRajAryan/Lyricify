@@ -179,10 +179,7 @@ public class TagEditorDataManager {
         LinearLayout extendedTagsContainer = activity.getExtendedTagsContainer();
         extendedTagsContainer.removeAllViews();
 
-        // FIX: Access the ACTUAL list from Activity, not a new one
         List<TagEditorActivity.CustomField> customFields = getCustomFieldsFromActivity();
-        
-        // IMPORTANT: Clear the existing list before repopulating to avoid duplicates on reload
         customFields.clear();
 
         TagEditorUIManager uiManager = new TagEditorUIManager(activity);
@@ -244,7 +241,6 @@ public class TagEditorDataManager {
 
             extendedTagsContainer.removeAllViews();
             
-            // Clean up UI views from the container
             for (TagEditorActivity.CustomField f : customFields) {
                 if (f.layout.getParent() == tagFieldsContainer
                         || f.layout.getParent() == extendedTagsContainer) {
@@ -562,12 +558,10 @@ public class TagEditorDataManager {
                 .setMessage("Grant access to: " + p)
                 .setPositiveButton(
                         "Grant",
-                        (d, w) ->
-                                Toast.makeText(
-                                                activity,
-                                                "Please grant permission",
-                                                Toast.LENGTH_LONG)
-                                        .show())
+                        (d, w) -> {
+                            // CHANGED: Call the activity method to open the picker
+                            activity.openDirectoryPicker(p);
+                        })
                 .setNegativeButton(
                         "Cancel",
                         (d, w) -> {
@@ -666,8 +660,6 @@ public class TagEditorDataManager {
     }
 
     private List<TagEditorActivity.CustomField> getCustomFieldsFromActivity() {
-        // FIXED: Access the actual list from the Activity
-        // Note: You must add the getCustomFields() getter to TagEditorActivity for this to work.
         return activity.getCustomFields();
     }
 }

@@ -26,7 +26,7 @@ jobs:
 
       # Build release variants
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew assembleDebug assembleRelease
 
       # Upload APK (app module)
       - name: Upload APK

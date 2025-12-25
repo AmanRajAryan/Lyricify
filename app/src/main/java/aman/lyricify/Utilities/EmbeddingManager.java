@@ -139,11 +139,23 @@ public class EmbeddingManager {
             File tempFile = null;
             try {
                 File originalFile = new File(filePath);
+                
+                // --- 1. Validate Source File ---
                 if (!originalFile.exists()) {
-                    notifyError("File doesn't exist");
+                    notifyError("File not found: " + originalFile.getName());
                     return;
                 }
-                
+                if (!originalFile.canRead()) {
+                    notifyError("Permission denied: Cannot read file.");
+                    return;
+                }
+                long sourceSize = originalFile.length();
+                if (sourceSize == 0) {
+                    notifyError("Original file is empty (0 bytes).");
+                    return;
+                }
+
+                // --- 2. Copy to Temp ---
                 notifyProgress("Copying to cache...");
                 tempFile = new File(
                     context.getCacheDir(),
@@ -151,6 +163,18 @@ public class EmbeddingManager {
                 );
                 copyFile(originalFile, tempFile);
                 
+                // --- 3. Validate Copy ---
+                if (!tempFile.exists()) {
+                    notifyError("Copy failed: Temp file not created.");
+                    return;
+                }
+                if (tempFile.length() != sourceSize) {
+                    notifyError("Copy Incomplete. Source: " + sourceSize + "b, Temp: " + tempFile.length() + "b");
+                    if (tempFile.exists()) tempFile.delete();
+                    return;
+                }
+
+                // --- 4. Embed with TagLib ---
                 notifyProgress("Embedding lyrics...");
                 TagLib tagLib = new TagLib();
                 HashMap<String, String> metadataMap = new HashMap<>();
@@ -159,12 +183,13 @@ public class EmbeddingManager {
                 boolean success = tagLib.setMetadata(tempFile.getAbsolutePath(), metadataMap);
                 
                 if (!success) {
+                    String info = "TempFile Size: " + tempFile.length() + "b";
                     if (tempFile.exists()) tempFile.delete();
-                    notifyError("Failed to embed lyrics");
+                    notifyError("TagLib write failed. " + info);
                     return;
                 }
                 
-                // Save file
+                // --- 5. Save back to original ---
                 final File finalTempFile = tempFile;
                 saveFile(filePath, finalTempFile, "Lyrics embedded successfully!");
                 
@@ -172,7 +197,7 @@ public class EmbeddingManager {
                 if (tempFile != null && tempFile.exists()) {
                     tempFile.delete();
                 }
-                notifyError("Error: " + e.getMessage());
+                notifyError(e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         }).start();
     }
@@ -195,10 +220,12 @@ public class EmbeddingManager {
             File tempFile = null;
             try {
                 File originalFile = new File(filePath);
+                
                 if (!originalFile.exists()) {
-                    notifyError("File doesn't exist");
+                    notifyError("File not found");
                     return;
                 }
+                long sourceSize = originalFile.length();
                 
                 notifyProgress("Converting image...");
                 ByteArrayOutputStream stream = new ByteArrayOutputStream();
@@ -212,6 +239,13 @@ public class EmbeddingManager {
                 );
                 copyFile(originalFile, tempFile);
                 
+                // Validate Copy
+                if (tempFile.length() != sourceSize) {
+                    notifyError("Copy failed. Source: " + sourceSize + "b, Temp: " + tempFile.length() + "b");
+                    if(tempFile.exists()) tempFile.delete();
+                    return;
+                }
+
                 notifyProgress("Embedding artwork...");
                 TagLib tagLib = new TagLib();
                 boolean success = tagLib.setArtwork(
@@ -223,11 +257,10 @@ public class EmbeddingManager {
                 
                 if (!success) {
                     if (tempFile.exists()) tempFile.delete();
-                    notifyError("Failed to embed artwork");
+                    notifyError("TagLib failed to set artwork.");
                     return;
                 }
                 
-                // Save file
                 final File finalTempFile = tempFile;
                 saveFile(filePath, finalTempFile, "Artwork embedded successfully!");
                 
@@ -235,14 +268,11 @@ public class EmbeddingManager {
                 if (tempFile != null && tempFile.exists()) {
                     tempFile.delete();
                 }
-                notifyError("Error: " + e.getMessage());
+                notifyError(e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         }).start();
     }
     
-    /**
-     * Save modified file back to original location
-     */
     private void saveFile(String originalPath, File tempFile, String successMessage) {
         Context context = contextRef.get();
         if (context == null) return;
@@ -261,7 +291,7 @@ public class EmbeddingManager {
             
             @Override
             public void onError(String errorMessage) {
-                notifyError(errorMessage);
+                notifyError("Save Error: " + errorMessage);
             }
             
             @Override
@@ -273,9 +303,6 @@ public class EmbeddingManager {
         });
     }
     
-    /**
-     * Copy file from source to destination
-     */
     private void copyFile(File source, File dest) throws IOException {
         try (FileInputStream fis = new FileInputStream(source);
              FileOutputStream fos = new FileOutputStream(dest)) {
@@ -288,9 +315,6 @@ public class EmbeddingManager {
         }
     }
     
-    /**
-     * Extract filename from path
-     */
     public String extractFileName(String filePath) {
         if (filePath == null) return "Unknown";
         int lastSlash = filePath.lastIndexOf('/');
@@ -299,7 +323,6 @@ public class EmbeddingManager {
                 : filePath;
     }
     
-    // Notification methods
     private void notifyProgress(String message) {
         if (callback != null) {
             callback.onProgressUpdate(message);

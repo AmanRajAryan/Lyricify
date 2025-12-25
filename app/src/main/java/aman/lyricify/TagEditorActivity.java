@@ -24,6 +24,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.bumptech.glide.Glide;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -413,13 +414,25 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     }
 
     private void showRestoreConfirmation() {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("Restore to Original")
                 .setMessage("Revert all changes to how they were when you opened this file?")
                 .setPositiveButton("Restore", (dialog, which) -> restoreOriginalTags())
                 .setNegativeButton("Cancel", null)
                 .show();
     }
+
+    // --- NEW ERROR DIALOG METHOD ---
+    public void showErrorDialog(String title, String message) {
+        runOnUiThread(() -> {
+            new MaterialAlertDialogBuilder(this)
+                    .setTitle(title)
+                    .setMessage(message)
+                    .setPositiveButton("OK", null)
+                    .show();
+        });
+    }
+    // ---------------------------------
 
     private void restoreOriginalTags() {
         dataManager.restoreOriginalTags(
@@ -691,7 +704,7 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                         lyricsMultiEditText);
 
         if (hasChanges)
-            new AlertDialog.Builder(this)
+            new MaterialAlertDialogBuilder(this)
                     .setTitle("Discard?")
                     .setPositiveButton("Discard", (d, w) -> super.onBackPressed())
                     .setNegativeButton("Cancel", null)

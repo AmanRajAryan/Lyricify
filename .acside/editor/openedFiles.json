@@ -1,0 +1,35 @@
+{
+  "allFiles": [
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Adapters/LocalSongAdapter.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 5333,
+          "line": 155
+        },
+        "start": {
+          "column": 0,
+          "index": 5333,
+          "line": 155
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/MainActivity.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 22412,
+          "line": 559
+        },
+        "start": {
+          "column": 0,
+          "index": 22412,
+          "line": 559
+        }
+      }
+    }
+  ],
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Adapters/LocalSongAdapter.java"
+}

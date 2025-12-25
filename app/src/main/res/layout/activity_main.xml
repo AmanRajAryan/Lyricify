@@ -135,7 +135,7 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/searchButton"
+            android:id="@+id/sortButton"
             android:layout_width="50dp"
             android:layout_height="45dp"
             android:layout_marginStart="8dp"
@@ -143,7 +143,7 @@
             android:insetBottom="0dp"
             android:insetTop="0dp"
             app:cornerRadius="16dp"
-            app:icon="@drawable/ic_search"
+            app:icon="@drawable/ic_sort"
             app:iconGravity="textStart"
             app:iconPadding="0dp"
             app:iconTint="#000" />
@@ -158,14 +158,6 @@
         android:indeterminateTint="@color/primary_purple"
         android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/debugTextView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="8dp"
-        android:textSize="10sp"
-        android:textColor="@color/text_secondary" />
-
     <ListView
         android:id="@+id/songListView"
         android:layout_width="match_parent"
@@ -175,14 +167,8 @@
         android:dividerHeight="0dp"
         android:clipToPadding="false"
         android:paddingBottom="16dp"
-        android:scrollbars="none" />
-
-    <ProgressBar
-        android:id="@+id/lyricsLoading"
-        style="?android:attr/progressBarStyle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:visibility="gone" />
+        android:scrollbars="vertical"
+        android:fastScrollEnabled="true"
+        android:fastScrollAlwaysVisible="true" />
 
 </LinearLayout>

@@ -123,11 +123,12 @@ public class TagEditorDataManager {
                                 activity.runOnUiThread(
                                         () -> {
                                             hideLoading.run();
-                                            Toast.makeText(
-                                                            activity,
-                                                            "Error reading tags: " + e.getMessage(),
-                                                            Toast.LENGTH_SHORT)
-                                                    .show();
+                                            // CHANGED: Use Error Dialog
+                                            String err =
+                                                    e.getClass().getSimpleName()
+                                                            + ": "
+                                                            + e.getMessage();
+                                            activity.showErrorDialog("Read Error", err);
                                         });
                             }
                         })
@@ -195,8 +196,7 @@ public class TagEditorDataManager {
         }
     }
 
-    private void loadArtworkFromUrl(String url) {
-    }
+    private void loadArtworkFromUrl(String url) {}
 
     public void restoreOriginalTags(
             HashMap<String, String> originalMetadata,
@@ -245,7 +245,7 @@ public class TagEditorDataManager {
             lyricsMultiEditText.setText(originalMetadata.getOrDefault("LYRICS", ""));
 
             extendedTagsContainer.removeAllViews();
-            
+
             for (TagEditorActivity.CustomField f : customFields) {
                 if (f.layout.getParent() == tagFieldsContainer
                         || f.layout.getParent() == extendedTagsContainer) {
@@ -368,7 +368,8 @@ public class TagEditorDataManager {
                                 newMetadataMap.put(
                                         "ALBUM", albumEditText.getText().toString().trim());
                                 newMetadataMap.put(
-                                        "ALBUMARTIST", albumArtistEditText.getText().toString().trim());
+                                        "ALBUMARTIST",
+                                        albumArtistEditText.getText().toString().trim());
                                 newMetadataMap.put(
                                         "GENRE", genreEditText.getText().toString().trim());
                                 newMetadataMap.put(
@@ -422,6 +423,20 @@ public class TagEditorDataManager {
                                 }
 
                                 File originalFile = new File(filePath);
+
+                                if (!originalFile.exists()) {
+                                    throw new Exception(
+                                            "File not found: " + originalFile.getName());
+                                }
+                                if (!originalFile.canRead()) {
+
+                                    throw new Exception("Permission denied: Cannot read file.");
+                                }
+                                long sourceSize = originalFile.length();
+                                if (sourceSize == 0) {
+                                    throw new Exception("Original file is empty (0 bytes).");
+                                }
+
                                 File tempFile =
                                         new File(
                                                 activity.getCacheDir(),
@@ -462,8 +477,14 @@ public class TagEditorDataManager {
                                                 tempFile.getAbsolutePath(), newMetadataMap);
 
                                 if (!metadataSuccess) {
+                                    String failReason = "TagLib write returned false. ";
+                                    if (!tempFile.exists()) failReason += "Temp file missing. ";
+                                    else if (!tempFile.canWrite())
+                                        failReason += "Temp file read-only. ";
+                                    else failReason += "Size: " + tempFile.length() + "b. ";
+
                                     if (tempFile.exists()) tempFile.delete();
-                                    throw new Exception("Metadata write failed");
+                                    throw new Exception(failReason);
                                 }
 
                                 if (artworkChanged && selectedArtwork != null) {
@@ -518,11 +539,9 @@ public class TagEditorDataManager {
                                                 activity.runOnUiThread(
                                                         () -> {
                                                             hideLoading.run();
-                                                            Toast.makeText(
-                                                                            activity,
-                                                                            "Save Error: " + e,
-                                                                            Toast.LENGTH_LONG)
-                                                                    .show();
+                                                            // CHANGED: Use Error Dialog
+                                                            activity.showErrorDialog(
+                                                                    "Storage Write Error", e);
                                                         });
                                             }
 
@@ -541,11 +560,12 @@ public class TagEditorDataManager {
                                 activity.runOnUiThread(
                                         () -> {
                                             hideLoading.run();
-                                            Toast.makeText(
-                                                            activity,
-                                                            "Error: " + e.getMessage(),
-                                                            Toast.LENGTH_LONG)
-                                                    .show();
+                                            // CHANGED: Use Error Dialog
+                                            String err =
+                                                    e.getClass().getSimpleName()
+                                                            + ": "
+                                                            + e.getMessage();
+                                            activity.showErrorDialog("Save Error", err);
                                         });
                             }
                         })
@@ -570,7 +590,6 @@ public class TagEditorDataManager {
                 .setPositiveButton(
                         "Grant",
                         (d, w) -> {
-                            // CHANGED: Call the activity method to open the picker
                             activity.openDirectoryPicker(p);
                         })
                 .setNegativeButton(
@@ -612,29 +631,53 @@ public class TagEditorDataManager {
             normalizedOriginal.put(entry.getKey().toUpperCase(), entry.getValue());
         }
 
-        if (!equals(titleEditText.getText().toString(), normalizedOriginal.get("TITLE"))) return true;
-        if (!equals(artistEditText.getText().toString(), normalizedOriginal.get("ARTIST"))) return true;
-        if (!equals(albumEditText.getText().toString(), normalizedOriginal.get("ALBUM"))) return true;
-        if (!equals(albumArtistEditText.getText().toString(), normalizedOriginal.get("ALBUMARTIST"))) return true;
-        if (!equals(genreEditText.getText().toString(), normalizedOriginal.get("GENRE"))) return true;
+        if (!equals(titleEditText.getText().toString(), normalizedOriginal.get("TITLE")))
+            return true;
+        if (!equals(artistEditText.getText().toString(), normalizedOriginal.get("ARTIST")))
+            return true;
+        if (!equals(albumEditText.getText().toString(), normalizedOriginal.get("ALBUM")))
+            return true;
+        if (!equals(
+                albumArtistEditText.getText().toString(), normalizedOriginal.get("ALBUMARTIST")))
+            return true;
+        if (!equals(genreEditText.getText().toString(), normalizedOriginal.get("GENRE")))
+            return true;
         if (!equals(yearEditText.getText().toString(), normalizedOriginal.get("DATE"))) return true;
-        if (!equals(trackNumberEditText.getText().toString(), normalizedOriginal.get("TRACKNUMBER"))) return true;
-        if (!equals(discNumberEditText.getText().toString(), normalizedOriginal.getOrDefault("DISCNUMBER", ""))) return true;
-        if (!equals(composerEditText.getText().toString(), normalizedOriginal.get("COMPOSER"))) return true;
+        if (!equals(
+                trackNumberEditText.getText().toString(), normalizedOriginal.get("TRACKNUMBER")))
+            return true;
+        if (!equals(
+                discNumberEditText.getText().toString(),
+                normalizedOriginal.getOrDefault("DISCNUMBER", ""))) return true;
+        if (!equals(composerEditText.getText().toString(), normalizedOriginal.get("COMPOSER")))
+            return true;
 
         String originalSongwriter = normalizedOriginal.get("LYRICIST");
         if (originalSongwriter == null) originalSongwriter = normalizedOriginal.get("WRITER");
         if (!equals(songwriterEditText.getText().toString(), originalSongwriter)) return true;
 
-        if (!equals(commentEditText.getText().toString(), normalizedOriginal.get("COMMENT"))) return true;
-        if (!equals(releaseDateEditText.getText().toString(), normalizedOriginal.getOrDefault("RELEASEDATE", ""))) return true;
-        if (!equals(audioLocaleEditText.getText().toString(), normalizedOriginal.getOrDefault("LOCALE", ""))) return true;
-        if (!equals(languageEditText.getText().toString(), normalizedOriginal.getOrDefault("LANGUAGE", ""))) return true;
+        if (!equals(commentEditText.getText().toString(), normalizedOriginal.get("COMMENT")))
+            return true;
+        if (!equals(
+                releaseDateEditText.getText().toString(),
+                normalizedOriginal.getOrDefault("RELEASEDATE", ""))) return true;
+        if (!equals(
+                audioLocaleEditText.getText().toString(),
+                normalizedOriginal.getOrDefault("LOCALE", ""))) return true;
+        if (!equals(
+                languageEditText.getText().toString(),
+                normalizedOriginal.getOrDefault("LANGUAGE", ""))) return true;
 
-        if (!equals(unsyncedLyricsEditText.getText().toString(), normalizedOriginal.getOrDefault("UNSYNCEDLYRICS", ""))) return true;
-        if (!equals(lrcEditText.getText().toString(), normalizedOriginal.getOrDefault("LRC", ""))) return true;
-        if (!equals(elrcEditText.getText().toString(), normalizedOriginal.getOrDefault("ELRC", ""))) return true;
-        if (!equals(lyricsMultiEditText.getText().toString(), normalizedOriginal.getOrDefault("LYRICS", ""))) return true;
+        if (!equals(
+                unsyncedLyricsEditText.getText().toString(),
+                normalizedOriginal.getOrDefault("UNSYNCEDLYRICS", ""))) return true;
+        if (!equals(lrcEditText.getText().toString(), normalizedOriginal.getOrDefault("LRC", "")))
+            return true;
+        if (!equals(elrcEditText.getText().toString(), normalizedOriginal.getOrDefault("ELRC", "")))
+            return true;
+        if (!equals(
+                lyricsMultiEditText.getText().toString(),
+                normalizedOriginal.getOrDefault("LYRICS", ""))) return true;
 
         // Custom Tags Comparison
         Map<String, String> currentExtended = new HashMap<>();

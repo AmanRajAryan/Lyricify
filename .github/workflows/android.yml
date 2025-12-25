@@ -33,7 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
-          path: app/build/outputs/apk/*.apk
+          path: app/build/outputs/apk/**/*.apk
 
       # Upload AARs (library modules, if any)
       - name: Upload AAR

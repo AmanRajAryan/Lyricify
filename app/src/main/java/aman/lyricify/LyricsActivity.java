@@ -11,10 +11,12 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.webkit.WebView;
 import android.widget.*;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -26,6 +28,8 @@ import com.google.android.material.floatingactionbutton.ExtendedFloatingActionBu
 
 import java.util.ArrayList;
 import java.util.List;
+
+import aman.youly.LyricsSharedEngine;
 
 public class LyricsActivity extends AppCompatActivity {
 
@@ -75,6 +79,9 @@ public class LyricsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_lyrics);
+        
+        // 1. WARM UP THE ENGINE & PREPARE FOR BACKGROUND SEARCH
+        LyricsSharedEngine.getInstance(this);
 
         setupDirectoryPickerLauncher();
         initializeViews();
@@ -89,6 +96,36 @@ public class LyricsActivity extends AppCompatActivity {
 
         fetchLyrics();
         setupButtonListeners();
+
+        // 2. TRIGGER BACKGROUND SEARCH (Phase 1)
+        // This starts the WebView search silently while user reads metadata
+        triggerBackgroundSearch();
+    }
+
+    /**
+     * SPLIT ARCHITECTURE: PHASE 1
+     * Silently triggers the JS engine to search for this song.
+     * The result is cached in memory, ready for SyncedLyricsActivity.
+     */
+    private void triggerBackgroundSearch() {
+        if (title == null || artist == null) return;
+
+        WebView webView = LyricsSharedEngine.getInstance(this).getWebView();
+        if (webView != null) {
+            String safeTitle = title.replace("'", "\\'");
+            String safeArtist = artist.replace("'", "\\'");
+            String safeAlbum = ""; 
+            long duration = 0; // Default if not passed in intent
+
+            Log.d("Lyricify", "Triggering Background Search for: " + safeTitle);
+
+            // Calls 'searchSong' in JS (Sets background mode)
+            String js = String.format(
+                    "if(window.AndroidAPI) window.AndroidAPI.searchSong('%s', '%s', '%s', %d);",
+                    safeTitle, safeArtist, safeAlbum, duration);
+            
+            webView.post(() -> webView.evaluateJavascript(js, null));
+        }
     }
 
     private void setupDirectoryPickerLauncher() {
@@ -103,8 +140,10 @@ public class LyricsActivity extends AppCompatActivity {
                                             .takePersistableUriPermission(
                                                     treeUri,
                                                     Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                                    Toast.makeText(this, "✓ Access granted!", Toast.LENGTH_LONG).show();
+                                                            | Intent
+                                                                    .FLAG_GRANT_WRITE_URI_PERMISSION);
+                                    Toast.makeText(this, "✓ Access granted!", Toast.LENGTH_LONG)
+                                            .show();
                                 }
                             }
                         });
@@ -114,6 +153,7 @@ public class LyricsActivity extends AppCompatActivity {
         songArtwork = findViewById(R.id.songArtwork);
         immersiveBackground = findViewById(R.id.immersiveBackground);
         songTitle = findViewById(R.id.songTitle);
+        songTitle.setSelected(true);
         songArtist = findViewById(R.id.songArtist);
         songFilePath = findViewById(R.id.songFilePath);
 
@@ -136,42 +176,67 @@ public class LyricsActivity extends AppCompatActivity {
     }
 
     private void initializeManagers() {
-        songInfoDisplay = new SongInfoDisplay(this, songArtwork, immersiveBackground,
-                songTitle, songArtist, songFilePath);
+        songInfoDisplay =
+                new SongInfoDisplay(
+                        this,
+                        songArtwork,
+                        immersiveBackground,
+                        songTitle,
+                        songArtist,
+                        songFilePath);
 
         lyricsFetcher = new LyricsFetcher(lyricsTextView, lyricsLoading);
-        lyricsFetcher.setCallback(new LyricsFetcher.LyricsCallback() {
-            @Override
-            public void onLyricsLoaded(ApiClient.LyricsResponse lyricsResponse) {
-                currentLyricsResponse = lyricsResponse;
-                ApiClient.updateCache(lyricsResponse);
-                runOnUiThread(() -> updateFormatAvailability(lyricsResponse));
-            }
+        lyricsFetcher.setCallback(
+                new LyricsFetcher.LyricsCallback() {
+                    @Override
+                    public void onLyricsLoaded(ApiClient.LyricsResponse lyricsResponse) {
+                        currentLyricsResponse = lyricsResponse;
+                        ApiClient.updateCache(lyricsResponse);
+                        runOnUiThread(() -> updateFormatAvailability(lyricsResponse));
+                    }
 
-            @Override
-            public void onLyricsError(String error) {
-                // Handle error
-            }
-        });
+                    @Override
+                    public void onLyricsError(String error) {
+                        // Handle error
+                    }
+                });
 
         metadataManager = new MetadataManager(this);
         embeddingManager = new EmbeddingManager(this);
         embeddingManager.setCallback(
                 new EmbeddingManager.EmbeddingCallback() {
                     @Override
-                    public void onProgressUpdate(String message) { updateProgressDialog(message); }
+                    public void onProgressUpdate(String message) {
+                        updateProgressDialog(message);
+                    }
+
                     @Override
                     public void onEmbedSuccess(String successMessage) {
-                        runOnUiThread(() -> { dismissProgressDialog(); showSuccessDialog(successMessage); });
+                        runOnUiThread(
+                                () -> {
+                                    dismissProgressDialog();
+                                    showSuccessDialog(successMessage);
+                                });
                     }
+
                     @Override
                     public void onEmbedError(String errorMessage) {
-                        runOnUiThread(() -> { dismissProgressDialog(); showErrorDialog(errorMessage); });
+                        runOnUiThread(
+                                () -> {
+                                    dismissProgressDialog();
+                                    showErrorDialog(errorMessage);
+                                });
                     }
+
                     @Override
                     public void onNeedPermission(String folderPath) {
-                        runOnUiThread(() -> { dismissProgressDialog(); showPermissionDialog(folderPath); });
+                        runOnUiThread(
+                                () -> {
+                                    dismissProgressDialog();
+                                    showPermissionDialog(folderPath);
+                                });
                     }
+
                     @Override
                     public void onShowMetadata(String filePath) {
                         runOnUiThread(() -> metadataManager.showMetadataDialog(filePath));
@@ -187,7 +252,8 @@ public class LyricsActivity extends AppCompatActivity {
             updateSelectorState(false);
             hasElrcIndicator.setText("None");
             hasElrcIndicator.setTextColor(Color.parseColor("#80FFFFFF"));
-            statusDot.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FF5252"))); // Red
+            statusDot.setBackgroundTintList(
+                    ColorStateList.valueOf(Color.parseColor("#FF5252"))); // Red
             return;
         }
 
@@ -199,9 +265,11 @@ public class LyricsActivity extends AppCompatActivity {
             hasLrc = true;
         }
 
-        if ((response.elrc != null && !response.elrc.isEmpty() && !response.elrc.equals("null")) ||
-            (response.elrcMultiPerson != null && !response.elrcMultiPerson.isEmpty() && !response.elrcMultiPerson.equals("null"))) {
-            
+        if ((response.elrc != null && !response.elrc.isEmpty() && !response.elrc.equals("null"))
+                || (response.elrcMultiPerson != null
+                        && !response.elrcMultiPerson.isEmpty()
+                        && !response.elrcMultiPerson.equals("null"))) {
+
             if (response.elrc != null) availableFormats.add("ELRC");
             if (response.elrcMultiPerson != null) availableFormats.add("ELRC Multi-Person");
             hasElrc = true;
@@ -210,11 +278,13 @@ public class LyricsActivity extends AppCompatActivity {
         if (hasElrc) {
             hasElrcIndicator.setText("ELRC");
             hasElrcIndicator.setTextColor(Color.WHITE);
-            statusDot.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#4CAF50"))); // Green
+            statusDot.setBackgroundTintList(
+                    ColorStateList.valueOf(Color.parseColor("#4CAF50"))); // Green
         } else if (hasLrc) {
             hasElrcIndicator.setText("LRC");
             hasElrcIndicator.setTextColor(Color.WHITE);
-            statusDot.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FFC107"))); // Amber
+            statusDot.setBackgroundTintList(
+                    ColorStateList.valueOf(Color.parseColor("#FFC107"))); // Amber
         } else {
             hasElrcIndicator.setText("Plain");
             hasElrcIndicator.setTextColor(Color.LTGRAY);
@@ -230,70 +300,60 @@ public class LyricsActivity extends AppCompatActivity {
         formatSelectorButton.setAlpha(enabled ? 1.0f : 0.5f);
     }
 
-    /**
-     * Shows a modern Material Bottom Sheet using a custom layout.
-     */
     private void showFormatSelectionSheet() {
         if (availableFormats.size() <= 1) {
-             Toast.makeText(this, "Only Plain format available", Toast.LENGTH_SHORT).show();
-             return;
+            Toast.makeText(this, "Only Plain format available", Toast.LENGTH_SHORT).show();
+            return;
         }
 
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this);
-        
-        // 1. Inflate the custom layout
         View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_formats, null);
         LinearLayout container = sheetView.findViewById(R.id.sheetListContainer);
         bottomSheetDialog.setContentView(sheetView);
-        
-        // 2. FIX: Remove default background artifact using setOnShowListener
-        bottomSheetDialog.setOnShowListener(dialog -> {
-            BottomSheetDialog d = (BottomSheetDialog) dialog;
-            // Find the bottom sheet container view
-            View bottomSheet = d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                // Set its background to transparent so only our rounded layout shows
-                bottomSheet.setBackgroundResource(android.R.color.transparent);
-            }
-        });
 
-        // 3. Resolve selectable background correctly
+        bottomSheetDialog.setOnShowListener(
+                dialog -> {
+                    BottomSheetDialog d = (BottomSheetDialog) dialog;
+                    View bottomSheet =
+                            d.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+                    if (bottomSheet != null) {
+                        bottomSheet.setBackgroundResource(android.R.color.transparent);
+                    }
+                });
+
         TypedValue outValue = new TypedValue();
         getTheme().resolveAttribute(android.R.attr.selectableItemBackground, outValue, true);
         int selectableBackgroundId = outValue.resourceId;
 
-        // 4. Populate options
         for (String format : availableFormats) {
-            // Create a Horizontal Layout for each item
             LinearLayout itemLayout = new LinearLayout(this);
             itemLayout.setOrientation(LinearLayout.HORIZONTAL);
-            itemLayout.setLayoutParams(new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, 
-                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            itemLayout.setLayoutParams(
+                    new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT));
             itemLayout.setGravity(Gravity.CENTER_VERTICAL);
             itemLayout.setPadding(60, 32, 60, 32);
-            itemLayout.setBackgroundResource(selectableBackgroundId); 
+            itemLayout.setBackgroundResource(selectableBackgroundId);
 
-            // Checkmark Icon (Visible if selected)
             ImageView checkIcon = new ImageView(this);
-            checkIcon.setImageResource(R.drawable.ic_check_circle); 
+            checkIcon.setImageResource(R.drawable.ic_check_circle);
             checkIcon.setColorFilter(Color.parseColor("#4CAF50")); // Green
             LinearLayout.LayoutParams checkParams = new LinearLayout.LayoutParams(50, 50);
             checkParams.setMarginEnd(32);
             checkIcon.setLayoutParams(checkParams);
-            
+
             if (format.equals(currentFormat)) {
                 checkIcon.setVisibility(View.VISIBLE);
             } else {
-                checkIcon.setVisibility(View.INVISIBLE); // Keep space
+                checkIcon.setVisibility(View.INVISIBLE);
             }
 
-            // Text Label
             TextView optionText = new TextView(this);
             optionText.setText(format);
             optionText.setTextSize(16);
             optionText.setTextColor(Color.WHITE);
-            
+
             if (format.equals(currentFormat)) {
                 optionText.setTypeface(null, Typeface.BOLD);
                 optionText.setTextColor(Color.parseColor("#4CAF50"));
@@ -304,14 +364,14 @@ public class LyricsActivity extends AppCompatActivity {
             itemLayout.addView(checkIcon);
             itemLayout.addView(optionText);
 
-            // Click Listener
-            itemLayout.setOnClickListener(v -> {
-                currentFormat = format;
-                currentFormatText.setText(format);
-                lyricsFetcher.displayFormat(format);
-                updateSyncedLyricsButtonState();
-                bottomSheetDialog.dismiss();
-            });
+            itemLayout.setOnClickListener(
+                    v -> {
+                        currentFormat = format;
+                        currentFormatText.setText(format);
+                        lyricsFetcher.displayFormat(format);
+                        updateSyncedLyricsButtonState();
+                        bottomSheetDialog.dismiss();
+                    });
 
             container.addView(itemLayout);
         }
@@ -329,18 +389,19 @@ public class LyricsActivity extends AppCompatActivity {
         saveLrcButton.setOnClickListener(v -> handleSaveLrc());
         syncedLyricsButton.setOnClickListener(v -> openSyncedLyricsView());
 
-        editTagsButton.setOnClickListener(v -> {
-            Intent intent = new Intent(LyricsActivity.this, TagEditorActivity.class);
-            intent.putExtra("FILE_PATH", filePath);
-            intent.putExtra("SONG_TITLE", title);
-            intent.putExtra("SONG_ARTIST", artist);
-            intent.putExtra("ARTWORK_URL", artworkUrl);
-            intent.putExtra("SONG_ID", songId);
-            if (currentLyricsResponse != null) {
-                intent.putExtra("CACHED_METADATA", currentLyricsResponse);
-            }
-            startActivity(intent);
-        });
+        editTagsButton.setOnClickListener(
+                v -> {
+                    Intent intent = new Intent(LyricsActivity.this, TagEditorActivity.class);
+                    intent.putExtra("FILE_PATH", filePath);
+                    intent.putExtra("SONG_TITLE", title);
+                    intent.putExtra("SONG_ARTIST", artist);
+                    intent.putExtra("ARTWORK_URL", artworkUrl);
+                    intent.putExtra("SONG_ID", songId);
+                    if (currentLyricsResponse != null) {
+                        intent.putExtra("CACHED_METADATA", currentLyricsResponse);
+                    }
+                    startActivity(intent);
+                });
     }
 
     private void extractIntentData() {
@@ -365,7 +426,7 @@ public class LyricsActivity extends AppCompatActivity {
             lyricsLoading.setVisibility(View.GONE);
         }
     }
-    
+
     private void updateSyncedLyricsButtonState() {
         boolean isPlainFormat = currentFormat.equals("Plain");
         syncedLyricsButton.setEnabled(!isPlainFormat);
@@ -382,43 +443,60 @@ public class LyricsActivity extends AppCompatActivity {
     }
 
     private void handleSaveLrc() {
-         if (filePath == null || filePath.isEmpty()) { Toast.makeText(this, "No file path", Toast.LENGTH_SHORT).show(); return; }
-         if (!lyricsFetcher.hasValidLyrics()) { Toast.makeText(this, "No lyrics", Toast.LENGTH_SHORT).show(); return; }
-         
-         String fileName = embeddingManager.extractFileName(filePath);
-         String lrcFileName = fileName.substring(0, fileName.lastIndexOf('.')) + ".lrc";
-         
-         new AlertDialog.Builder(this)
-             .setTitle("Save LRC")
-             .setMessage("Save as: " + lrcFileName)
-             .setPositiveButton("Save", (d,w)->{
-                 showProgressDialog("Saving...", "Processing");
-                 embeddingManager.saveLrcFile(filePath, lyricsFetcher.getCurrentLyrics());
-             })
-             .setNegativeButton("Cancel", null)
-             .show();
+        if (filePath == null || filePath.isEmpty()) {
+            Toast.makeText(this, "No file path", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!lyricsFetcher.hasValidLyrics()) {
+            Toast.makeText(this, "No lyrics", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String fileName = embeddingManager.extractFileName(filePath);
+        String lrcFileName = fileName.substring(0, fileName.lastIndexOf('.')) + ".lrc";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Save LRC")
+                .setMessage("Save as: " + lrcFileName)
+                .setPositiveButton(
+                        "Save",
+                        (d, w) -> {
+                            showProgressDialog("Saving...", "Processing");
+                            embeddingManager.saveLrcFile(
+                                    filePath, lyricsFetcher.getCurrentLyrics());
+                        })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void handleEmbedLyrics() {
         if (!embeddingManager.canEmbed(filePath)) return;
         if (!lyricsFetcher.hasValidLyrics()) return;
         if (embeddingManager.isFileLocked(filePath)) {
-            embeddingManager.showFileLockedWarning(this, filePath, this::showEmbedLyricsConfirmation);
+            embeddingManager.showFileLockedWarning(
+                    this, filePath, this::showEmbedLyricsConfirmation);
             return;
         }
         showEmbedLyricsConfirmation();
     }
-    
+
     private void showEmbedLyricsConfirmation() {
         new AlertDialog.Builder(this)
-            .setTitle("Embed Lyrics")
-            .setMessage("File: " + embeddingManager.extractFileName(filePath) + "\nFormat: " + currentFormat)
-            .setPositiveButton("Yes", (d, w) -> {
-                showProgressDialog("Embedding...", "Processing");
-                embeddingManager.embedLyrics(filePath, lyricsFetcher.getCurrentLyrics());
-            })
-            .setNegativeButton("Cancel", null)
-            .show();
+                .setTitle("Embed Lyrics")
+                .setMessage(
+                        "File: "
+                                + embeddingManager.extractFileName(filePath)
+                                + "\nFormat: "
+                                + currentFormat)
+                .setPositiveButton(
+                        "Yes",
+                        (d, w) -> {
+                            showProgressDialog("Embedding...", "Processing");
+                            embeddingManager.embedLyrics(
+                                    filePath, lyricsFetcher.getCurrentLyrics());
+                        })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void openSyncedLyricsView() {
@@ -432,33 +510,62 @@ public class LyricsActivity extends AppCompatActivity {
         intent.putExtra("ARTWORK_URL", artworkUrl);
         startActivity(intent);
     }
-    
+
     private void showProgressDialog(String title, String message) {
         dismissProgressDialog();
-        progressDialog = new AlertDialog.Builder(this).setTitle(title).setMessage(message).setCancelable(false).create();
+        progressDialog =
+                new AlertDialog.Builder(this)
+                        .setTitle(title)
+                        .setMessage(message)
+                        .setCancelable(false)
+                        .create();
         progressDialog.show();
     }
+
     private void updateProgressDialog(String message) {
-        runOnUiThread(() -> { if (progressDialog != null && progressDialog.isShowing()) progressDialog.setMessage(message); });
+        runOnUiThread(
+                () -> {
+                    if (progressDialog != null && progressDialog.isShowing())
+                        progressDialog.setMessage(message);
+                });
     }
+
     private void dismissProgressDialog() {
         if (progressDialog != null && progressDialog.isShowing()) progressDialog.dismiss();
     }
+
     private void showSuccessDialog(String message) {
-        new AlertDialog.Builder(this).setTitle("✓ Success!").setMessage(message)
-                .setPositiveButton("Metadata", (d, w) -> metadataManager.showMetadataDialog(filePath))
-                .setNegativeButton("Close", null).show();
+        new AlertDialog.Builder(this)
+                .setTitle("✓ Success!")
+                .setMessage(message)
+                .setPositiveButton(
+                        "Metadata", (d, w) -> metadataManager.showMetadataDialog(filePath))
+                .setNegativeButton("Close", null)
+                .show();
     }
+
     private void showErrorDialog(String errorMessage) {
-        new AlertDialog.Builder(this).setTitle("Error").setMessage(errorMessage).setPositiveButton("OK", null).show();
+        new AlertDialog.Builder(this)
+                .setTitle("Error")
+                .setMessage(errorMessage)
+                .setPositiveButton("OK", null)
+                .show();
     }
+
     private void showPermissionDialog(String folderPath) {
-        new AlertDialog.Builder(this).setTitle("Permission").setMessage("Grant access to: " + folderPath)
-                .setPositiveButton("Grant", (d, w) -> {
-                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-                    Uri initialUri = FileSaver.getFolderUriForPath(folderPath);
-                    if (initialUri != null) intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri);
-                    directoryPickerLauncher.launch(intent);
-                }).setNegativeButton("Cancel", null).show();
+        new AlertDialog.Builder(this)
+                .setTitle("Permission")
+                .setMessage("Grant access to: " + folderPath)
+                .setPositiveButton(
+                        "Grant",
+                        (d, w) -> {
+                            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+                            Uri initialUri = FileSaver.getFolderUriForPath(folderPath);
+                            if (initialUri != null)
+                                intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri);
+                            directoryPickerLauncher.launch(intent);
+                        })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 }

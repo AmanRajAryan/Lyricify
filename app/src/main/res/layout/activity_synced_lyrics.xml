@@ -36,6 +36,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <FrameLayout
+        android:id="@+id/webViewContainer"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginBottom="100dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/headerCard"
         android:layout_width="match_parent"
@@ -153,18 +164,18 @@
             android:orientation="horizontal">
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/adjustTimingButton"
+                android:id="@+id/playerChangerButton"
                 style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:padding="0dp"
-                app:icon="@drawable/ic_timer"
+                app:icon="@drawable/ic_swap_horiz"
                 app:iconTint="#FFFFFF"
                 app:iconSize="24dp"
                 app:iconGravity="textStart"
                 app:iconPadding="0dp"
                 app:cornerRadius="24dp"
-                android:tooltipText="Adjust Sync" />
+                android:tooltipText="Change Player" />
 
             <View
                 android:layout_width="0dp"

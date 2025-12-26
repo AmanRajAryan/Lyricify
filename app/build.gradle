@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'aman.lyricify'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "aman.lyricify"
@@ -63,6 +63,8 @@ android {
 }
 
 dependencies {
+    implementation project(':youLy')
+
 
     // Networking
     implementation 'com.squareup.okhttp3:okhttp:4.11.0'

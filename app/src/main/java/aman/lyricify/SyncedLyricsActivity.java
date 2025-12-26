@@ -1,8 +1,6 @@
 package aman.lyricify;
 
-import android.app.AlertDialog;
 import android.content.ComponentName;
-import android.content.Intent;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
@@ -16,10 +14,11 @@ import android.view.WindowManager;
 import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
-
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.fragment.app.FragmentTransaction;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 import com.google.android.material.button.MaterialButton;
@@ -29,10 +28,13 @@ import jp.wasabeef.glide.transformations.BlurTransformation;
 
 import java.util.List;
 
+import aman.youly.LyricsWebViewFragment;
+
 public class SyncedLyricsActivity extends AppCompatActivity {
 
     // UI Components
     private SyncedLyricsView syncedLyricsView;
+    private FrameLayout webViewContainer; 
     private ImageView headerArtwork;
     private ImageView immersiveBackground;
     private TextView songTitleText;
@@ -40,8 +42,8 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private TextView positionText;
 
     private FloatingActionButton playPauseButton;
-    private MaterialButton prevButton, nextButton; // Added
-    private MaterialButton adjustTimingButton, fontSwitchButton;
+    private MaterialButton prevButton, nextButton;
+    private MaterialButton playerChangerButton, fontSwitchButton;
 
     private SeekBar progressSeekBar;
 
@@ -56,11 +58,15 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private boolean isPlaying = false;
 
     private long timingOffset = 0;
+    private boolean isWebViewMode = false; // Toggle state
 
     private String title;
     private String artist;
     private String lyrics;
     private String artworkUrl;
+
+    // YouLy Component
+    private LyricsWebViewFragment lyricsWebViewFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,29 +76,75 @@ public class SyncedLyricsActivity extends AppCompatActivity {
 
         initializeViews();
         extractIntentData();
+        
+        // Setup players and subscribers
+        setupYouLyFragment(); 
         setupMediaSession();
-        fetchAndDisplayLyrics();
+        fetchAndDisplayNativeLyrics();
+        
         setupControls();
 
         updateHandler = new Handler(Looper.getMainLooper());
         startPositionUpdates();
     }
 
+    // =========================================================
+    //  UNIVERSAL SEEKING METHOD
+    // =========================================================
+    /**
+     * A single entry point for seeking, used by Native, Web, and future players.
+     * @param timeMs Target time in milliseconds
+     */
+    private void seekToPosition(long timeMs) {
+        runOnUiThread(() -> {
+            if (mediaController != null) {
+                mediaController.getTransportControls().seekTo(timeMs);
+                
+                // Optional: Feedback (You can comment this out if it's too noisy)
+                // Toast.makeText(this, "Seek: " + formatTime(timeMs), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
     private void initializeViews() {
         immersiveBackground = findViewById(R.id.immersiveBackground);
         syncedLyricsView = findViewById(R.id.syncedLyricsView);
+        webViewContainer = findViewById(R.id.webViewContainer); 
+        
         headerArtwork = findViewById(R.id.headerArtwork);
         songTitleText = findViewById(R.id.syncedSongTitle);
         songArtistText = findViewById(R.id.syncedSongArtist);
         positionText = findViewById(R.id.positionText);
 
         playPauseButton = findViewById(R.id.playPauseButton);
-        prevButton = findViewById(R.id.prevButton); // Added
-        nextButton = findViewById(R.id.nextButton); // Added
+        prevButton = findViewById(R.id.prevButton);
+        nextButton = findViewById(R.id.nextButton);
 
         progressSeekBar = findViewById(R.id.progressSeekBar);
-        adjustTimingButton = findViewById(R.id.adjustTimingButton);
+        playerChangerButton = findViewById(R.id.playerChangerButton);
         fontSwitchButton = findViewById(R.id.fontSwitchButton);
+    }
+
+    private void setupYouLyFragment() {
+        // Instantiate the fragment
+        lyricsWebViewFragment = new LyricsWebViewFragment();
+
+        // SUBSCRIBE: Web Engine -> Universal Seeker
+        lyricsWebViewFragment.setLyricsListener(this::seekToPosition);
+
+        // Add to container (Hidden initially)
+        FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+        transaction.replace(R.id.webViewContainer, lyricsWebViewFragment);
+        transaction.commit();
+    }
+
+    private void fetchAndDisplayNativeLyrics() {
+        if (lyrics != null && !lyrics.isEmpty()) {
+            syncedLyricsView.setLyrics(lyrics);
+            
+            // SUBSCRIBE: Native View -> Universal Seeker
+            syncedLyricsView.setSeekListener(this::seekToPosition);
+        }
     }
 
     private void extractIntentData() {
@@ -108,18 +160,11 @@ public class SyncedLyricsActivity extends AppCompatActivity {
 
     private void loadArtwork() {
         if (artworkUrl != null && !artworkUrl.isEmpty()) {
-            String formattedUrl =
-                    artworkUrl.replace("{w}", "500").replace("{h}", "500").replace("{f}", "jpg");
-
-            // Load small header icon (Sharp)
+            String formattedUrl = artworkUrl.replace("{w}", "500").replace("{h}", "500").replace("{f}", "jpg");
             Glide.with(this).asBitmap().load(formattedUrl).into(headerArtwork);
-
-            // Load large background with BLUR
             Glide.with(this)
                     .load(formattedUrl)
-                    .apply(
-                            RequestOptions.bitmapTransform(
-                                    new BlurTransformation(25, 3))) // Blur radius 25, sampling 3
+                    .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 3)))
                     .into(immersiveBackground);
         } else {
             headerArtwork.setImageResource(R.drawable.ic_music_note);
@@ -187,11 +232,9 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         runOnUiThread(
                 () -> {
                     if (isPlaying) {
-                        playPauseButton.setImageResource(
-                                R.drawable.ic_pause); // Use standard M3 icon
+                        playPauseButton.setImageResource(R.drawable.ic_pause); 
                     } else {
-                        playPauseButton.setImageResource(
-                                R.drawable.ic_play_arrow); // Use standard M3 icon
+                        playPauseButton.setImageResource(R.drawable.ic_play_arrow); 
                     }
                 });
     }
@@ -204,53 +247,36 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         }
     }
 
-    private void fetchAndDisplayLyrics() {
-        if (lyrics != null && !lyrics.isEmpty()) {
-            syncedLyricsView.setLyrics(lyrics);
-            syncedLyricsView.setSeekListener(
-                    timeMs -> {
-                        if (mediaController != null) {
-                            mediaController.getTransportControls().seekTo(timeMs);
-                            Toast.makeText(this, "Seek: " + formatTime(timeMs), Toast.LENGTH_SHORT)
-                                    .show();
-                        }
-                    });
-        } else {
-            Toast.makeText(this, "No lyrics available", Toast.LENGTH_SHORT).show();
-        }
-    }
-
     private void setupControls() {
         playPauseButton.setOnClickListener(
                 v -> {
                     if (mediaController != null) {
-                        if (isPlaying) {
-                            mediaController.getTransportControls().pause();
-                        } else {
-                            mediaController.getTransportControls().play();
-                        }
+                        if (isPlaying) mediaController.getTransportControls().pause();
+                        else mediaController.getTransportControls().play();
                     }
                 });
 
-        // Next / Previous Buttons
         prevButton.setOnClickListener(
                 v -> {
-                    if (mediaController != null)
-                        mediaController.getTransportControls().skipToPrevious();
+                    if (mediaController != null) mediaController.getTransportControls().skipToPrevious();
                 });
 
         nextButton.setOnClickListener(
                 v -> {
-                    if (mediaController != null)
-                        mediaController.getTransportControls().skipToNext();
+                    if (mediaController != null) mediaController.getTransportControls().skipToNext();
                 });
 
-        adjustTimingButton.setOnClickListener(v -> showTimingAdjustmentDialog());
+        // SWITCH VIEW BUTTON
+        playerChangerButton.setOnClickListener(v -> togglePlayerView());
 
         fontSwitchButton.setOnClickListener(
                 v -> {
-                    String fontName = syncedLyricsView.cycleFont();
-                    Toast.makeText(this, "Font: " + fontName, Toast.LENGTH_SHORT).show();
+                    if (!isWebViewMode) {
+                        String fontName = syncedLyricsView.cycleFont();
+                        Toast.makeText(this, "Font: " + fontName, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Settings handled by Web Player", Toast.LENGTH_SHORT).show();
+                    }
                 });
 
         progressSeekBar.setOnSeekBarChangeListener(
@@ -263,63 +289,33 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void onStartTrackingTouch(SeekBar seekBar) {
-                        isTracking = true;
-                    }
+                    public void onStartTrackingTouch(SeekBar seekBar) { isTracking = true; }
 
                     @Override
-                    public void onStopTrackingTouch(SeekBar seekBar) {
-                        isTracking = false;
-                    }
+                    public void onStopTrackingTouch(SeekBar seekBar) { isTracking = false; }
                 });
     }
 
-    private void showTimingAdjustmentDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Adjust Lyrics Sync");
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(50, 20, 50, 20);
+    private void togglePlayerView() {
+        isWebViewMode = !isWebViewMode;
 
-        final TextView offsetText = new TextView(this);
-        offsetText.setText("Offset: " + timingOffset + "ms");
-        offsetText.setGravity(android.view.Gravity.CENTER);
-        offsetText.setTextSize(18);
-        layout.addView(offsetText);
-
-        LinearLayout buttons = new LinearLayout(this);
-        buttons.setGravity(android.view.Gravity.CENTER);
-
-        Button btnMinus = new Button(this);
-        btnMinus.setText("-500ms");
-        btnMinus.setOnClickListener(
-                v -> {
-                    timingOffset -= 500;
-                    offsetText.setText("Offset: " + timingOffset + "ms");
-                });
-
-        Button btnPlus = new Button(this);
-        btnPlus.setText("+500ms");
-        btnPlus.setOnClickListener(
-                v -> {
-                    timingOffset += 500;
-                    offsetText.setText("Offset: " + timingOffset + "ms");
-                });
-
-        buttons.addView(btnMinus);
-        buttons.addView(btnPlus);
-        layout.addView(buttons);
-
-        builder.setView(layout);
-        builder.setPositiveButton("Done", null);
-        builder.setNeutralButton(
-                "Reset",
-                (d, w) -> {
-                    timingOffset = 0;
-                    Toast.makeText(this, "Timing reset", Toast.LENGTH_SHORT).show();
-                });
-
-        builder.show();
+        if (isWebViewMode) {
+            // SWITCH TO WEB VIEW (Phase 2: Render)
+            syncedLyricsView.setVisibility(View.GONE);
+            webViewContainer.setVisibility(View.VISIBLE);
+            playerChangerButton.setIconResource(R.drawable.ic_layers); 
+            
+            // Trigger the "Show" command in JS to render cached lyrics
+            if (lyricsWebViewFragment != null) {
+                lyricsWebViewFragment.displayLyrics();
+            }
+            Toast.makeText(this, "Switched to Web Engine", Toast.LENGTH_SHORT).show();
+        } else {
+            // SWITCH TO NATIVE VIEW
+            webViewContainer.setVisibility(View.GONE);
+            syncedLyricsView.setVisibility(View.VISIBLE);
+            playerChangerButton.setIconResource(R.drawable.ic_swap_horiz);
+        }
     }
 
     private void startPositionUpdates() {
@@ -333,7 +329,14 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                                 long position = state.getPosition();
                                 long adjustedPosition = position + timingOffset;
 
-                                syncedLyricsView.updateTime(adjustedPosition);
+                                // SPLIT LOGIC: Update ONLY the active view
+                                if (isWebViewMode) {
+                                    if (lyricsWebViewFragment != null) {
+                                        lyricsWebViewFragment.updateTime(adjustedPosition);
+                                    }
+                                } else {
+                                    syncedLyricsView.updateTime(adjustedPosition);
+                                }
 
                                 if (!isTracking) {
                                     progressSeekBar.setProgress((int) position);
@@ -341,7 +344,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                                 positionText.setText(formatTime(position));
                             }
                         }
-                        updateHandler.postDelayed(this, 16);
+                        updateHandler.postDelayed(this, 16); // 60 FPS loop
                     }
                 };
         updateHandler.post(updateRunnable);
@@ -364,13 +367,11 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     }
 
     private void hideSystemUI() {
-        // 1. The "Nuclear" Option: Forces layout to ignore all screen boundaries
         getWindow()
                 .setFlags(
                         WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                         WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
 
-        // 2. Standard method to hide bars (for clean immersive mode)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
             WindowInsetsControllerCompat controller =
@@ -381,7 +382,6 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                         WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
         } else {
-            // Legacy method for older Android versions
             View decorView = getWindow().getDecorView();
             int uiOptions =
                     View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -390,7 +390,6 @@ public class SyncedLyricsActivity extends AppCompatActivity {
             decorView.setSystemUiVisibility(uiOptions);
         }
 
-        // 3. Cutout mode (Essential for notches)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             getWindow().getAttributes().layoutInDisplayCutoutMode =
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;

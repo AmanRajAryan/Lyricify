@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="./src/modules/lyrics/lyrics.css">
+    <style>
+        body { margin: 0; background: transparent; overflow: hidden; }
+        /* The container where renderer injects everything */
+        #lyrics-parent { 
+            width: 100vw; 
+            height: 100vh; 
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div id="lyrics-parent"></div>
+
+    <script type="module">
+        import './shim.js';
+        import { fetchAndDisplayLyrics } from './src/modules/lyrics/lyricsManager.js';
+        window.fetchAndDisplayLyrics = fetchAndDisplayLyrics;
+    </script>
+</body>
+</html>

@@ -16,4 +16,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "LYRICIFY"
 
-include(":app")
+include(
+  ":app",
+  ":youLy"
+)

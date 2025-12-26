@@ -60,14 +60,18 @@
 
             <TextView
                 android:id="@+id/songTitle"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:fontFamily="sans-serif-black"
-                android:text="Song Title"
+                android:text="Song Title Song Title Song Title"
+                android:ellipsize="marquee"
+                android:marqueeRepeatLimit="marquee_forever"
+                android:singleLine="true"
                 android:textColor="#FFFFFF"
                 android:textSize="20sp"
-                android:maxLines="2"
-                android:ellipsize="end" />
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+            />
 
             <TextView
                 android:id="@+id/songArtist"
@@ -84,6 +88,10 @@
             <TextView
                 android:id="@+id/songFilePath"
                 android:layout_width="wrap_content"
+                android:ellipsize="middle"
+                android:singleLine="true"
+                android:textSize="8dp"
+                android:layout_marginTop="10dp"
                 android:layout_height="wrap_content"
                 android:visibility="gone" />
         </LinearLayout>

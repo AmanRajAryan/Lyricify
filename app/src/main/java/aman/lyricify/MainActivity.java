@@ -1,5 +1,6 @@
 package aman.lyricify;
 
+import aman.youly.LyricsWebViewFragment;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
@@ -13,6 +14,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -46,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
 
     // UI Components
     private TextInputEditText searchEditText;
-    private ListView songListView; 
+    private ListView songListView;
     private ProgressBar songLoading;
     private CardView nowPlayingCard;
     private ImageView nowPlayingArtwork;
@@ -63,11 +65,11 @@ public class MainActivity extends AppCompatActivity {
     private PermissionManager permissionManager;
 
     private boolean isShowingSheet = false;
-    
+
     // Sort State
-    private int currentSortCriteria = R.id.rbTitle; 
-    private int currentSortOrder = R.id.rbAscending; 
-    
+    private int currentSortCriteria = R.id.rbTitle;
+    private int currentSortOrder = R.id.rbAscending;
+
     private static final String PREFS_NAME = "LyricifyPrefs";
     private static final String KEY_SORT_CRITERIA = "sort_criteria";
     private static final String KEY_SORT_ORDER = "sort_order";
@@ -76,21 +78,57 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        
+
         loadSortPreferences();
+
+        // [ADDED] Setup temporary button listener
+        setupTestButton();
 
         initializeViews();
         initializeManagers();
         setupListeners();
-        
+
         nowPlayingManager.register();
+    }
+
+    private void setupTestButton() {
+        View btnTest = findViewById(R.id.btnTestYouLy);
+        if (btnTest != null) {
+            btnTest.setOnClickListener(
+                    v -> {
+                        // 1. Create the fragment
+                        LyricsWebViewFragment fragment = new LyricsWebViewFragment();
+
+                        // 2. Add it to the root view (overlaying everything)
+                        getSupportFragmentManager()
+                                .beginTransaction()
+                                .add(android.R.id.content, fragment)
+                                .addToBackStack("YouLyTest")
+                                .commit();
+
+                        // 3. Send dummy data after 1.5s (giving WebView time to init)
+                        new Handler()
+                                .postDelayed(
+                                        () -> {
+                                            if (fragment.isVisible()) {
+                                                fragment. // Inside LyricsWebViewFragment.java
+                                                        loadLyrics(
+                                                        "eternity",
+                                                        "alex warren",
+                                                        "",
+                                                        0);
+                                            }
+                                        },
+                                        1500);
+                    });
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         checkPermissionAndOnboard();
-        
+
         if (mediaSessionHandler.hasNotificationAccess()) {
             mediaSessionHandler.initialize();
             if (!nowPlayingManager.hasActiveMedia()) {
@@ -104,9 +142,9 @@ public class MainActivity extends AppCompatActivity {
         currentSortCriteria = prefs.getInt(KEY_SORT_CRITERIA, R.id.rbTitle);
         currentSortOrder = prefs.getInt(KEY_SORT_ORDER, R.id.rbAscending);
 
-        if (currentSortCriteria != R.id.rbTitle && 
-            currentSortCriteria != R.id.rbArtist && 
-            currentSortCriteria != R.id.rbDateAdded) {
+        if (currentSortCriteria != R.id.rbTitle
+                && currentSortCriteria != R.id.rbArtist
+                && currentSortCriteria != R.id.rbDateAdded) {
             currentSortCriteria = R.id.rbTitle;
         }
     }
@@ -121,10 +159,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void initializeViews() {
         searchEditText = findViewById(R.id.searchEditText);
-        
+
         songListView = findViewById(R.id.songListView);
         songLoading = findViewById(R.id.songLoading);
-        
+
         nowPlayingCard = findViewById(R.id.nowPlayingCard);
         nowPlayingArtwork = findViewById(R.id.nowPlayingArtwork);
         nowPlayingTitle = findViewById(R.id.nowPlayingTitle);
@@ -137,66 +175,83 @@ public class MainActivity extends AppCompatActivity {
 
     private void initializeManagers() {
         mediaSessionHandler = new MediaSessionHandler(this);
-        mediaSessionHandler.setCallback(new MediaSessionHandler.MediaSessionCallback() {
-            @Override
-            public void onMediaFound(String title, String artist, android.graphics.Bitmap artwork) {
-                nowPlayingManager.cancelPendingUpdate();
-                nowPlayingManager.prepareUpdate(title, artist, artwork);
-            }
-            @Override
-            public void onMediaLost() { nowPlayingManager.hide(); }
-            @Override
-            public void onMetadataChanged() { }
-        });
+        mediaSessionHandler.setCallback(
+                new MediaSessionHandler.MediaSessionCallback() {
+                    @Override
+                    public void onMediaFound(
+                            String title, String artist, android.graphics.Bitmap artwork) {
+                        nowPlayingManager.cancelPendingUpdate();
+                        nowPlayingManager.prepareUpdate(title, artist, artwork);
+                    }
 
-        nowPlayingManager = new NowPlayingManager(
-            this, nowPlayingCard, nowPlayingArtwork, 
-            nowPlayingTitle, nowPlayingArtist, nowPlayingFilePath
-        );
-        nowPlayingManager.setCallback(new NowPlayingManager.NowPlayingCallback() {
-            @Override
-            public void onCardClicked(String title, String artist) {
-                Uri uri = nowPlayingManager.getCurrentFileUri();
-                String path = nowPlayingManager.getCurrentFilePath();
-                
-                Bitmap currentArt = nowPlayingManager.getCurrentArtwork();
-                
-                MediaStoreHelper.LocalSong tempSong = new MediaStoreHelper.LocalSong(
-                    uri, path, title, artist, "", -1, 0, 0
-                );
-                
-                showApiMatchPopup(tempSong, currentArt);
-            }
+                    @Override
+                    public void onMediaLost() {
+                        nowPlayingManager.hide();
+                    }
 
-            @Override
-            public void onFileFound(String filePath, Uri fileUri) { }
-        });
+                    @Override
+                    public void onMetadataChanged() {}
+                });
+
+        nowPlayingManager =
+                new NowPlayingManager(
+                        this,
+                        nowPlayingCard,
+                        nowPlayingArtwork,
+                        nowPlayingTitle,
+                        nowPlayingArtist,
+                        nowPlayingFilePath);
+        nowPlayingManager.setCallback(
+                new NowPlayingManager.NowPlayingCallback() {
+                    @Override
+                    public void onCardClicked(String title, String artist) {
+                        Uri uri = nowPlayingManager.getCurrentFileUri();
+                        String path = nowPlayingManager.getCurrentFilePath();
+
+                        Bitmap currentArt = nowPlayingManager.getCurrentArtwork();
+
+                        MediaStoreHelper.LocalSong tempSong =
+                                new MediaStoreHelper.LocalSong(
+                                        uri, path, title, artist, "", -1, 0, 0);
+
+                        showApiMatchPopup(tempSong, currentArt);
+                    }
+
+                    @Override
+                    public void onFileFound(String filePath, Uri fileUri) {}
+                });
 
         permissionManager = new PermissionManager(this);
-        permissionManager.setCallback(new PermissionManager.PermissionCallback() {
-            @Override
-            public void onStoragePermissionGranted() {
-                loadLocalSongs();
-            }
-            @Override
-            public void onStoragePermissionDenied() { }
-        });
+        permissionManager.setCallback(
+                new PermissionManager.PermissionCallback() {
+                    @Override
+                    public void onStoragePermissionGranted() {
+                        loadLocalSongs();
+                    }
+
+                    @Override
+                    public void onStoragePermissionDenied() {}
+                });
     }
 
     private void loadLocalSongs() {
         if (!permissionManager.hasStoragePermission()) return;
-        
+
         songLoading.setVisibility(View.VISIBLE);
-        new Thread(() -> {
-            List<MediaStoreHelper.LocalSong> songs = MediaStoreHelper.getAllSongs(this);
-            runOnUiThread(() -> {
-                allLocalSongs.clear();
-                allLocalSongs.addAll(songs);
-                applyCurrentSort(); 
-                filterLocalSongs(searchEditText.getText().toString());
-                songLoading.setVisibility(View.GONE);
-            });
-        }).start();
+        new Thread(
+                        () -> {
+                            List<MediaStoreHelper.LocalSong> songs =
+                                    MediaStoreHelper.getAllSongs(this);
+                            runOnUiThread(
+                                    () -> {
+                                        allLocalSongs.clear();
+                                        allLocalSongs.addAll(songs);
+                                        applyCurrentSort();
+                                        filterLocalSongs(searchEditText.getText().toString());
+                                        songLoading.setVisibility(View.GONE);
+                                    });
+                        })
+                .start();
     }
 
     private void filterLocalSongs(String query) {
@@ -206,8 +261,10 @@ public class MainActivity extends AppCompatActivity {
         } else {
             String lowerQuery = query.toLowerCase(Locale.getDefault());
             for (MediaStoreHelper.LocalSong song : allLocalSongs) {
-                boolean matchesTitle = song.title != null && song.title.toLowerCase().contains(lowerQuery);
-                boolean matchesArtist = song.artist != null && song.artist.toLowerCase().contains(lowerQuery);
+                boolean matchesTitle =
+                        song.title != null && song.title.toLowerCase().contains(lowerQuery);
+                boolean matchesArtist =
+                        song.artist != null && song.artist.toLowerCase().contains(lowerQuery);
                 if (matchesTitle || matchesArtist) {
                     filteredLocalSongs.add(song);
                 }
@@ -217,29 +274,35 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupListeners() {
-        searchEditText.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                filterLocalSongs(s.toString());
-            }
-            @Override
-            public void afterTextChanged(Editable s) {}
-        });
+        searchEditText.addTextChangedListener(
+                new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(
+                            CharSequence s, int start, int count, int after) {}
 
-        songListView.setOnItemClickListener((parent, view, position, id) -> {
-            MediaStoreHelper.LocalSong selectedSong = filteredLocalSongs.get(position);
-            
-            Bitmap extractedBitmap = null;
-            try {
-                ImageView artView = view.findViewById(R.id.localArtwork);
-                extractedBitmap = getBitmapFromImageView(artView);
-            } catch (Exception ignored) { }
+                    @Override
+                    public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        filterLocalSongs(s.toString());
+                    }
 
-            showApiMatchPopup(selectedSong, extractedBitmap);
-        });
-        
+                    @Override
+                    public void afterTextChanged(Editable s) {}
+                });
+
+        songListView.setOnItemClickListener(
+                (parent, view, position, id) -> {
+                    MediaStoreHelper.LocalSong selectedSong = filteredLocalSongs.get(position);
+
+                    Bitmap extractedBitmap = null;
+                    try {
+                        ImageView artView = view.findViewById(R.id.localArtwork);
+                        extractedBitmap = getBitmapFromImageView(artView);
+                    } catch (Exception ignored) {
+                    }
+
+                    showApiMatchPopup(selectedSong, extractedBitmap);
+                });
+
         findViewById(R.id.sortButton).setOnClickListener(v -> showSortDialog());
     }
 
@@ -247,13 +310,13 @@ public class MainActivity extends AppCompatActivity {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(R.layout.dialog_sort);
-        
+
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            dialog.getWindow().setLayout(
-                ViewGroup.LayoutParams.MATCH_PARENT, 
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            );
+            dialog.getWindow()
+                    .setLayout(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT);
         }
 
         RadioGroup criteriaGroup = dialog.findViewById(R.id.sortCriteriaGroup);
@@ -266,46 +329,49 @@ public class MainActivity extends AppCompatActivity {
 
         btnCancel.setOnClickListener(v -> dialog.dismiss());
 
-        btnApply.setOnClickListener(v -> {
-            currentSortCriteria = criteriaGroup.getCheckedRadioButtonId();
-            currentSortOrder = orderGroup.getCheckedRadioButtonId();
-            
-            saveSortPreferences();
-            applyCurrentSort();
-            filterLocalSongs(searchEditText.getText().toString());
-            
-            dialog.dismiss();
-        });
+        btnApply.setOnClickListener(
+                v -> {
+                    currentSortCriteria = criteriaGroup.getCheckedRadioButtonId();
+                    currentSortOrder = orderGroup.getCheckedRadioButtonId();
+
+                    saveSortPreferences();
+                    applyCurrentSort();
+                    filterLocalSongs(searchEditText.getText().toString());
+
+                    dialog.dismiss();
+                });
 
         dialog.show();
     }
 
     private void applyCurrentSort() {
         Comparator<MediaStoreHelper.LocalSong> comparator = null;
-        
+
         // 0=Title (A-Z), 1=DateAdded, 2=Artist (A-Z)
-        int sortMode = 0; 
+        int sortMode = 0;
 
         if (currentSortCriteria == R.id.rbTitle) {
-            comparator = (s1, s2) -> {
-                String t1 = s1.title != null ? s1.title.trim() : "";
-                String t2 = s2.title != null ? s2.title.trim() : "";
-                return t1.compareToIgnoreCase(t2);
-            };
+            comparator =
+                    (s1, s2) -> {
+                        String t1 = s1.title != null ? s1.title.trim() : "";
+                        String t2 = s2.title != null ? s2.title.trim() : "";
+                        return t1.compareToIgnoreCase(t2);
+                    };
             sortMode = 0;
         } else if (currentSortCriteria == R.id.rbArtist) {
-            comparator = (s1, s2) -> {
-                String a1 = s1.artist != null ? s1.artist.trim() : "";
-                String a2 = s2.artist != null ? s2.artist.trim() : "";
-                return a1.compareToIgnoreCase(a2);
-            };
+            comparator =
+                    (s1, s2) -> {
+                        String a1 = s1.artist != null ? s1.artist.trim() : "";
+                        String a2 = s2.artist != null ? s2.artist.trim() : "";
+                        return a1.compareToIgnoreCase(a2);
+                    };
             // FIX: Set sortMode to 2 for Artist sorting
             sortMode = 2;
         } else if (currentSortCriteria == R.id.rbDateAdded) {
             comparator = (s1, s2) -> Long.compare(s1.dateAdded, s2.dateAdded);
             sortMode = 1;
         }
-        
+
         if (localAdapter != null) {
             localAdapter.setSortMode(sortMode);
         }
@@ -321,17 +387,19 @@ public class MainActivity extends AppCompatActivity {
     private Bitmap getBitmapFromImageView(ImageView view) {
         if (view == null || view.getDrawable() == null) return null;
         Drawable drawable = view.getDrawable();
-        
+
         if (drawable instanceof BitmapDrawable) {
             return ((BitmapDrawable) drawable).getBitmap();
         }
 
         try {
-            Bitmap bitmap = Bitmap.createBitmap(
-                drawable.getIntrinsicWidth() <= 0 ? 100 : drawable.getIntrinsicWidth(), 
-                drawable.getIntrinsicHeight() <= 0 ? 100 : drawable.getIntrinsicHeight(), 
-                Bitmap.Config.ARGB_8888
-            );
+            Bitmap bitmap =
+                    Bitmap.createBitmap(
+                            drawable.getIntrinsicWidth() <= 0 ? 100 : drawable.getIntrinsicWidth(),
+                            drawable.getIntrinsicHeight() <= 0
+                                    ? 100
+                                    : drawable.getIntrinsicHeight(),
+                            Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
             drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
             drawable.draw(canvas);
@@ -345,13 +413,13 @@ public class MainActivity extends AppCompatActivity {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(R.layout.dialog_api_search);
-        
+
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            dialog.getWindow().setLayout(
-                ViewGroup.LayoutParams.MATCH_PARENT, 
-                ViewGroup.LayoutParams.MATCH_PARENT
-            );
+            dialog.getWindow()
+                    .setLayout(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT);
         }
 
         ImageView artworkView = dialog.findViewById(R.id.dialogArtwork);
@@ -361,89 +429,127 @@ public class MainActivity extends AppCompatActivity {
         ProgressBar loading = dialog.findViewById(R.id.dialogLoading);
         ListView apiListView = dialog.findViewById(R.id.dialogListView);
         TextView errorText = dialog.findViewById(R.id.dialogErrorText);
-        
+
         editTitle.setText(localSong.title);
         editArtist.setText(localSong.artist);
-        
+
         if (overrideBitmap != null) {
-            Glide.with(this).load(overrideBitmap).placeholder(R.drawable.ic_music_note).centerCrop().into(artworkView);
+            Glide.with(this)
+                    .load(overrideBitmap)
+                    .placeholder(R.drawable.ic_music_note)
+                    .centerCrop()
+                    .into(artworkView);
         } else if (localSong.albumId > 0) {
-            Glide.with(this).load(MediaStoreHelper.getAlbumArtUri(localSong.albumId)).placeholder(R.drawable.ic_music_note).centerCrop().into(artworkView);
+            Glide.with(this)
+                    .load(MediaStoreHelper.getAlbumArtUri(localSong.albumId))
+                    .placeholder(R.drawable.ic_music_note)
+                    .centerCrop()
+                    .into(artworkView);
         } else if (localSong.fileUri != null) {
-             Glide.with(this).load(localSong.fileUri).placeholder(R.drawable.ic_music_note).centerCrop().into(artworkView);
+            Glide.with(this)
+                    .load(localSong.fileUri)
+                    .placeholder(R.drawable.ic_music_note)
+                    .centerCrop()
+                    .into(artworkView);
         }
 
         ArrayList<Song> apiResults = new ArrayList<>();
         SongAdapter apiAdapter = new SongAdapter(this, apiResults);
         apiListView.setAdapter(apiAdapter);
 
-        Runnable performSearch = () -> {
-            String title = editTitle.getText() != null ? editTitle.getText().toString().trim() : "";
-            String artist = editArtist.getText() != null ? editArtist.getText().toString().trim() : "";
-            String query = title + " " + artist;
+        Runnable performSearch =
+                () -> {
+                    String title =
+                            editTitle.getText() != null
+                                    ? editTitle.getText().toString().trim()
+                                    : "";
+                    String artist =
+                            editArtist.getText() != null
+                                    ? editArtist.getText().toString().trim()
+                                    : "";
+                    String query = title + " " + artist;
 
-            if (query.isEmpty()) return;
+                    if (query.isEmpty()) return;
 
-            loading.setVisibility(View.VISIBLE);
-            errorText.setVisibility(View.GONE);
-            apiResults.clear();
-            apiAdapter.notifyDataSetChanged();
-            
-            btnSearch.setEnabled(false);
-            btnSearch.setText("Searching...");
-            btnSearch.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#555555")));
-            btnSearch.setTextColor(Color.parseColor("#AAAAAA"));
+                    loading.setVisibility(View.VISIBLE);
+                    errorText.setVisibility(View.GONE);
+                    apiResults.clear();
+                    apiAdapter.notifyDataSetChanged();
 
-            ApiClient.searchSongs(query, new ApiClient.SearchCallback() {
-                @Override
-                public void onSuccess(ArrayList<Song> results) {
-                    for (Song s : results) {
-                        s.calculateMatchScore(query);
-                    }
-                    Collections.sort(results, (s1, s2) -> Integer.compare(s2.getMatchScore(), s1.getMatchScore()));
-                    
-                    runOnUiThread(() -> {
-                        apiResults.addAll(results);
-                        apiAdapter.notifyDataSetChanged();
-                        
-                        loading.setVisibility(View.GONE);
-                        if (apiResults.isEmpty()) {
-                            errorText.setVisibility(View.VISIBLE);
-                            errorText.setText("No matches found");
-                        }
-                        
-                        btnSearch.setEnabled(true);
-                        btnSearch.setText("SEARCH");
-                        int purple = ContextCompat.getColor(MainActivity.this, R.color.primary_purple);
-                        btnSearch.setBackgroundTintList(ColorStateList.valueOf(purple));
-                        btnSearch.setTextColor(Color.BLACK);
-                    });
-                }
+                    btnSearch.setEnabled(false);
+                    btnSearch.setText("Searching...");
+                    btnSearch.setBackgroundTintList(
+                            ColorStateList.valueOf(Color.parseColor("#555555")));
+                    btnSearch.setTextColor(Color.parseColor("#AAAAAA"));
 
-                @Override
-                public void onFailure(String error) {
-                    runOnUiThread(() -> {
-                        loading.setVisibility(View.GONE);
-                        errorText.setVisibility(View.VISIBLE);
-                        errorText.setText("Error: " + error);
-                        
-                        btnSearch.setEnabled(true);
-                        btnSearch.setText("SEARCH");
-                        int purple = ContextCompat.getColor(MainActivity.this, R.color.primary_purple);
-                        btnSearch.setBackgroundTintList(ColorStateList.valueOf(purple));
-                        btnSearch.setTextColor(Color.BLACK);
-                    });
-                }
-            });
-        };
+                    ApiClient.searchSongs(
+                            query,
+                            new ApiClient.SearchCallback() {
+                                @Override
+                                public void onSuccess(ArrayList<Song> results) {
+                                    for (Song s : results) {
+                                        s.calculateMatchScore(query);
+                                    }
+                                    Collections.sort(
+                                            results,
+                                            (s1, s2) ->
+                                                    Integer.compare(
+                                                            s2.getMatchScore(),
+                                                            s1.getMatchScore()));
+
+                                    runOnUiThread(
+                                            () -> {
+                                                apiResults.addAll(results);
+                                                apiAdapter.notifyDataSetChanged();
+
+                                                loading.setVisibility(View.GONE);
+                                                if (apiResults.isEmpty()) {
+                                                    errorText.setVisibility(View.VISIBLE);
+                                                    errorText.setText("No matches found");
+                                                }
+
+                                                btnSearch.setEnabled(true);
+                                                btnSearch.setText("SEARCH");
+                                                int purple =
+                                                        ContextCompat.getColor(
+                                                                MainActivity.this,
+                                                                R.color.primary_purple);
+                                                btnSearch.setBackgroundTintList(
+                                                        ColorStateList.valueOf(purple));
+                                                btnSearch.setTextColor(Color.BLACK);
+                                            });
+                                }
+
+                                @Override
+                                public void onFailure(String error) {
+                                    runOnUiThread(
+                                            () -> {
+                                                loading.setVisibility(View.GONE);
+                                                errorText.setVisibility(View.VISIBLE);
+                                                errorText.setText("Error: " + error);
+
+                                                btnSearch.setEnabled(true);
+                                                btnSearch.setText("SEARCH");
+                                                int purple =
+                                                        ContextCompat.getColor(
+                                                                MainActivity.this,
+                                                                R.color.primary_purple);
+                                                btnSearch.setBackgroundTintList(
+                                                        ColorStateList.valueOf(purple));
+                                                btnSearch.setTextColor(Color.BLACK);
+                                            });
+                                }
+                            });
+                };
 
         btnSearch.setOnClickListener(v -> performSearch.run());
-        
-        apiListView.setOnItemClickListener((parent, v, position, id) -> {
-            Song apiSong = apiResults.get(position);
-            dialog.dismiss();
-            openLyricsActivity(apiSong, localSong);
-        });
+
+        apiListView.setOnItemClickListener(
+                (parent, v, position, id) -> {
+                    Song apiSong = apiResults.get(position);
+                    dialog.dismiss();
+                    openLyricsActivity(apiSong, localSong);
+                });
 
         dialog.show();
         performSearch.run();
@@ -482,46 +588,55 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-    
+
     private void showStoragePermissionSheet() {
         if (isFinishing()) return;
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
+        BottomSheetDialog bottomSheetDialog =
+                new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
         View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_permission, null);
         bottomSheetDialog.setContentView(sheetView);
 
         if (bottomSheetDialog.getWindow() != null) {
-            bottomSheetDialog.getWindow().findViewById(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheetDialog
+                    .getWindow()
+                    .findViewById(com.google.android.material.R.id.design_bottom_sheet)
                     .setBackgroundResource(android.R.color.transparent);
         }
 
         MaterialButton btnGrant = sheetView.findViewById(R.id.btnGrantAccess);
         MaterialButton btnNotNow = sheetView.findViewById(R.id.btnNotNow);
 
-        btnGrant.setOnClickListener(v -> {
-            bottomSheetDialog.dismiss();
-            permissionManager.requestStoragePermission();
-        });
+        btnGrant.setOnClickListener(
+                v -> {
+                    bottomSheetDialog.dismiss();
+                    permissionManager.requestStoragePermission();
+                });
 
-        btnNotNow.setOnClickListener(v -> {
-            bottomSheetDialog.dismiss();
-            if (!mediaSessionHandler.hasNotificationAccess()) {
-                showNotificationPermissionSheet();
-            } else {
-                isShowingSheet = false;
-            }
-        });
+        btnNotNow.setOnClickListener(
+                v -> {
+                    bottomSheetDialog.dismiss();
+                    if (!mediaSessionHandler.hasNotificationAccess()) {
+                        showNotificationPermissionSheet();
+                    } else {
+                        isShowingSheet = false;
+                    }
+                });
         bottomSheetDialog.setOnDismissListener(dialog -> isShowingSheet = false);
         bottomSheetDialog.show();
     }
 
     private void showNotificationPermissionSheet() {
         if (isFinishing()) return;
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_notification_access, null);
+        BottomSheetDialog bottomSheetDialog =
+                new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
+        View sheetView =
+                LayoutInflater.from(this).inflate(R.layout.bottom_sheet_notification_access, null);
         bottomSheetDialog.setContentView(sheetView);
 
         if (bottomSheetDialog.getWindow() != null) {
-            bottomSheetDialog.getWindow().findViewById(com.google.android.material.R.id.design_bottom_sheet)
+            bottomSheetDialog
+                    .getWindow()
+                    .findViewById(com.google.android.material.R.id.design_bottom_sheet)
                     .setBackgroundResource(android.R.color.transparent);
         }
 
@@ -529,30 +644,33 @@ public class MainActivity extends AppCompatActivity {
         TextView btnTroubleshoot = sheetView.findViewById(R.id.btnTroubleshoot);
         MaterialButton btnNotNow = sheetView.findViewById(R.id.btnNotNow);
 
-        btnConnect.setOnClickListener(v -> {
-            bottomSheetDialog.dismiss();
-            mediaSessionHandler.requestNotificationAccess();
-        });
+        btnConnect.setOnClickListener(
+                v -> {
+                    bottomSheetDialog.dismiss();
+                    mediaSessionHandler.requestNotificationAccess();
+                });
 
-        btnTroubleshoot.setOnClickListener(v -> {
-            bottomSheetDialog.dismiss();
-            mediaSessionHandler.openAppInfo();
-        });
+        btnTroubleshoot.setOnClickListener(
+                v -> {
+                    bottomSheetDialog.dismiss();
+                    mediaSessionHandler.openAppInfo();
+                });
 
         btnNotNow.setOnClickListener(v -> bottomSheetDialog.dismiss());
         bottomSheetDialog.setOnDismissListener(dialog -> isShowingSheet = false);
         bottomSheetDialog.show();
     }
-    
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
         nowPlayingManager.unregister();
         mediaSessionHandler.cleanup();
     }
-    
+
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(
+            int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         permissionManager.handlePermissionResult(requestCode, permissions, grantResults);
     }

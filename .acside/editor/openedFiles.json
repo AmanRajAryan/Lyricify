@@ -1,17 +1,17 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Adapters/LocalSongAdapter.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/assets/lyrics_engine/shim.js",
       "selection": {
         "end": {
-          "column": 0,
-          "index": 5333,
-          "line": 155
+          "column": 54,
+          "index": 9462,
+          "line": 249
         },
         "start": {
-          "column": 0,
-          "index": 5333,
-          "line": 155
+          "column": 54,
+          "index": 9462,
+          "line": 249
         }
       }
     },
@@ -19,17 +19,107 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/MainActivity.java",
       "selection": {
         "end": {
+          "column": 57,
+          "index": 4356,
+          "line": 117
+        },
+        "start": {
+          "column": 57,
+          "index": 4356,
+          "line": 117
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsWebViewFragment.java",
+      "selection": {
+        "end": {
           "column": 0,
-          "index": 22412,
-          "line": 559
+          "index": 3669,
+          "line": 110
         },
         "start": {
           "column": 0,
-          "index": 22412,
-          "line": 559
+          "index": 3669,
+          "line": 110
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/assets/lyrics_engine/src/modules/lyrics/lyrics.css",
+      "selection": {
+        "end": {
+          "column": 25,
+          "index": 2451,
+          "line": 69
+        },
+        "start": {
+          "column": 25,
+          "index": 2451,
+          "line": 69
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsSharedEngine.java",
+      "selection": {
+        "end": {
+          "column": 1,
+          "index": 6197,
+          "line": 167
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/LyricsActivity.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 22882,
+          "line": 571
+        },
+        "start": {
+          "column": 0,
+          "index": 22882,
+          "line": 571
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/activity_synced_lyrics.xml",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 9776,
+          "line": 244
+        },
+        "start": {
+          "column": 0,
+          "index": 9776,
+          "line": 244
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/SyncedLyricsActivity.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 15498,
+          "line": 398
+        },
+        "start": {
+          "column": 0,
+          "index": 15498,
+          "line": 398
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Adapters/LocalSongAdapter.java"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsSharedEngine.java"
 }

@@ -4,14 +4,14 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/assets/lyrics_engine/shim.js",
       "selection": {
         "end": {
-          "column": 54,
-          "index": 9462,
-          "line": 249
+          "column": 16,
+          "index": 8575,
+          "line": 228
         },
         "start": {
-          "column": 54,
-          "index": 9462,
-          "line": 249
+          "column": 16,
+          "index": 8575,
+          "line": 228
         }
       }
     },
@@ -19,14 +19,14 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/MainActivity.java",
       "selection": {
         "end": {
-          "column": 57,
-          "index": 4356,
-          "line": 117
+          "column": 8,
+          "index": 2822,
+          "line": 83
         },
         "start": {
-          "column": 57,
-          "index": 4356,
-          "line": 117
+          "column": 8,
+          "index": 2822,
+          "line": 83
         }
       }
     },
@@ -34,14 +34,14 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsWebViewFragment.java",
       "selection": {
         "end": {
-          "column": 0,
-          "index": 3669,
-          "line": 110
+          "column": 1,
+          "index": 5276,
+          "line": 144
         },
         "start": {
-          "column": 0,
-          "index": 3669,
-          "line": 110
+          "column": 1,
+          "index": 5276,
+          "line": 144
         }
       }
     },
@@ -64,14 +64,14 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsSharedEngine.java",
       "selection": {
         "end": {
-          "column": 1,
-          "index": 6197,
-          "line": 167
+          "column": 26,
+          "index": 1289,
+          "line": 37
         },
         "start": {
-          "column": 0,
-          "index": 0,
-          "line": 0
+          "column": 26,
+          "index": 1289,
+          "line": 37
         }
       }
     },
@@ -117,6 +117,21 @@
           "column": 0,
           "index": 15498,
           "line": 398
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/Log.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
         }
       }
     }

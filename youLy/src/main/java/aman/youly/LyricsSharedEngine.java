@@ -5,9 +5,6 @@ import android.content.Context;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
-import android.view.ViewGroup;
-import android.view.ViewParent;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -16,11 +13,8 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-
 import androidx.webkit.WebViewAssetLoader;
-
 import java.util.concurrent.TimeUnit;
-
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -32,27 +26,26 @@ public class LyricsSharedEngine {
     private static LyricsSharedEngine instance;
     private WebView webView;
     private Context context;
-    private LyricsWebViewFragment.LyricsListener activeListener; // Points to the currently active screen
+    private LyricsWebViewFragment.LyricsListener activeListener;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final OkHttpClient okHttpClient;
 
-    // --- Singleton Access ---
     public static LyricsSharedEngine getInstance(Context context) {
         if (instance == null) {
             instance = new LyricsSharedEngine(context.getApplicationContext());
         }
+        
+        Log.init(context);
         return instance;
     }
 
     private LyricsSharedEngine(Context context) {
+        
         this.context = context;
-        // Shared HTTP Client
         this.okHttpClient = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(60, TimeUnit.SECONDS)
                 .build();
-        
-        // Initialize immediately
         initWebView();
     }
 
@@ -60,16 +53,14 @@ public class LyricsSharedEngine {
     private void initWebView() {
         webView = new WebView(context);
         webView.setBackgroundColor(Color.TRANSPARENT);
-
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(true);
 
-        // Add Bridge ONCE
+        // Add Bridge
         webView.addJavascriptInterface(new SharedBridge(), "AndroidBridge");
 
-        // Setup Asset Loader
         final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(context))
                 .build();
@@ -84,20 +75,15 @@ public class LyricsSharedEngine {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onConsoleMessage(ConsoleMessage cm) {
-                Log.d("YouLyJS", cm.message() + " -- (Line " + cm.lineNumber() + ")");
+                Log.d("YouLyJS", cm.message() + " -- (" + cm.lineNumber() + ")");
                 return true;
             }
         });
 
-        // Load the HTML file immediately to "warm up" the engine
         webView.loadUrl("https://appassets.androidplatform.net/assets/lyrics_engine/index.html");
     }
 
-    // --- Public API ---
-
-    public WebView getWebView() {
-        return webView;
-    }
+    public WebView getWebView() { return webView; }
 
     public void setListener(LyricsWebViewFragment.LyricsListener listener) {
         this.activeListener = listener;
@@ -109,16 +95,26 @@ public class LyricsSharedEngine {
         });
     }
 
-    // --- Shared Javascript Bridge ---
-
+    // --- SHARED BRIDGE ---
     private class SharedBridge {
+        
+        // CHANGED: Use String and parse it to be safe against JS number types
         @JavascriptInterface
-        public void seekTo(long timeMs) {
-            mainHandler.post(() -> {
-                if (activeListener != null) {
-                    activeListener.onSeekRequest(timeMs);
-                }
-            });
+        public void seekTo(String timeMsStr) {
+            try {
+                long timeMs = Long.parseLong(timeMsStr);
+                Log.d("YouLyNative", "Seek request received: " + timeMs);
+                
+                mainHandler.post(() -> {
+                    if (activeListener != null) {
+                        activeListener.onSeekRequest(timeMs);
+                    } else {
+                        Log.w("YouLyNative", "No active listener for seek!");
+                    }
+                });
+            } catch (Exception e) {
+                Log.e("YouLyNative", "Failed to parse seek time: " + timeMsStr);
+            }
         }
 
         @JavascriptInterface
@@ -127,9 +123,7 @@ public class LyricsSharedEngine {
                 try {
                     Request.Builder builder = new Request.Builder()
                             .url(urlStr)
-                            .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
-                            .header("Accept", "application/json, text/plain, */*")
-                            .header("Origin", "https://music.youtube.com");
+                            .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
 
                     if ("POST".equalsIgnoreCase(method) && body != null) {
                         builder.post(RequestBody.create(body, MediaType.parse("application/json; charset=utf-8")));
@@ -139,18 +133,12 @@ public class LyricsSharedEngine {
 
                     try (Response response = okHttpClient.newCall(builder.build()).execute()) {
                         String responseBody = response.body() != null ? response.body().string() : "";
-                        int code = response.code();
-                        
-                        // Send back to JS
                         String safeResponse = escapeForJs(responseBody);
-                        String callback = String.format("window.handleNativeResponse('%s', true, %d, '%s')", reqId, code, safeResponse);
+                        String callback = String.format("window.handleNativeResponse('%s', true, %d, '%s')", reqId, response.code(), safeResponse);
                         runJs(callback);
                     }
-
                 } catch (Exception e) {
-                    Log.e("YouLyNetwork", "Failed: " + urlStr, e);
-                    String errorMsg = escapeForJs(e.getMessage());
-                    String callback = String.format("window.handleNativeResponse('%s', false, 0, '%s')", reqId, errorMsg);
+                    String callback = String.format("window.handleNativeResponse('%s', false, 0, '%s')", reqId, escapeForJs(e.getMessage()));
                     runJs(callback);
                 }
             }).start();
@@ -158,11 +146,7 @@ public class LyricsSharedEngine {
 
         private String escapeForJs(String data) {
             if (data == null) return "";
-            return data.replace("\\", "\\\\")
-                    .replace("'", "\\'")
-                    .replace("\"", "\\\"")
-                    .replace("\n", "\\n")
-                    .replace("\r", "");
+            return data.replace("\\", "\\\\").replace("'", "\\'").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "");
         }
     }
 }

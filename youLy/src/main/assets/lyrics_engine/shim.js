@@ -226,7 +226,7 @@ window.currentSettings = {
     useSponsorBlock: false,
     lightweight: false, 
     blurInactive: true, 
-    fontSize: 26,       
+    fontSize: 32,       
     customCSS: ''
 };
 

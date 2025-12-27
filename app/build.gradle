@@ -38,7 +38,7 @@ android {
         }
     }
 
-    buildTypes {
+        buildTypes {
         release {
             if (
                 project.hasProperty("RELEASE_STORE_FILE") &&
@@ -50,10 +50,15 @@ android {
             }
             minifyEnabled true
             shrinkResources true
+
+            // ADD THIS LINE BELOW 👇
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+
         debug {
         }
     }
+
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11

@@ -40,6 +40,7 @@ public class LyricsActivity extends AppCompatActivity {
     private TextView songArtist;
     private TextView songFilePath;
     private TextView lyricsTextView;
+    private TextView lyricsTextViewPlain; // Add this
     private HorizontalScrollView lyricsHorizontalScrollView;
     private ProgressBar lyricsLoading;
 
@@ -149,7 +150,8 @@ public class LyricsActivity extends AppCompatActivity {
                                             .takePersistableUriPermission(
                                                     treeUri,
                                                     Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                                                            | Intent
+                                                                    .FLAG_GRANT_WRITE_URI_PERMISSION);
                                     Toast.makeText(this, "✓ Access granted!", Toast.LENGTH_LONG)
                                             .show();
                                 }
@@ -166,6 +168,7 @@ public class LyricsActivity extends AppCompatActivity {
         songFilePath = findViewById(R.id.songFilePath);
 
         lyricsTextView = findViewById(R.id.lyricsTextView);
+        lyricsTextViewPlain = findViewById(R.id.lyricsTextViewPlain);
         lyricsHorizontalScrollView = findViewById(R.id.lyricsHorizontalScrollView);
         lyricsLoading = findViewById(R.id.lyricsLoading);
 
@@ -194,7 +197,7 @@ public class LyricsActivity extends AppCompatActivity {
                         songArtist,
                         songFilePath);
 
-        lyricsFetcher = new LyricsFetcher(lyricsTextView, lyricsLoading);
+        lyricsFetcher = new LyricsFetcher(lyricsTextView, lyricsTextViewPlain, lyricsLoading);
         lyricsFetcher.setCallback(
                 new LyricsFetcher.LyricsCallback() {
                     @Override
@@ -251,6 +254,8 @@ public class LyricsActivity extends AppCompatActivity {
                         runOnUiThread(() -> metadataManager.showMetadataDialog(filePath));
                     }
                 });
+                
+                
     }
 
     private void updateFormatAvailability(ApiClient.LyricsResponse response) {
@@ -310,47 +315,23 @@ public class LyricsActivity extends AppCompatActivity {
     }
 
     /**
-     * Updates the TextView properties based on the selected format.
-     * Plain -> Wrap enabled, Center aligned, No Horizontal Scroll
-     * Others -> Wrap disabled, Left aligned, Horizontal Scroll enabled
+     * Updates the TextView properties based on the selected format. Plain -> Wrap enabled, Center
+     * aligned, No Horizontal Scroll Others -> Wrap disabled, Left aligned, Horizontal Scroll
+     * enabled
      */
     private void applyTextLayoutLogic(String format) {
-        if (lyricsTextView == null || lyricsHorizontalScrollView == null) return;
-
-        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) lyricsTextView.getLayoutParams();
-
         if ("Plain".equals(format)) {
-            // 1. ENABLE WRAPPING: Force width to match parent
-            params.width = FrameLayout.LayoutParams.MATCH_PARENT;
-            
-            // 2. CENTER JUSTIFY
-            lyricsTextView.setGravity(Gravity.CENTER_HORIZONTAL);
-            params.gravity = Gravity.CENTER_HORIZONTAL;
-            
-            // Allow text to wrap naturally
-            lyricsTextView.setHorizontallyScrolling(false);
-            
-            // 3. EFFECTIVELY DISABLE HORIZONTAL SCROLLING 
-            // (Since width is MATCH_PARENT, it won't overflow)
+            // Show plain TextView, hide formatted one
+            lyricsTextViewPlain.setVisibility(View.VISIBLE);
+            lyricsHorizontalScrollView.setVisibility(View.GONE);
         } else {
-            // 1. DISABLE WRAPPING: Allow width to grow beyond screen
-            params.width = FrameLayout.LayoutParams.WRAP_CONTENT;
-            
-            // 2. LEFT JUSTIFY
-            lyricsTextView.setGravity(Gravity.START);
-            params.gravity = Gravity.START;
+            // Show formatted TextView, hide plain one
+            lyricsTextViewPlain.setVisibility(View.GONE);
+            lyricsHorizontalScrollView.setVisibility(View.VISIBLE);
 
-            // Force text to NOT wrap even if it hits screen edge
-            lyricsTextView.setHorizontallyScrolling(true);
-            
-            // 3. ENABLE HORIZONTAL SCROLLING
-            // (Since width is WRAP_CONTENT, HorizontalScrollView will handle overflow)
+            // Reset scroll position
+            lyricsHorizontalScrollView.scrollTo(0, 0);
         }
-
-        lyricsTextView.setLayoutParams(params);
-        
-        // Reset scroll position to start
-        lyricsHorizontalScrollView.scrollTo(0, 0);
     }
 
     private void showFormatSelectionSheet() {
@@ -421,13 +402,13 @@ public class LyricsActivity extends AppCompatActivity {
                     v -> {
                         currentFormat = format;
                         currentFormatText.setText(format);
-                        
+
                         // Update Content
                         lyricsFetcher.displayFormat(format);
-                        
+
                         // Update Layout Logic (Wrap vs Scroll)
                         applyTextLayoutLogic(format);
-                        
+
                         updateSyncedLyricsButtonState();
                         bottomSheetDialog.dismiss();
                     });

@@ -19,3 +19,11 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+
+
+# Keep the inner Artwork class and its constructors so JNI can find them
+-keep class aman.taglib.TagLib$Artwork { *; }
+
+# It is also good practice to keep the class containing the native methods
+-keep class aman.taglib.TagLib { *; }

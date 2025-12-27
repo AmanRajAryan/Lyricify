@@ -28,6 +28,51 @@ import java.util.Map;
 
 public class SyncedLyricsView extends View {
 
+    // ============================================================
+    // TWEAKABLE PARAMETERS - ADJUST THESE FOR GLOW BEHAVIOR
+    // ============================================================
+    
+    // --- GLOW INTENSITY PARAMETERS ---
+    // Base glow radius (shadow layer size) - default glow strength
+    private static final float GLOW_BASE_RADIUS = 25f;
+    
+    // Minimum glow radius for very fast words (prevents harsh flash)
+    private static final float GLOW_MIN_RADIUS = 1f;
+    
+    // Maximum glow radius for very slow words (prevents excessive blur)
+    private static final float GLOW_MAX_RADIUS = 40f;
+    
+    // --- GLOW SPEED SENSITIVITY ---
+    // Speed threshold in pixels per millisecond
+    // Below this speed = full glow, above this = reduced glow
+    private static final float GLOW_SPEED_THRESHOLD_SLOW = 0.3f;  // Slow animation
+    private static final float GLOW_SPEED_THRESHOLD_FAST = 1f;  // Fast animation
+    
+    // --- GLOW FADE BEHAVIOR ---
+    // At what progress point should glow start fading (0.0 to 1.0)
+    private static final float GLOW_FADE_START_PROGRESS = 0.7f;
+    
+    // --- GLOW ALPHA PARAMETERS ---
+    // Minimum alpha multiplier for very fast words (0.0 to 1.0)
+    private static final float GLOW_MIN_ALPHA_MULTIPLIER = 0.2f;
+    
+    // Maximum alpha multiplier for slow words (0.0 to 1.0)
+    private static final float GLOW_MAX_ALPHA_MULTIPLIER = 1.0f;
+    
+    // --- GRADIENT EDGE WIDTH PARAMETERS ---
+    // Controls how wide the gradient sweep is (affects fill animation smoothness)
+    // Minimum edge width for fast words - wider edge = smoother sweep, prevents instant fill
+    private static final float GRADIENT_EDGE_MIN_WIDTH = 200f;
+    
+    // Maximum edge width for slow words
+    private static final float GRADIENT_EDGE_MAX_WIDTH = 300f;
+    
+    // Base multiplier for edge width relative to word width
+    // Higher value = wider gradient spread
+    private static final float GRADIENT_EDGE_WIDTH_MULTIPLIER = 0.8f;
+    
+    // ============================================================
+
     public interface SeekListener {
         void onSeek(long timeMs);
     }
@@ -45,6 +90,7 @@ public class SyncedLyricsView extends View {
         }
     }
 
+    
     private List<LyricLine> lyrics = new ArrayList<>();
     private List<WrappedLine> wrappedLines = new ArrayList<>();
     private Map<LyricLine, Float> lineCenterYMap = new HashMap<>();
@@ -135,7 +181,7 @@ public class SyncedLyricsView extends View {
         baseTextSize = 32 * density;
         float layoutTextSize = baseTextSize * LAYOUT_SCALE;
 
-        spacingBetweenWrappedLines = 1 / 2 * density;
+        spacingBetweenWrappedLines = 1/2 * density;
         spacingBetweenLyrics = 40 * density;
 
         bgBlurFilter = new BlurMaskFilter(5f * density, BlurMaskFilter.Blur.NORMAL);
@@ -143,7 +189,7 @@ public class SyncedLyricsView extends View {
         // Create bold typeface for extra bold effect
         Typeface boldTypeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD);
 
-        // --- Initialize Paints (with extra bold) ---
+        // --- Initialize Paints ---
         paintActive = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintActive.setTypeface(boldTypeface);
         paintActive.setTextSize(layoutTextSize);
@@ -171,7 +217,7 @@ public class SyncedLyricsView extends View {
         paintBloom.setTypeface(boldTypeface);
         paintBloom.setTextSize(layoutTextSize);
         paintBloom.setFakeBoldText(true);
-        paintBloom.setShadowLayer(25, 0, 0, Color.WHITE);
+        paintBloom.setShadowLayer(GLOW_BASE_RADIUS, 0, 0, Color.WHITE);
 
         paintFillV2 = new Paint(Paint.ANTI_ALIAS_FLAG);
         paintFillV2.setTypeface(boldTypeface);
@@ -182,7 +228,7 @@ public class SyncedLyricsView extends View {
         paintBloomV2.setTypeface(boldTypeface);
         paintBloomV2.setTextSize(layoutTextSize);
         paintBloomV2.setFakeBoldText(true);
-        paintBloomV2.setShadowLayer(25, 0, 0, COLOR_V2);
+        paintBloomV2.setShadowLayer(GLOW_BASE_RADIUS, 0, 0, COLOR_V2);
 
         // BG Paints
         paintActiveBG = new Paint(paintActive);
@@ -246,8 +292,6 @@ public class SyncedLyricsView extends View {
         Paint.FontMetrics fm = paintActive.getFontMetrics();
         textHeight = fm.descent - fm.ascent;
     }
-
-    // ... (Keep cycleFont, setLyrics, updateTime methods) ...
 
     public void setSeekListener(SeekListener listener) {
         this.seekListener = listener;
@@ -329,7 +373,6 @@ public class SyncedLyricsView extends View {
         return false;
     }
 
-    // ... (Keep updateScrollLogic, onMeasure, wrapLines, getFocusRatio) ...
     private boolean updateScrollLogic() {
         if (isFlinging) {
             if (scroller.computeScrollOffset()) {
@@ -571,10 +614,6 @@ public class SyncedLyricsView extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         if (w > 0) {
-            // --- SMART SOLUTION 2: Smoother Gradients ---
-            // Instead of just WHITE -> TRANSPARENT, we use intermediate stops to
-            // soften the start of the gradient, effectively hiding the "vertical line".
-
             int[] colors = {
                 Color.WHITE,
                 Color.argb(220, 255, 255, 255),
@@ -747,6 +786,17 @@ public class SyncedLyricsView extends View {
         if (animatingScroll || animatingGlow) postInvalidateOnAnimation();
     }
 
+    /**
+     * Draws an active word with dynamic glow effect based on animation speed
+     * 
+     * @param canvas Canvas to draw on
+     * @param word The word being drawn
+     * @param wl The wrapped line containing the word
+     * @param x X position
+     * @param y Y position
+     * @param wordWidth Width of the word
+     * @param alphaOverride Alpha value to apply
+     */
     private void drawActiveWord(
             Canvas canvas,
             LyricWord word,
@@ -755,6 +805,7 @@ public class SyncedLyricsView extends View {
             float y,
             float wordWidth,
             int alphaOverride) {
+        
         boolean isV2 = (wl.parentLine.vocalType == 2);
         Paint targetFill =
                 isV2
@@ -778,14 +829,78 @@ public class SyncedLyricsView extends View {
         long elapsed = currentTime - word.time;
         float progress = Math.min(1.0f, (float) elapsed / duration);
 
+        // ============================================================
+        // DYNAMIC GLOW CALCULATION BASED ON ANIMATION SPEED
+        // ============================================================
+        
+        // Calculate animation speed (pixels per millisecond)
+        float animationSpeed = wordWidth / (float) duration;
+        
+        // Calculate glow intensity factor based on speed
+        // Slow animations get full glow (1.0), fast animations get reduced glow
+        float glowIntensityFactor;
+        if (animationSpeed <= GLOW_SPEED_THRESHOLD_SLOW) {
+            // Very slow - full glow
+            glowIntensityFactor = GLOW_MAX_ALPHA_MULTIPLIER;
+        } else if (animationSpeed >= GLOW_SPEED_THRESHOLD_FAST) {
+            // Very fast - minimum glow
+            glowIntensityFactor = GLOW_MIN_ALPHA_MULTIPLIER;
+        } else {
+            // Interpolate between slow and fast thresholds
+            float speedRange = GLOW_SPEED_THRESHOLD_FAST - GLOW_SPEED_THRESHOLD_SLOW;
+            float speedPosition = (animationSpeed - GLOW_SPEED_THRESHOLD_SLOW) / speedRange;
+            glowIntensityFactor = GLOW_MAX_ALPHA_MULTIPLIER - 
+                (speedPosition * (GLOW_MAX_ALPHA_MULTIPLIER - GLOW_MIN_ALPHA_MULTIPLIER));
+        }
+        
+        // Calculate dynamic glow radius based on speed
+        float glowRadius;
+        if (animationSpeed <= GLOW_SPEED_THRESHOLD_SLOW) {
+            glowRadius = GLOW_BASE_RADIUS;
+        } else if (animationSpeed >= GLOW_SPEED_THRESHOLD_FAST) {
+            glowRadius = GLOW_MIN_RADIUS;
+        } else {
+            float speedRange = GLOW_SPEED_THRESHOLD_FAST - GLOW_SPEED_THRESHOLD_SLOW;
+            float speedPosition = (animationSpeed - GLOW_SPEED_THRESHOLD_SLOW) / speedRange;
+            glowRadius = GLOW_BASE_RADIUS - (speedPosition * (GLOW_BASE_RADIUS - GLOW_MIN_RADIUS));
+        }
+        
+        // Clamp radius to min/max bounds
+        glowRadius = Math.max(GLOW_MIN_RADIUS, Math.min(glowRadius, GLOW_MAX_RADIUS));
+        
+        // ============================================================
+        // DYNAMIC GRADIENT EDGE WIDTH CALCULATION
+        // ============================================================
+        
+        // Calculate edge width based on animation speed
+        // Fast words need WIDER edge to prevent instant fill
+        // Slow words can have tighter edge for precision
+        float edgeWidth;
+        
+        if (animationSpeed >= GLOW_SPEED_THRESHOLD_FAST) {
+            // Fast animation - use wider edge for smooth sweep
+            edgeWidth = Math.min(GRADIENT_EDGE_MAX_WIDTH, wordWidth * GRADIENT_EDGE_WIDTH_MULTIPLIER);
+            edgeWidth = Math.max(edgeWidth, GRADIENT_EDGE_MIN_WIDTH);
+        } else if (animationSpeed <= GLOW_SPEED_THRESHOLD_SLOW) {
+            // Slow animation - can use tighter edge
+            edgeWidth = Math.min(GRADIENT_EDGE_MIN_WIDTH, wordWidth);
+        } else {
+            // Interpolate between slow and fast
+            float speedRange = GLOW_SPEED_THRESHOLD_FAST - GLOW_SPEED_THRESHOLD_SLOW;
+            float speedPosition = (animationSpeed - GLOW_SPEED_THRESHOLD_SLOW) / speedRange;
+            
+            float minEdge = Math.min(GRADIENT_EDGE_MIN_WIDTH, wordWidth);
+            float maxEdge = Math.min(GRADIENT_EDGE_MAX_WIDTH, wordWidth * GRADIENT_EDGE_WIDTH_MULTIPLIER);
+            maxEdge = Math.max(maxEdge, GRADIENT_EDGE_MIN_WIDTH);
+            
+            edgeWidth = minEdge + (speedPosition * (maxEdge - minEdge));
+        }
+        
+        // ============================================================
+        
         canvas.drawText(word.text, x, y, currentDefault);
 
         if (targetGrad != null) {
-            // --- SMART SOLUTION 1: Dynamic Edge Width ---
-            // If word is huge (500px), edge is 300px (Very soft, no line).
-            // If word is tiny (20px), edge is 20px (Tighter, preserves sweep).
-            float edgeWidth = Math.min(300f, wordWidth);
-
             float currentX = x + (wordWidth + edgeWidth) * progress;
 
             shaderMatrix.reset();
@@ -798,12 +913,18 @@ public class SyncedLyricsView extends View {
             canvas.drawText(word.text, x, y, targetFill);
 
             if (progress < 1.0f) {
-                float bloomAlpha = 1.0f;
-                if (progress >= 0.7f) {
-                    bloomAlpha = (1.0f - progress) / 0.3f;
-                    bloomAlpha = Math.max(0f, Math.min(1.0f, bloomAlpha));
+                // Calculate bloom alpha with dynamic glow intensity
+                float bloomAlpha = glowIntensityFactor; // Start with speed-based factor
+                
+                // Apply progress-based fade (starts fading at GLOW_FADE_START_PROGRESS)
+                if (progress >= GLOW_FADE_START_PROGRESS) {
+                    float fadeProgress = (progress - GLOW_FADE_START_PROGRESS) / (1.0f - GLOW_FADE_START_PROGRESS);
+                    bloomAlpha *= (1.0f - fadeProgress);
                 }
+                
+                bloomAlpha = Math.max(0f, Math.min(1.0f, bloomAlpha));
                 int finalBloomAlpha = (int) (alphaOverride * bloomAlpha);
+                
                 int shadowColor = isV2 ? COLOR_V2 : Color.WHITE;
                 int fadedShadowColor =
                         Color.argb(
@@ -812,11 +933,14 @@ public class SyncedLyricsView extends View {
                                 Color.green(shadowColor),
                                 Color.blue(shadowColor));
 
-                targetBloom.setShadowLayer(25, 0, 0, fadedShadowColor);
+                // Apply dynamic glow radius
+                targetBloom.setShadowLayer(glowRadius, 0, 0, fadedShadowColor);
                 targetBloom.setShader(targetGrad);
                 targetBloom.setAlpha(finalBloomAlpha);
                 canvas.drawText(word.text, x, y, targetBloom);
-                targetBloom.setShadowLayer(25, 0, 0, shadowColor);
+                
+                // Reset to base radius for next frame
+                targetBloom.setShadowLayer(GLOW_BASE_RADIUS, 0, 0, shadowColor);
             }
             targetFill.setAlpha(255);
         }

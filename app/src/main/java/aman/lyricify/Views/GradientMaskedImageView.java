@@ -54,7 +54,7 @@ public class GradientMaskedImageView extends AppCompatImageView {
                         0x00FFFFFF,  // Transparent ends (position 0.75f)
                         0xFFFFFFFF   // Opaque at bottom (position 1f)
                 },
-                new float[]{0f, 0.1f, 0.35f, 0.75f, 1f},
+                new float[]{0f, 0.1f, 0.2f, 0.85f, 1f},
                 Shader.TileMode.CLAMP
         );
     }

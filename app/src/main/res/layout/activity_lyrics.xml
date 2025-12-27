@@ -245,15 +245,13 @@
             app:layout_constraintTop_toBottomOf="@id/formatSelectorButton"
             app:layout_constraintBottom_toBottomOf="parent">
 
-            <HorizontalScrollView
-                android:id="@+id/lyricsHorizontalScrollView"
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:fillViewport="true"
-                android:scrollbars="horizontal">
+                android:layout_height="wrap_content">
 
+                <!-- Plain text view - centered, wrapping -->
                 <TextView
-                    android:id="@+id/lyricsTextView"
+                    android:id="@+id/lyricsTextViewPlain"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textSize="18sp"
@@ -263,8 +261,32 @@
                     android:textIsSelectable="true"
                     android:paddingHorizontal="24dp"
                     android:text="Loading lyrics...."
-                    android:gravity="center_horizontal" />
-            </HorizontalScrollView>
+                    android:gravity="center_horizontal"
+                    android:visibility="visible" />
+
+                <!-- Formatted lyrics view - left aligned, scrollable -->
+                <HorizontalScrollView
+                    android:id="@+id/lyricsHorizontalScrollView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:scrollbars="horizontal"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/lyricsTextView"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="18sp"
+                        android:fontFamily="sans-serif"
+                        android:textColor="#F0F0F0"
+                        android:lineSpacingExtra="10dp"
+                        android:textIsSelectable="true"
+                        android:paddingHorizontal="24dp"
+                        android:text="Loading lyrics...."
+                        android:gravity="start" />
+                </HorizontalScrollView>
+
+            </FrameLayout>
         </ScrollView>
 
         <ProgressBar

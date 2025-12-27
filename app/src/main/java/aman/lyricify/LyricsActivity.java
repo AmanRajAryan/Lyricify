@@ -79,7 +79,7 @@ public class LyricsActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_lyrics);
-        
+
         // 1. WARM UP THE ENGINE & PREPARE FOR BACKGROUND SEARCH
         LyricsSharedEngine.getInstance(this);
 
@@ -103,29 +103,53 @@ public class LyricsActivity extends AppCompatActivity {
     }
 
     /**
-     * SPLIT ARCHITECTURE: PHASE 1
-     * Silently triggers the JS engine to search for this song.
-     * The result is cached in memory, ready for SyncedLyricsActivity.
+     * SPLIT ARCHITECTURE: PHASE 1 Silently triggers the JS engine to search for this song. The
+     * result is cached in memory, ready for SyncedLyricsActivity.
      */
     private void triggerBackgroundSearch() {
-        if (title == null || artist == null) return;
+        // Ensure we have minimum required data
+        if (title == null || title.isEmpty() || artist == null || artist.isEmpty()) {
+            Log.w("Lyricify", "Cannot trigger background search: Missing title or artist");
+            return;
+        }
 
         WebView webView = LyricsSharedEngine.getInstance(this).getWebView();
         if (webView != null) {
-            String safeTitle = title.replace("'", "\\'");
-            String safeArtist = artist.replace("'", "\\'");
-            String safeAlbum = ""; 
-            long duration = 0; // Default if not passed in intent
+            // Use the EXACT same title & artist displayed in header
+            String safeTitle = escapeSingleQuotes(title);
+            String safeArtist = escapeSingleQuotes(artist);
+            String safeAlbum = escapeSingleQuotes(getIntent().getStringExtra("SONG_ALBUM"));
 
-            Log.d("Lyricify", "Triggering Background Search for: " + safeTitle);
+            // Extract duration from intent (in milliseconds, convert to seconds)
+            long durationMs = getIntent().getLongExtra("SONG_DURATION", 0);
+            long durationSeconds = durationMs / 1000;
+
+            Log.d(
+                    "Lyricify",
+                    "🔍 Background Search: "
+                            + safeTitle
+                            + " by "
+                            + safeArtist
+                            + " [Album: "
+                            + safeAlbum
+                            + ", Duration: "
+                            + durationSeconds
+                            + "s]");
 
             // Calls 'searchSong' in JS (Sets background mode)
-            String js = String.format(
-                    "if(window.AndroidAPI) window.AndroidAPI.searchSong('%s', '%s', '%s', %d);",
-                    safeTitle, safeArtist, safeAlbum, duration);
-            
+            String js =
+                    String.format(
+                            "if(window.AndroidAPI) window.AndroidAPI.searchSong('%s', '%s', '%s', %d);",
+                            safeTitle, safeArtist, safeAlbum, durationSeconds);
+
             webView.post(() -> webView.evaluateJavascript(js, null));
         }
+    }
+
+    /** Helper to safely escape single quotes for JavaScript strings */
+    private String escapeSingleQuotes(String input) {
+        if (input == null || input.isEmpty()) return "";
+        return input.replace("\\", "\\\\").replace("'", "\\'");
     }
 
     private void setupDirectoryPickerLauncher() {

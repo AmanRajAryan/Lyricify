@@ -17,6 +17,6 @@ dependencyResolutionManagement {
 rootProject.name = "LYRICIFY"
 
 include(
-  ":app",
-  ":youLy"
+    ":app",
+    ":youLy"
 )

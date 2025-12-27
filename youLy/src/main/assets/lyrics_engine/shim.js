@@ -66,33 +66,40 @@ function initRenderer() {
         document.head.appendChild(style);
 
         // --- CLICK TO SEEK LISTENER ---
-        const parent = document.querySelector('#lyrics-parent');
-        if (parent) {
-            parent.addEventListener('click', (e) => {
-                const lineElement = e.target.closest('.lyrics-line');
-                if (lineElement && window.AndroidBridge && window.AndroidBridge.seekTo) {
-                    let seekTime = -1;
-                    
-                    // Strategy 1: Data attribute
-                    const dataTime = lineElement.getAttribute('data-time');
-                    if (dataTime) seekTime = parseFloat(dataTime);
-                    
-                    // Strategy 2: Array Index Fallback
-                    if (seekTime < 0 && rendererInstance.lyrics) {
-                        const allLines = Array.from(document.querySelectorAll('.lyrics-line'));
-                        const index = allLines.indexOf(lineElement);
-                        if (index >= 0 && rendererInstance.lyrics[index]) {
-                            seekTime = rendererInstance.lyrics[index].startTime;
-                        }
-                    }
-
-                    if (seekTime >= 0) {
-                        window.AndroidBridge.seekTo(Math.round(seekTime * 1000));
-                        SmoothClock.sync(seekTime); 
-                    }
+const parent = document.querySelector('#lyrics-parent');
+if (parent) {
+    parent.addEventListener('click', (e) => {
+        const lineElement = e.target.closest('.lyrics-line');
+        
+        if (lineElement && window.AndroidBridge && window.AndroidBridge.seekTo) {
+            let seekTime = -1;
+            
+            // Strategy 1: data-time attribute
+            const dataTime = lineElement.getAttribute('data-time');
+            if (dataTime) seekTime = parseFloat(dataTime);
+            
+            // Strategy 2: data-start-time attribute
+            if (seekTime < 0) {
+                const dataStartTime = lineElement.getAttribute('data-start-time');
+                if (dataStartTime) seekTime = parseFloat(dataStartTime);
+            }
+            
+            // Strategy 3: Array Index Fallback
+            if (seekTime < 0 && rendererInstance && rendererInstance.lyrics) {
+                const allLines = Array.from(document.querySelectorAll('.lyrics-line'));
+                const index = allLines.indexOf(lineElement);
+                if (index >= 0 && rendererInstance.lyrics[index]) {
+                    seekTime = rendererInstance.lyrics[index].startTime;
                 }
-            });
+            }
+
+            if (seekTime >= 0) {
+                window.AndroidBridge.seekTo(String(Math.round(seekTime * 1000)));
+                SmoothClock.sync(seekTime); 
+            }
         }
+    });
+}
 
     } catch (e) {
         console.error("[Shim] Failed to init renderer:", e);

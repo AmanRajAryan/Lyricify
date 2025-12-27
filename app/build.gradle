@@ -1,14 +1,16 @@
 plugins {
-    id 'com.android.application'
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace 'aman.lyricify'
-    compileSdk 34
-
+    namespace "aman.lyricify"
+    compileSdk 36
+;
     defaultConfig {
         applicationId "aman.lyricify"
-        minSdk 23
+        minSdk 29
         targetSdk 33
         versionCode 1
         versionName "1.0"
@@ -46,9 +48,9 @@ android {
             ) {
                 signingConfig signingConfigs.release
             }
+            minifyEnabled false
         }
         debug {
-            // default debug signing
         }
     }
 
@@ -57,28 +59,57 @@ android {
         targetCompatibility JavaVersion.VERSION_11
     }
 
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+    
+    composeOptions {
+        kotlinCompilerExtensionVersion = "2.1.0"
+    }
+
     buildFeatures {
         viewBinding true
+        compose true
+        
     }
 }
 
 dependencies {
-    implementation project(':youLy')
+    implementation project(":youLy")
 
+    implementation(libs.androidx.core)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
 
-    // Networking
-    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
 
-    // Glide
-    implementation 'com.github.bumptech.glide:glide:4.16.0'
-    annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
-    implementation 'jp.wasabeef:glide-transformations:4.3.0'
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+    implementation("jp.wasabeef:glide-transformations:4.3.0")
 
-    // AndroidX
-    implementation "androidx.appcompat:appcompat:1.6.1"
-    implementation "com.google.android.material:material:1.9.0"
+    implementation("com.mocharealm.accompanist:lyrics-core:0.3.4")
+    implementation("com.mocharealm.accompanist:lyrics-ui:1.0.8")
 
-    // Local AARs
-    implementation files("libs/library-release.aar")
-    implementation files("libs/lyricsview.aar")
+    implementation(files("libs/library-release.aar"))
+    
+    
+    implementation "androidx.documentfile:documentfile:1.0.1"
+    
+    
+    
+
+    implementation(platform(libs.compose.bom))
+
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+
+    implementation(libs.activity.compose)
+    implementation(libs.lifecycle.runtime.compose)
+
+    debugImplementation(libs.compose.ui.tooling)
+    
+
+    
 }

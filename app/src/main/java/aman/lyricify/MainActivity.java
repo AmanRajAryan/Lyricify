@@ -81,8 +81,6 @@ public class MainActivity extends AppCompatActivity {
 
         loadSortPreferences();
 
-        // [ADDED] Setup temporary button listener
-        setupTestButton();
 
         initializeViews();
         initializeManagers();
@@ -91,38 +89,7 @@ public class MainActivity extends AppCompatActivity {
         nowPlayingManager.register();
     }
 
-    private void setupTestButton() {
-        View btnTest = findViewById(R.id.btnTestYouLy);
-        if (btnTest != null) {
-            btnTest.setOnClickListener(
-                    v -> {
-                        // 1. Create the fragment
-                        LyricsWebViewFragment fragment = new LyricsWebViewFragment();
-
-                        // 2. Add it to the root view (overlaying everything)
-                        getSupportFragmentManager()
-                                .beginTransaction()
-                                .add(android.R.id.content, fragment)
-                                .addToBackStack("YouLyTest")
-                                .commit();
-
-                        // 3. Send dummy data after 1.5s (giving WebView time to init)
-                        new Handler()
-                                .postDelayed(
-                                        () -> {
-                                            if (fragment.isVisible()) {
-                                                fragment. // Inside LyricsWebViewFragment.java
-                                                        loadLyrics(
-                                                        "eternity",
-                                                        "alex warren",
-                                                        "",
-                                                        0);
-                                            }
-                                        },
-                                        1500);
-                    });
-        }
-    }
+    
 
     @Override
     protected void onResume() {
@@ -562,6 +529,13 @@ public class MainActivity extends AppCompatActivity {
         intent.putExtra("SONG_ARTIST", apiSong.getArtistName());
         intent.putExtra("SONG_ARTWORK", apiSong.getArtwork());
 
+        // ✅ NEW: Pass Album Name
+        intent.putExtra("SONG_ALBUM", apiSong.getAlbumName());
+
+        // ✅ NEW: Pass Duration (convert from "3:45" format to milliseconds)
+        long durationMs = parseDurationToMillis(apiSong.getDuration());
+        intent.putExtra("SONG_DURATION", durationMs);
+
         if (localSong.filePath != null) {
             intent.putExtra("SONG_FILE_PATH", localSong.filePath);
         }
@@ -570,6 +544,39 @@ public class MainActivity extends AppCompatActivity {
         }
 
         startActivity(intent);
+    }
+
+    /** Converts duration string (e.g., "3:45" or "1:02:30") to milliseconds */
+    private long parseDurationToMillis(String durationStr) {
+        if (durationStr == null || durationStr.trim().isEmpty()) {
+            return 0;
+        }
+
+        try {
+            // Remove "Duration: " prefix if present
+            durationStr = durationStr.replace("Duration: ", "").trim();
+
+            String[] parts = durationStr.split(":");
+            long totalSeconds = 0;
+
+            if (parts.length == 2) {
+                // Format: MM:SS
+                int minutes = Integer.parseInt(parts[0]);
+                int seconds = Integer.parseInt(parts[1]);
+                totalSeconds = (minutes * 60) + seconds;
+            } else if (parts.length == 3) {
+                // Format: HH:MM:SS
+                int hours = Integer.parseInt(parts[0]);
+                int minutes = Integer.parseInt(parts[1]);
+                int seconds = Integer.parseInt(parts[2]);
+                totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+            }
+
+            return totalSeconds * 1000; // Convert to milliseconds
+        } catch (NumberFormatException e) {
+            Log.e("MainActivity", "Failed to parse duration: " + durationStr, e);
+            return 0;
+        }
     }
 
     private void checkPermissionAndOnboard() {

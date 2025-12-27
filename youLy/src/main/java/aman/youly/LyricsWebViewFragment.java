@@ -80,7 +80,7 @@ public class LyricsWebViewFragment extends Fragment {
     }
 
     // =========================================================================
-    //  NEW SPLIT API (Use these for better performance)
+    //  NEW SPLIT API
     // =========================================================================
 
     /**

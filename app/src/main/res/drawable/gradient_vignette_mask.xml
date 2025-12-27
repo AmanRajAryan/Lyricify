@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Alpha gradient mask: opaque at top, transparent in middle, opaque at bottom -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:type="linear"
+        android:angle="270"
+        android:startColor="#FFFFFFFF"
+        android:centerColor="#00FFFFFF"
+        android:endColor="#FFFFFFFF" />
+</shape>

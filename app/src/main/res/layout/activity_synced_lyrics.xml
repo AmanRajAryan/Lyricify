@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     android:background="#121212">
 
+    <!-- Layer 1: Base blurred background (bottommost) -->
     <ImageView
         android:id="@+id/immersiveBackground"
         android:layout_width="match_parent"
@@ -22,10 +23,12 @@
         android:id="@+id/darkOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#CC000000"
+        android:background="#66000000"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent" />
 
+    <!-- Layer 2: Lyrics Views -->
+    <!-- Native Lyrics View -->
     <aman.lyricify.SyncedLyricsView
         android:id="@+id/syncedLyricsView"
         android:layout_width="0dp"
@@ -36,24 +39,49 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Web View Container -->
     <FrameLayout
         android:id="@+id/webViewContainer"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginBottom="100dp"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Karaoke View Container (Full Screen) -->
+    <FrameLayout
+    
+        android:id="@+id/karaokeContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:paddingTop="20dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Layer 3: Custom view with gradient alpha mask -->
+    <aman.lyricify.GradientMaskedImageView
+        android:id="@+id/immersiveBackgroundOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- Layer 4: All other UI elements -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/headerCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="24dp"
         android:layout_marginTop="40dp"
-        app:cardBackgroundColor="#CC1E1E1E"
+        app:cardBackgroundColor="#801E1E1E"
         app:cardCornerRadius="24dp"
         app:cardElevation="0dp"
         app:strokeColor="#33FFFFFF"

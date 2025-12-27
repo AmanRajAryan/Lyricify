@@ -28,18 +28,7 @@
 
 
     
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnTestYouLy"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:text="Test YouLy Engine"
-        android:layout_marginBottom="12dp"
-        app:backgroundTint="#FF5722"
-        android:textColor="@android:color/white"/>
-
-
-
+    
 
 
 

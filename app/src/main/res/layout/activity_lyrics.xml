@@ -240,23 +240,31 @@
             android:layout_marginTop="8dp"
             android:clipToPadding="false"
             android:paddingTop="32dp"
-            android:paddingHorizontal="24dp"
             android:paddingBottom="100dp"
             android:scrollbars="vertical"
             app:layout_constraintTop_toBottomOf="@id/formatSelectorButton"
             app:layout_constraintBottom_toBottomOf="parent">
 
-            <TextView
-                android:id="@+id/lyricsTextView"
+            <HorizontalScrollView
+                android:id="@+id/lyricsHorizontalScrollView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="18sp"
-                android:fontFamily="sans-serif"
-                android:textColor="#F0F0F0"
-                android:lineSpacingExtra="10dp"
-                android:textIsSelectable="true"
-                android:text="Loading lyrics...."
-                android:gravity="center_horizontal" />
+                android:fillViewport="true"
+                android:scrollbars="horizontal">
+
+                <TextView
+                    android:id="@+id/lyricsTextView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="18sp"
+                    android:fontFamily="sans-serif"
+                    android:textColor="#F0F0F0"
+                    android:lineSpacingExtra="10dp"
+                    android:textIsSelectable="true"
+                    android:paddingHorizontal="24dp"
+                    android:text="Loading lyrics...."
+                    android:gravity="center_horizontal" />
+            </HorizontalScrollView>
         </ScrollView>
 
         <ProgressBar
@@ -288,6 +296,5 @@
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="24dp"
         android:elevation="6dp" />
-
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

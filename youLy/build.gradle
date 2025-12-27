@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-  namespace 'com.example.youLy'
+  namespace 'aman.youLy'
   compileSdk 34
 
   defaultConfig {

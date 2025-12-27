@@ -3,270 +3,274 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:layout_width="match_parent"
     android:background="#121212">
 
-    <!-- Layer 1: Base blurred background (bottommost) -->
     <ImageView
-        android:id="@+id/immersiveBackground"
-        android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_width="match_parent"
         android:scaleType="centerCrop"
         android:src="@drawable/ic_music_note"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:id="@+id/immersiveBackground" />
 
     <View
-        android:id="@+id/darkOverlay"
-        android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_width="match_parent"
         android:background="#66000000"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent" />
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:id="@+id/darkOverlay" />
 
-    <!-- Layer 2: Lyrics Views -->
-    <!-- Native Lyrics View -->
     <aman.lyricify.SyncedLyricsView
-        android:id="@+id/syncedLyricsView"
-        android:layout_width="0dp"
         android:layout_height="0dp"
+        android:layout_width="0dp"
         android:layout_marginBottom="24dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:id="@+id/syncedLyricsView" />
 
-    <!-- Web View Container -->
     <FrameLayout
-        android:id="@+id/webViewContainer"
-        android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_width="match_parent"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:id="@+id/webViewContainer">
 
-    <!-- Karaoke View Container (Full Screen) -->
+    </FrameLayout>
+
     <FrameLayout
-    
-        android:id="@+id/karaokeContainer"
-        android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_width="match_parent"
         android:visibility="gone"
-        android:paddingTop="20dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:id="@+id/karaokeContainer">
 
-    <!-- Layer 3: Custom view with gradient alpha mask -->
+    </FrameLayout>
+
     <aman.lyricify.GradientMaskedImageView
-        android:id="@+id/immersiveBackgroundOverlay"
-        android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scaleType="centerCrop"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!-- Layer 4: All other UI elements -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/headerCard"
         android:layout_width="match_parent"
+        android:scaleType="centerCrop"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:id="@+id/immersiveBackgroundOverlay" />
+
+    <com.google.android.material.card.MaterialCardView
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="24dp"
-        android:layout_marginTop="40dp"
-        app:cardBackgroundColor="#801E1E1E"
-        app:cardCornerRadius="24dp"
-        app:cardElevation="0dp"
+        android:layout_width="match_parent"
         app:strokeColor="#33FFFFFF"
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_marginHorizontal="24dp"
+        app:cardElevation="0dp"
         app:strokeWidth="1dp"
-        app:layout_constraintTop_toTopOf="parent">
+        app:cardBackgroundColor="#801E1E1E"
+        android:layout_marginTop="40dp"
+        app:cardCornerRadius="24dp"
+        android:id="@+id/headerCard">
+
         <LinearLayout
-            android:id="@+id/headerLayout"
-            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_width="match_parent"
             android:gravity="center_vertical"
+            android:padding="16dp"
             android:orientation="horizontal"
-            android:padding="16dp">
+            android:id="@+id/headerLayout">
 
             <com.google.android.material.card.MaterialCardView
-                android:layout_width="56dp"
                 android:layout_height="56dp"
-                app:cardCornerRadius="12dp"
+                android:layout_width="56dp"
                 app:cardElevation="0dp"
-                app:strokeWidth="0dp">
+                app:strokeWidth="0dp"
+                app:cardCornerRadius="12dp">
 
                 <ImageView
-                    android:id="@+id/headerArtwork"
-                    android:layout_width="match_parent"
                     android:layout_height="match_parent"
+                    android:layout_width="match_parent"
                     android:scaleType="centerCrop"
-                    android:src="@drawable/ic_music_note" />
+                    android:src="@drawable/ic_music_note"
+                    android:id="@+id/headerArtwork" />
+
             </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
-                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:orientation="vertical"
                 android:layout_marginStart="16dp"
-                android:orientation="vertical">
+                android:layout_weight="1">
 
                 <TextView
-                    android:id="@+id/syncedSongTitle"
-                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_width="wrap_content"
                     android:ellipsize="end"
-                    android:maxLines="1"
-                    android:text="Song Title"
-                    android:textColor="@android:color/white"
                     android:textSize="20sp"
+                    android:textColor="@android:color/white"
+                    android:maxLines="1"
+                    android:id="@+id/syncedSongTitle"
+                    android:text="Song Title"
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/syncedSongArtist"
-                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_width="wrap_content"
                     android:alpha="0.8"
                     android:ellipsize="end"
-                    android:maxLines="1"
-                    android:text="Artist Name"
+                    android:textSize="14sp"
                     android:textColor="#DDDDDD"
-                    android:textSize="14sp" />
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:id="@+id/syncedSongArtist"
+                    android:text="Artist Name" />
+
             </LinearLayout>
+
         </LinearLayout>
+
     </com.google.android.material.card.MaterialCardView>
 
     <View
-        android:id="@+id/controlsScrim"
-        android:layout_width="match_parent"
         android:layout_height="250dp"
+        android:layout_width="match_parent"
         android:background="@drawable/gradient_bottom_scrim"
-        app:layout_constraintBottom_toBottomOf="parent" />
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:id="@+id/controlsScrim" />
 
     <LinearLayout
-        android:id="@+id/controlsLayout"
-        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_width="match_parent"
         android:orientation="vertical"
-        android:paddingHorizontal="24dp"
         android:paddingBottom="48dp"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:paddingHorizontal="24dp"
+        android:id="@+id/controlsLayout">
 
         <LinearLayout
-            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_width="match_parent"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/positionText"
-                android:layout_width="50dp"
                 android:layout_height="wrap_content"
-                android:text="0:00"
-                android:textColor="#FFFFFF"
+                android:layout_width="50dp"
                 android:textSize="12sp"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="sans-serif-medium"
+                android:textColor="#FFFFFF"
+                android:id="@+id/positionText"
+                android:text="0:00" />
 
-            <SeekBar
+            <aman.lyricify.SquigglySeekBar
                 android:id="@+id/progressSeekBar"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="60dp"
                 android:layout_weight="1"
-                android:progressTint="#FFFFFF"
-                android:thumbTint="#FFFFFF"
-                android:progressBackgroundTint="#50FFFFFF" />
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp" />
+
+
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_width="match_parent"
             android:gravity="center"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:layout_marginTop="24dp">
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/playerChangerButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:padding="0dp"
+                android:layout_width="48dp"
                 app:icon="@drawable/ic_swap_horiz"
-                app:iconTint="#FFFFFF"
                 app:iconSize="24dp"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
+                android:tooltipText="Change Player"
+                android:padding="20dp"
                 app:cornerRadius="24dp"
-                android:tooltipText="Change Player" />
+                app:iconTint="#FFFFFF"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                app:iconPadding="0dp"
+                android:id="@+id/playerChangerButton"
+                app:iconGravity="textStart" />
 
             <View
-                android:layout_width="0dp"
                 android:layout_height="0dp"
+                android:layout_width="0dp"
                 android:layout_weight="1" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/prevButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:padding="0dp"
+                android:layout_width="48dp"
                 app:icon="@drawable/ic_skip_previous"
-                app:iconTint="#FFFFFF"
                 app:iconSize="32dp"
-                app:iconGravity="textStart"
+                android:padding="0dp"
+                app:cornerRadius="24dp"
+                app:iconTint="#FFFFFF"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
                 app:iconPadding="0dp"
-                app:cornerRadius="24dp" />
+                android:id="@+id/prevButton"
+                app:iconGravity="textStart" />
 
             <com.google.android.material.floatingactionbutton.FloatingActionButton
-                android:id="@+id/playPauseButton"
-                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="24dp"
-                android:src="@drawable/ic_play_arrow"
+                android:layout_width="wrap_content"
+                android:src="@drawable/avd_play_to_pause"
+                app:maxImageSize="42dp"
                 app:backgroundTint="#FFFFFF"
+                android:layout_marginHorizontal="24dp"
                 app:tint="#000000"
+                app:elevation="6dp"
+                app:fabCustomSize="72dp"
                 app:fabSize="normal"
-                app:elevation="6dp" />
+                android:id="@+id/playPauseButton" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/nextButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:padding="0dp"
+                android:layout_width="48dp"
                 app:icon="@drawable/ic_skip_next"
-                app:iconTint="#FFFFFF"
                 app:iconSize="32dp"
-                app:iconGravity="textStart"
+                android:padding="10dp"
+                app:cornerRadius="24dp"
+                app:iconTint="#FFFFFF"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
                 app:iconPadding="0dp"
-                app:cornerRadius="24dp" />
+                android:id="@+id/nextButton"
+                app:iconGravity="textStart" />
 
             <View
-                android:layout_width="0dp"
                 android:layout_height="0dp"
+                android:layout_width="0dp"
                 android:layout_weight="1" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/fontSwitchButton"
-                style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:padding="0dp"
+                android:layout_width="48dp"
                 app:icon="@drawable/ic_text_fields"
-                app:iconTint="#FFFFFF"
                 app:iconSize="24dp"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
+                android:tooltipText="Change Font"
+                android:padding="20dp"
                 app:cornerRadius="24dp"
-                android:tooltipText="Change Font" />
+                app:iconTint="#FFFFFF"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                app:iconPadding="0dp"
+                android:id="@+id/fontSwitchButton"
+                app:iconGravity="textStart" />
 
         </LinearLayout>
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

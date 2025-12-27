@@ -40,6 +40,7 @@ public class LyricsActivity extends AppCompatActivity {
     private TextView songArtist;
     private TextView songFilePath;
     private TextView lyricsTextView;
+    private HorizontalScrollView lyricsHorizontalScrollView;
     private ProgressBar lyricsLoading;
 
     // Control Panel Components
@@ -98,7 +99,6 @@ public class LyricsActivity extends AppCompatActivity {
         setupButtonListeners();
 
         // 2. TRIGGER BACKGROUND SEARCH (Phase 1)
-        // This starts the WebView search silently while user reads metadata
         triggerBackgroundSearch();
     }
 
@@ -107,7 +107,6 @@ public class LyricsActivity extends AppCompatActivity {
      * result is cached in memory, ready for SyncedLyricsActivity.
      */
     private void triggerBackgroundSearch() {
-        // Ensure we have minimum required data
         if (title == null || title.isEmpty() || artist == null || artist.isEmpty()) {
             Log.w("Lyricify", "Cannot trigger background search: Missing title or artist");
             return;
@@ -115,28 +114,15 @@ public class LyricsActivity extends AppCompatActivity {
 
         WebView webView = LyricsSharedEngine.getInstance(this).getWebView();
         if (webView != null) {
-            // Use the EXACT same title & artist displayed in header
             String safeTitle = escapeSingleQuotes(title);
             String safeArtist = escapeSingleQuotes(artist);
             String safeAlbum = escapeSingleQuotes(getIntent().getStringExtra("SONG_ALBUM"));
 
-            // Extract duration from intent (in milliseconds, convert to seconds)
             long durationMs = getIntent().getLongExtra("SONG_DURATION", 0);
             long durationSeconds = durationMs / 1000;
 
-            Log.d(
-                    "Lyricify",
-                    "🔍 Background Search: "
-                            + safeTitle
-                            + " by "
-                            + safeArtist
-                            + " [Album: "
-                            + safeAlbum
-                            + ", Duration: "
-                            + durationSeconds
-                            + "s]");
+            Log.d("Lyricify", "🔍 Background Search: " + safeTitle + " by " + safeArtist);
 
-            // Calls 'searchSong' in JS (Sets background mode)
             String js =
                     String.format(
                             "if(window.AndroidAPI) window.AndroidAPI.searchSong('%s', '%s', '%s', %d);",
@@ -146,7 +132,6 @@ public class LyricsActivity extends AppCompatActivity {
         }
     }
 
-    /** Helper to safely escape single quotes for JavaScript strings */
     private String escapeSingleQuotes(String input) {
         if (input == null || input.isEmpty()) return "";
         return input.replace("\\", "\\\\").replace("'", "\\'");
@@ -164,8 +149,7 @@ public class LyricsActivity extends AppCompatActivity {
                                             .takePersistableUriPermission(
                                                     treeUri,
                                                     Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                                            | Intent
-                                                                    .FLAG_GRANT_WRITE_URI_PERMISSION);
+                                                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                                     Toast.makeText(this, "✓ Access granted!", Toast.LENGTH_LONG)
                                             .show();
                                 }
@@ -182,6 +166,7 @@ public class LyricsActivity extends AppCompatActivity {
         songFilePath = findViewById(R.id.songFilePath);
 
         lyricsTextView = findViewById(R.id.lyricsTextView);
+        lyricsHorizontalScrollView = findViewById(R.id.lyricsHorizontalScrollView);
         lyricsLoading = findViewById(R.id.lyricsLoading);
 
         // Control Panel
@@ -324,6 +309,50 @@ public class LyricsActivity extends AppCompatActivity {
         formatSelectorButton.setAlpha(enabled ? 1.0f : 0.5f);
     }
 
+    /**
+     * Updates the TextView properties based on the selected format.
+     * Plain -> Wrap enabled, Center aligned, No Horizontal Scroll
+     * Others -> Wrap disabled, Left aligned, Horizontal Scroll enabled
+     */
+    private void applyTextLayoutLogic(String format) {
+        if (lyricsTextView == null || lyricsHorizontalScrollView == null) return;
+
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) lyricsTextView.getLayoutParams();
+
+        if ("Plain".equals(format)) {
+            // 1. ENABLE WRAPPING: Force width to match parent
+            params.width = FrameLayout.LayoutParams.MATCH_PARENT;
+            
+            // 2. CENTER JUSTIFY
+            lyricsTextView.setGravity(Gravity.CENTER_HORIZONTAL);
+            params.gravity = Gravity.CENTER_HORIZONTAL;
+            
+            // Allow text to wrap naturally
+            lyricsTextView.setHorizontallyScrolling(false);
+            
+            // 3. EFFECTIVELY DISABLE HORIZONTAL SCROLLING 
+            // (Since width is MATCH_PARENT, it won't overflow)
+        } else {
+            // 1. DISABLE WRAPPING: Allow width to grow beyond screen
+            params.width = FrameLayout.LayoutParams.WRAP_CONTENT;
+            
+            // 2. LEFT JUSTIFY
+            lyricsTextView.setGravity(Gravity.START);
+            params.gravity = Gravity.START;
+
+            // Force text to NOT wrap even if it hits screen edge
+            lyricsTextView.setHorizontallyScrolling(true);
+            
+            // 3. ENABLE HORIZONTAL SCROLLING
+            // (Since width is WRAP_CONTENT, HorizontalScrollView will handle overflow)
+        }
+
+        lyricsTextView.setLayoutParams(params);
+        
+        // Reset scroll position to start
+        lyricsHorizontalScrollView.scrollTo(0, 0);
+    }
+
     private void showFormatSelectionSheet() {
         if (availableFormats.size() <= 1) {
             Toast.makeText(this, "Only Plain format available", Toast.LENGTH_SHORT).show();
@@ -392,7 +421,13 @@ public class LyricsActivity extends AppCompatActivity {
                     v -> {
                         currentFormat = format;
                         currentFormatText.setText(format);
+                        
+                        // Update Content
                         lyricsFetcher.displayFormat(format);
+                        
+                        // Update Layout Logic (Wrap vs Scroll)
+                        applyTextLayoutLogic(format);
+                        
                         updateSyncedLyricsButtonState();
                         bottomSheetDialog.dismiss();
                     });

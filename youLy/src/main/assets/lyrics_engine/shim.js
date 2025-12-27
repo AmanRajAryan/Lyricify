@@ -5,21 +5,19 @@ import { MessageHandler } from './src/background/core/messageHandler.js';
 window.t = (key) => key; 
 window.DOMPurify = { sanitize: (html) => html }; 
 
-// --- 2. STICKY SMOOTH CLOCK ---
+// --- 2. STICKY SMOOTH CLOCK (With Pause Support) ---
 const SmoothClock = {
     baseSysTime: 0,
     baseSongTime: 0,
-    isPlaying: false,
+    isPaused: true,
+    pausedTime: 0,
 
     sync: (newSongTime) => {
         const now = performance.now();
-        if (!SmoothClock.isPlaying) {
-            SmoothClock.baseSysTime = now;
-            SmoothClock.baseSongTime = newSongTime;
-            SmoothClock.isPlaying = true;
+        if (SmoothClock.isPaused) {
+            SmoothClock.pausedTime = newSongTime;
             return;
         }
-        // Sync only if drift is > 200ms to prevent jitter
         const currentProjected = SmoothClock.baseSongTime + (now - SmoothClock.baseSysTime) / 1000;
         const drift = Math.abs(newSongTime - currentProjected);
         if (drift > 0.2) {
@@ -28,8 +26,24 @@ const SmoothClock = {
         }
     },
 
+    setPlaying: (isPlaying) => {
+        const now = performance.now();
+        if (isPlaying) {
+            if (SmoothClock.isPaused) {
+                SmoothClock.isPaused = false;
+                SmoothClock.baseSongTime = SmoothClock.pausedTime;
+                SmoothClock.baseSysTime = now;
+            }
+        } else {
+            if (!SmoothClock.isPaused) {
+                SmoothClock.pausedTime = SmoothClock.getTime();
+                SmoothClock.isPaused = true;
+            }
+        }
+    },
+
     getTime: () => {
-        if (!SmoothClock.isPlaying) return 0;
+        if (SmoothClock.isPaused) return SmoothClock.pausedTime;
         const now = performance.now();
         return SmoothClock.baseSongTime + ((now - SmoothClock.baseSysTime) / 1000);
     }
@@ -37,9 +51,9 @@ const SmoothClock = {
 
 // --- 3. STATE MANAGEMENT ---
 let rendererInstance = null;
-let cachedLyricsData = null;     // Stores the fetched lyrics
-let isSearchOnlyMode = false;    // Flag: "Don't render yet, just fetch"
-let lastSongId = "";             // To prevent re-fetching the same song
+let cachedLyricsData = null;     
+let isSearchOnlyMode = false;    
+let lastSongId = "";             
 
 function initRenderer() {
     console.log("[Shim] Initializing LyricsPlusRenderer...");
@@ -52,82 +66,94 @@ function initRenderer() {
             selectors: [] 
         });
         window.renderer = rendererInstance;
-        console.log("[Shim] Renderer initialized.");
 
-        // --- GLOW FIX (2x Intensity) ---
+        // --- VISUAL BOOST PATCH (Mobile Specific) ---
         const style = document.createElement('style');
         style.innerHTML = `
+            /* 1. BOOST GLOW (2x Intensity) */
             @keyframes grow-dynamic {
                 0% { transform: matrix3d(var(--min-scale), 0, 0, 0, 0, var(--min-scale), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0)); }
-                25%, 30% { transform: matrix3d(var(--max-scale), 0, 0, 0, 0, var(--max-scale), 0, 0, 0, 0, 1, 0, var(--char-offset-x, 0), var(--translate-y-peak, -2%), 0, 1); filter: drop-shadow(0 0 0.2em rgba(255, 255, 255, 0.8)); }
+                25%, 30% { 
+                    transform: matrix3d(var(--max-scale), 0, 0, 0, 0, var(--max-scale), 0, 0, 0, 0, 1, 0, var(--char-offset-x, 0), var(--translate-y-peak, -2%), 0, 1); 
+                    /* 2x Glow (0.2em) */
+                    filter: drop-shadow(0 0 0.2em rgba(255, 255, 255, 0.8)); 
+                }
                 100% { transform: matrix3d(var(--min-scale), 0, 0, 0, 0, var(--min-scale), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); }
+            }
+
+            /* 2. SUPER BOLD FONT */
+            .lyrics-line {
+                font-weight: 900 !important; /* Maximum Boldness */
+            }
+
+            /* 3. PURE WHITE PALETTE (Safe Method) */
+            /* Forces the animation engine to use Pure White for the fill */
+            #lyrics-plus-container {
+                --lyplus-lyrics-pallete: #ffffff !important; 
+                --lyplus-text-primary: #ffffff !important;
+                -webkit-font-smoothing: antialiased;
+            }
+            
+            /* Ensure Opacity is maxed out */
+            .lyrics-line.active {
+                opacity: 1 !important;
             }
         `;
         document.head.appendChild(style);
 
-        // --- CLICK TO SEEK LISTENER ---
-const parent = document.querySelector('#lyrics-parent');
-if (parent) {
-    parent.addEventListener('click', (e) => {
-        const lineElement = e.target.closest('.lyrics-line');
-        
-        if (lineElement && window.AndroidBridge && window.AndroidBridge.seekTo) {
-            let seekTime = -1;
-            
-            // Strategy 1: data-time attribute
-            const dataTime = lineElement.getAttribute('data-time');
-            if (dataTime) seekTime = parseFloat(dataTime);
-            
-            // Strategy 2: data-start-time attribute
-            if (seekTime < 0) {
-                const dataStartTime = lineElement.getAttribute('data-start-time');
-                if (dataStartTime) seekTime = parseFloat(dataStartTime);
-            }
-            
-            // Strategy 3: Array Index Fallback
-            if (seekTime < 0 && rendererInstance && rendererInstance.lyrics) {
-                const allLines = Array.from(document.querySelectorAll('.lyrics-line'));
-                const index = allLines.indexOf(lineElement);
-                if (index >= 0 && rendererInstance.lyrics[index]) {
-                    seekTime = rendererInstance.lyrics[index].startTime;
+        // --- CLICK TO SEEK ---
+        const parent = document.querySelector('#lyrics-parent');
+        if (parent) {
+            parent.addEventListener('click', (e) => {
+                const lineElement = e.target.closest('.lyrics-line');
+                if (lineElement && window.AndroidBridge && window.AndroidBridge.seekTo) {
+                    let seekTime = -1;
+                    const dataTime = lineElement.getAttribute('data-time');
+                    if (dataTime) seekTime = parseFloat(dataTime);
+                    
+                    if (seekTime < 0) {
+                        const dataStartTime = lineElement.getAttribute('data-start-time');
+                        if (dataStartTime) seekTime = parseFloat(dataStartTime);
+                    }
+                    
+                    if (seekTime < 0 && rendererInstance && rendererInstance.lyrics) {
+                        const allLines = Array.from(document.querySelectorAll('.lyrics-line'));
+                        const index = allLines.indexOf(lineElement);
+                        if (index >= 0 && rendererInstance.lyrics[index]) {
+                            seekTime = rendererInstance.lyrics[index].startTime;
+                        }
+                    }
+
+                    if (seekTime >= 0) {
+                        window.AndroidBridge.seekTo(String(Math.round(seekTime * 1000)));
+                        SmoothClock.sync(seekTime);
+                    }
                 }
-            }
-
-            if (seekTime >= 0) {
-                window.AndroidBridge.seekTo(String(Math.round(seekTime * 1000)));
-                SmoothClock.sync(seekTime); 
-            }
+            });
         }
-    });
-}
-
     } catch (e) {
         console.error("[Shim] Failed to init renderer:", e);
     }
 }
 
-// --- 4. API BRIDGE (INTERCEPTOR) ---
+// --- 4. API BRIDGE ---
 window.LyricsPlusAPI = {
     cleanupLyrics: () => { 
         if (rendererInstance) rendererInstance.cleanupLyrics();
-        SmoothClock.isPlaying = false;
+        SmoothClock.isPaused = true;
         cachedLyricsData = null; 
         lastSongId = "";
     },
 
-    // This is called by the bundle when it finishes fetching/parsing
     displayLyrics: (lyrics, songInfo, mode, settings) => { 
         if (!rendererInstance) initRenderer();
         
-        // INTERCEPTION LOGIC
         if (isSearchOnlyMode) {
-            console.log("[Shim] Search finished. Caching data (Background Mode).");
-            cachedLyricsData = { lyrics, songInfo, mode, settings }; // Save for later
-            return; // STOP! Do not render yet.
+            console.log("[Shim] Search finished. Caching data.");
+            cachedLyricsData = { lyrics, songInfo, mode, settings };
+            return;
         }
 
-        // RENDER LOGIC
-        console.log("[Shim] Rendering lyrics now.");
         renderInternal(lyrics, songInfo, mode, settings);
     },
     displaySongNotFound: () => rendererInstance?.displaySongNotFound(),
@@ -135,11 +161,11 @@ window.LyricsPlusAPI = {
     t: window.t
 };
 
-// Helper to actually draw the screen
 function renderInternal(lyrics, songInfo, mode, settings) {
     const container = document.getElementById('lyrics-plus-container');
     if (container) {
-        const size = settings.fontSize || 26; 
+        // Force settings here if needed
+        const size = settings.fontSize || 46; 
         container.style.setProperty('--lyplus-font-size-base', size + 'px');
         container.style.display = 'block';
         container.style.height = '100vh';
@@ -159,64 +185,63 @@ function renderInternal(lyrics, songInfo, mode, settings) {
 
 // --- 5. ANDROID INTERFACE ---
 window.AndroidAPI = {
-    // A. BACKGROUND FETCH (Call this when song starts)
     searchSong: (title, artist, album, duration) => {
         const uniqueId = title + artist;
-        if (uniqueId === lastSongId) return; // Ignore duplicate calls
+        if (uniqueId === lastSongId) return;
         
         lastSongId = uniqueId;
-        cachedLyricsData = null; // Clear old cache
-        isSearchOnlyMode = true; // ENABLE BACKGROUND MODE
+        cachedLyricsData = null; 
+        isSearchOnlyMode = true; 
+
+        // --- Init Loading Screen ---
+        if (!rendererInstance) initRenderer();
+        if (rendererInstance) rendererInstance.cleanupLyrics(); 
+        // ---------------------------
 
         const safeAlbum = album || "";
         const safeDuration = duration || 0;
         const songInfo = { title, artist, album: safeAlbum, duration: safeDuration, id: uniqueId, source: "Android" };
 
-        if (rendererInstance) rendererInstance.cleanupLyrics();
-        
-        // Start the fetch (Result hits LyricsPlusAPI.displayLyrics above)
         if (window.fetchAndDisplayLyrics) window.fetchAndDisplayLyrics(songInfo, true);
     },
 
-    // B. FOREGROUND RENDER (Call this when user opens UI)
     showSong: () => {
-        isSearchOnlyMode = false; // DISABLE BACKGROUND MODE
-
+        isSearchOnlyMode = false;
         if (cachedLyricsData) {
-            // Case 1: Search already finished -> Render Instantly
-            console.log("[Shim] Cache hit! Rendering instantly.");
+            console.log("[Shim] Cache hit! Rendering.");
             renderInternal(
                 cachedLyricsData.lyrics, 
                 cachedLyricsData.songInfo, 
                 cachedLyricsData.mode, 
                 window.currentSettings
             );
+            cachedLyricsData = null; 
         } else {
-            // Case 2: Search still running -> It will render automatically when it hits displayLyrics
-            console.log("[Shim] Cache miss. Waiting for search to finish...");
+            console.log("[Shim] Cache miss. Waiting for search.");
         }
     },
 
-    // C. LEGACY LOAD (Immediate)
     loadSong: (title, artist, album, duration) => {
         isSearchOnlyMode = false;
         const uniqueId = title + artist;
         lastSongId = uniqueId;
-        
         const safeAlbum = album || "";
         const safeDuration = duration || 0;
         const songInfo = { title, artist, album: safeAlbum, duration: safeDuration, id: uniqueId, source: "Android" };
-        
         if (rendererInstance) rendererInstance.cleanupLyrics();
         if (window.fetchAndDisplayLyrics) window.fetchAndDisplayLyrics(songInfo, true);
     },
 
     updateTime: (timeMs) => {
         SmoothClock.sync(timeMs / 1000);
+    },
+
+    setPlaying: (isPlaying) => {
+        SmoothClock.setPlaying(isPlaying);
     }
 };
 
-// --- 6. SETTINGS & NETWORK ---
+// --- 6. SETTINGS ---
 window.pBrowser = {
     runtime: { sendMessage: (m) => new Promise(r => MessageHandler.handle(m, {}, r)) },
     getURL: (p) => p
@@ -233,7 +258,7 @@ window.currentSettings = {
     useSponsorBlock: false,
     lightweight: false, 
     blurInactive: true, 
-    fontSize: 32,       
+    fontSize: 40,      // 46px Size
     customCSS: ''
 };
 
@@ -254,4 +279,4 @@ window.handleNativeResponse = (reqId, isSuccess, status, content) => {
     }
 };
 
-console.log("Shim loaded. Split Search/Render Mode.");
+console.log("Shim loaded. Fixed Animation + 46px Bold.");

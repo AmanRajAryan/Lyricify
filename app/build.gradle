@@ -7,7 +7,7 @@ plugins {
 android {
     namespace "aman.lyricify"
     compileSdk 36
-;
+
     defaultConfig {
         applicationId "aman.lyricify"
         minSdk 29
@@ -48,7 +48,8 @@ android {
             ) {
                 signingConfig signingConfigs.release
             }
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
         }
         debug {
         }
@@ -72,6 +73,21 @@ android {
         compose true
         
     }
+    
+    
+    
+    packaging {
+        resources {
+            excludes += "**/sf_pro.ttf" 
+            
+        }
+    }
+    
+
+
+    
+    
+    
 }
 
 dependencies {
@@ -87,8 +103,8 @@ dependencies {
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
     implementation("jp.wasabeef:glide-transformations:4.3.0")
 
-    implementation("com.mocharealm.accompanist:lyrics-core:0.3.4")
-    implementation("com.mocharealm.accompanist:lyrics-ui:1.0.8")
+    implementation("com.mocharealm.accompanist:lyrics-core:0.4.0")
+    implementation("com.mocharealm.accompanist:lyrics-ui:1.0.9")
 
     implementation(files("libs/library-release.aar"))
     

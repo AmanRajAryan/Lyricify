@@ -28,8 +28,6 @@ import java.util.Map;
 
 public class SyncedLyricsView extends View {
 
-    // ... (Keep existing Interface and WrappedLine class) ...
-
     public interface SeekListener {
         void onSeek(long timeMs);
     }
@@ -47,7 +45,6 @@ public class SyncedLyricsView extends View {
         }
     }
 
-    // ... (Keep existing variables: lyrics, paints, scroller, etc.) ...
     private List<LyricLine> lyrics = new ArrayList<>();
     private List<WrappedLine> wrappedLines = new ArrayList<>();
     private Map<LyricLine, Float> lineCenterYMap = new HashMap<>();
@@ -138,41 +135,51 @@ public class SyncedLyricsView extends View {
         baseTextSize = 32 * density;
         float layoutTextSize = baseTextSize * LAYOUT_SCALE;
 
-        spacingBetweenWrappedLines = 1/2 * density;
+        spacingBetweenWrappedLines = 1 / 2 * density;
         spacingBetweenLyrics = 40 * density;
 
         bgBlurFilter = new BlurMaskFilter(5f * density, BlurMaskFilter.Blur.NORMAL);
 
-        // --- Initialize Paints (Same as before) ---
+        // Create bold typeface for extra bold effect
+        Typeface boldTypeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD);
+
+        // --- Initialize Paints (with extra bold) ---
         paintActive = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintActive.setTypeface(boldTypeface);
         paintActive.setTextSize(layoutTextSize);
         paintActive.setColor(Color.WHITE);
         paintActive.setFakeBoldText(true);
 
         paintDefault = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintDefault.setTypeface(boldTypeface);
         paintDefault.setTextSize(layoutTextSize);
         paintDefault.setColor(Color.argb(102, 255, 255, 255));
         paintDefault.setFakeBoldText(true);
 
         paintPast = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintPast.setTypeface(boldTypeface);
         paintPast.setTextSize(layoutTextSize);
         paintPast.setColor(Color.argb(80, 255, 255, 255));
         paintPast.setFakeBoldText(true);
 
         paintFill = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintFill.setTypeface(boldTypeface);
         paintFill.setTextSize(layoutTextSize);
         paintFill.setFakeBoldText(true);
 
         paintBloom = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintBloom.setTypeface(boldTypeface);
         paintBloom.setTextSize(layoutTextSize);
         paintBloom.setFakeBoldText(true);
         paintBloom.setShadowLayer(25, 0, 0, Color.WHITE);
 
         paintFillV2 = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintFillV2.setTypeface(boldTypeface);
         paintFillV2.setTextSize(layoutTextSize);
         paintFillV2.setFakeBoldText(true);
 
         paintBloomV2 = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paintBloomV2.setTypeface(boldTypeface);
         paintBloomV2.setTextSize(layoutTextSize);
         paintBloomV2.setFakeBoldText(true);
         paintBloomV2.setShadowLayer(25, 0, 0, COLOR_V2);

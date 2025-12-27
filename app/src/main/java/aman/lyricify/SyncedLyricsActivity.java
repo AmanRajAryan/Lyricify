@@ -1,6 +1,11 @@
 package aman.lyricify;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.content.ComponentName;
+import android.graphics.RenderEffect; // For Android 12+ Blur
+import android.graphics.Shader;
+import android.graphics.drawable.Animatable;
 import android.graphics.drawable.Drawable;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
@@ -11,7 +16,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.view.ViewAnimationUtils;
 import android.view.WindowManager;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -20,18 +27,16 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.fragment.app.FragmentTransaction;
 
+import aman.youly.LyricsWebViewFragment;
+
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
-import com.bumptech.glide.request.target.CustomTarget;
-import com.bumptech.glide.request.transition.Transition;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import jp.wasabeef.glide.transformations.BlurTransformation;
 
 import java.util.List;
-
-import aman.youly.LyricsWebViewFragment;
 
 public class SyncedLyricsActivity extends AppCompatActivity {
 
@@ -50,7 +55,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private MaterialButton prevButton, nextButton;
     private MaterialButton playerChangerButton, fontSwitchButton;
 
-    private SeekBar progressSeekBar;
+    private SquigglySeekBar progressSeekBar;
 
     // Logic Variables
     private MediaSessionManager mediaSessionManager;
@@ -62,9 +67,12 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private boolean isTracking = false;
     private boolean isPlaying = false;
 
+    // Track previous state for animation (Default to false/paused)
+    private boolean lastPlayingState = false;
+
     private long timingOffset = 0;
-    
-    // Player mode: 0 = Native, 1 = Web, 2 = Karaoke
+
+    // Player mode: 0 = Native, 1 = YouLy, 2 = accompnist
     private int currentPlayerMode = 0;
 
     private String title;
@@ -84,13 +92,13 @@ public class SyncedLyricsActivity extends AppCompatActivity {
 
         initializeViews();
         extractIntentData();
-        
+
         // Setup all three players
-        setupYouLyFragment(); 
+        setupYouLyFragment();
         setupKaraokeFragment();
         setupMediaSession();
         fetchAndDisplayNativeLyrics();
-        
+
         setupControls();
 
         updateHandler = new Handler(Looper.getMainLooper());
@@ -102,14 +110,16 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     // =========================================================
     /**
      * A single entry point for seeking, used by Native, Web, and Karaoke players.
+     *
      * @param timeMs Target time in milliseconds
      */
     private void seekToPosition(long timeMs) {
-        runOnUiThread(() -> {
-            if (mediaController != null) {
-                mediaController.getTransportControls().seekTo(timeMs);
-            }
-        });
+        runOnUiThread(
+                () -> {
+                    if (mediaController != null) {
+                        mediaController.getTransportControls().seekTo(timeMs);
+                    }
+                });
     }
 
     private void initializeViews() {
@@ -118,7 +128,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         syncedLyricsView = findViewById(R.id.syncedLyricsView);
         webViewContainer = findViewById(R.id.webViewContainer);
         karaokeContainer = findViewById(R.id.karaokeContainer);
-        
+
         headerArtwork = findViewById(R.id.headerArtwork);
         songTitleText = findViewById(R.id.syncedSongTitle);
         songArtistText = findViewById(R.id.syncedSongArtist);
@@ -129,8 +139,76 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         nextButton = findViewById(R.id.nextButton);
 
         progressSeekBar = findViewById(R.id.progressSeekBar);
+
         playerChangerButton = findViewById(R.id.playerChangerButton);
         fontSwitchButton = findViewById(R.id.fontSwitchButton);
+    }
+
+    /**
+     * Performs a circular reveal animation starting from the Player Changer button.
+     *
+     * @param viewToShow The new view to reveal (e.g., Karaoke Container)
+     * @param viewToHide The old view to hide (e.g., Native Lyrics View)
+     */
+    private void animateReveal(View viewToShow, View viewToHide) {
+        // Safety check
+        if (!viewToShow.isAttachedToWindow()
+                || Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            viewToShow.setVisibility(View.VISIBLE);
+            viewToHide.setVisibility(View.GONE);
+            return;
+        }
+
+        // 1. Calculate CENTER and RADIUS
+        int[] buttonLocation = new int[2];
+        int[] viewLocation = new int[2];
+        playerChangerButton.getLocationInWindow(buttonLocation);
+        viewToShow.getLocationInWindow(viewLocation);
+
+        int cx = buttonLocation[0] - viewLocation[0] + (playerChangerButton.getWidth() / 2);
+        int cy = buttonLocation[1] - viewLocation[1] + (playerChangerButton.getHeight() / 2);
+        float finalRadius = (float) Math.hypot(viewToShow.getWidth(), viewToShow.getHeight());
+
+        // 2. PREPARE OLD VIEW (Fade to 0 + Blur)
+        // FIX: Fade all the way to 0.0f so there is no "snap" when we set GONE later.
+        viewToHide
+                .animate()
+                .alpha(0f) // Fade completely to invisible
+                .setDuration(700) // Finish slightly before the reveal (450ms) ends
+                .start();
+
+        // Android 12+: Add Blur to make the fade look smoother (like glass fogging up)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            viewToHide.setRenderEffect(
+                    RenderEffect.createBlurEffect(15f, 15f, Shader.TileMode.CLAMP));
+        }
+
+        // 3. START REVEAL ANIMATION
+        Animator anim =
+                ViewAnimationUtils.createCircularReveal(viewToShow, cx, cy, 0f, finalRadius);
+        anim.setDuration(1000);
+        anim.setInterpolator(new AccelerateDecelerateInterpolator());
+
+        viewToShow.setVisibility(View.VISIBLE);
+
+        anim.addListener(
+                new AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(Animator animation) {
+                        super.onAnimationEnd(animation);
+
+                        // Now it is safe to remove because alpha is already 0
+                        viewToHide.setVisibility(View.GONE);
+
+                        // 4. CLEANUP: Reset effects so the view is visible next time
+                        viewToHide.setAlpha(1.0f);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            viewToHide.setRenderEffect(null);
+                        }
+                    }
+                });
+
+        anim.start();
     }
 
     private void setupYouLyFragment() {
@@ -164,7 +242,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
             // Setup Native View
             syncedLyricsView.setLyrics(lyrics);
             syncedLyricsView.setSeekListener(this::seekToPosition);
-            
+
             // Setup Karaoke View with the same lyrics
             karaokeLyricsFragment.setLyrics(lyrics);
         }
@@ -183,17 +261,18 @@ public class SyncedLyricsActivity extends AppCompatActivity {
 
     private void loadArtwork() {
         if (artworkUrl != null && !artworkUrl.isEmpty()) {
-            String formattedUrl = artworkUrl.replace("{w}", "500").replace("{h}", "500").replace("{f}", "jpg");
-            
+            String formattedUrl =
+                    artworkUrl.replace("{w}", "500").replace("{h}", "500").replace("{f}", "jpg");
+
             // Load normal artwork in header
             Glide.with(this).asBitmap().load(formattedUrl).into(headerArtwork);
-            
+
             // Load blurred artwork for base background
             Glide.with(this)
                     .load(formattedUrl)
                     .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 12)))
                     .into(immersiveBackground);
-            
+
             // Load same blurred artwork for overlay
             Glide.with(this)
                     .load(formattedUrl)
@@ -261,19 +340,50 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private void updatePlaybackState(PlaybackState state) {
         if (state == null) return;
         int playbackState = state.getState();
-        isPlaying = (playbackState == PlaybackState.STATE_PLAYING);
+        boolean isNowPlaying = (playbackState == PlaybackState.STATE_PLAYING);
+        isPlaying = isNowPlaying;
 
-        // Update Karaoke player's playing state
+        // --- 1. Update Karaoke Player ---
         if (karaokeLyricsFragment != null) {
             karaokeLyricsFragment.setPlaying(isPlaying);
         }
 
+        // --- 2. Update YouLy Web Player ---
+        if (lyricsWebViewFragment != null) {
+            lyricsWebViewFragment.setPlaying(isPlaying);
+        }
+
         runOnUiThread(
                 () -> {
-                    if (isPlaying) {
-                        playPauseButton.setImageResource(R.drawable.ic_pause); 
+                    // --- 3. ANIMATION LOGIC ---
+                    // Only animate if the state has actually changed (e.g. Pause -> Play)
+                    if (isNowPlaying != lastPlayingState) {
+                        // Determine which AVD to load
+                        int drawableId =
+                                isNowPlaying
+                                        ? R.drawable.avd_play_to_pause
+                                        : R.drawable.avd_pause_to_play;
+
+                        playPauseButton.setImageResource(drawableId);
+
+                        // Get the drawable and start animation
+                        Drawable drawable = playPauseButton.getDrawable();
+                        if (drawable instanceof Animatable) {
+                            ((Animatable) drawable).start();
+                        }
+
+                        // Update tracker
+                        lastPlayingState = isNowPlaying;
                     } else {
-                        playPauseButton.setImageResource(R.drawable.ic_play_arrow); 
+                        // Fallback for initial load (no animation)
+                        playPauseButton.setImageResource(
+                                isNowPlaying ? R.drawable.ic_pause : R.drawable.ic_play_arrow);
+                    }
+
+                    if (isNowPlaying) {
+                        progressSeekBar.startAnimation();
+                    } else {
+                        progressSeekBar.stopAnimation();
                     }
                 });
     }
@@ -286,44 +396,68 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         }
     }
 
+    /** Helper to animate buttons with a bounce effect */
+    private void animateButton(View view) {
+        view.animate()
+                .scaleX(0.8f)
+                .scaleY(0.8f)
+                .setDuration(100)
+                .withEndAction(
+                        () -> {
+                            view.animate().scaleX(1f).scaleY(1f).setDuration(100).start();
+                        })
+                .start();
+    }
+
     private void setupControls() {
         playPauseButton.setOnClickListener(
                 v -> {
+                    // Note: No animation call here. Logic handled in updatePlaybackState
                     if (mediaController != null) {
-                        if (isPlaying) mediaController.getTransportControls().pause();
-                        else mediaController.getTransportControls().play();
+                        if (isPlaying) {
+                            mediaController.getTransportControls().pause();
+                        } else {
+                            mediaController.getTransportControls().play();
+                        }
                     }
                 });
 
         prevButton.setOnClickListener(
                 v -> {
-                    if (mediaController != null) mediaController.getTransportControls().skipToPrevious();
+                    animateButton(v); // Trigger bounce
+                    if (mediaController != null)
+                        mediaController.getTransportControls().skipToPrevious();
                 });
 
         nextButton.setOnClickListener(
                 v -> {
-                    if (mediaController != null) mediaController.getTransportControls().skipToNext();
+                    animateButton(v); // Trigger bounce
+                    if (mediaController != null)
+                        mediaController.getTransportControls().skipToNext();
                 });
 
-        // SWITCH VIEW BUTTON - Now cycles through 3 modes
+        // SWITCH VIEW BUTTON
         playerChangerButton.setOnClickListener(v -> togglePlayerView());
 
-        // FONT SWITCH BUTTON - Updated to support all modes
         fontSwitchButton.setOnClickListener(
                 v -> {
-                    String fontName;
-                    switch (currentPlayerMode) {
-                        case 0: // Native view
-                            fontName = syncedLyricsView.cycleFont();
+                    if (currentPlayerMode == 0) {
+                        // Native view - change font
+                        String fontName = syncedLyricsView.cycleFont();
+                        Toast.makeText(this, "Font: " + fontName, Toast.LENGTH_SHORT).show();
+                    } else if (currentPlayerMode == 2) {
+                        // Karaoke view - change font
+                        if (karaokeLyricsFragment != null) {
+                            String fontName = karaokeLyricsFragment.cycleFont();
                             Toast.makeText(this, "Font: " + fontName, Toast.LENGTH_SHORT).show();
-                            break;
-                        case 1: // Web view
-                            Toast.makeText(this, "Font settings not available in YouLy+ Engine", Toast.LENGTH_SHORT).show();
-                            break;
-                        case 2: // Karaoke view
-                            fontName = karaokeLyricsFragment.cycleFont();
-                            Toast.makeText(this, "Font: " + fontName, Toast.LENGTH_SHORT).show();
-                            break;
+                        }
+                    } else {
+                        // Web view (Mode 1)
+                        Toast.makeText(
+                                        this,
+                                        "Settings available only in Native and Karaoke views",
+                                        Toast.LENGTH_SHORT)
+                                .show();
                     }
                 });
 
@@ -337,64 +471,15 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void onStartTrackingTouch(SeekBar seekBar) { isTracking = true; }
+                    public void onStartTrackingTouch(SeekBar seekBar) {
+                        isTracking = true;
+                    }
 
                     @Override
-                    public void onStopTrackingTouch(SeekBar seekBar) { isTracking = false; }
+                    public void onStopTrackingTouch(SeekBar seekBar) {
+                        isTracking = false;
+                    }
                 });
-    }
-
-    private void togglePlayerView() {
-        // Store current position before switching
-        long currentPosition = 0;
-        if (mediaController != null) {
-            PlaybackState state = mediaController.getPlaybackState();
-            if (state != null) {
-                currentPosition = state.getPosition() + timingOffset;
-            }
-        }
-
-        // Cycle through: Native (0) -> Web (1) -> Karaoke (2) -> Native (0)
-        currentPlayerMode = (currentPlayerMode + 1) % 3;
-
-        // Hide all views first
-        syncedLyricsView.setVisibility(View.GONE);
-        webViewContainer.setVisibility(View.GONE);
-        karaokeContainer.setVisibility(View.GONE);
-
-        switch (currentPlayerMode) {
-            case 0: // Native View
-                syncedLyricsView.setVisibility(View.VISIBLE);
-                // Sync to current position immediately
-                syncedLyricsView.updateTime(currentPosition);
-                playerChangerButton.setIconResource(R.drawable.ic_swap_horiz);
-                Toast.makeText(this, "Native Engine", Toast.LENGTH_SHORT).show();
-                break;
-                
-            case 1: // Web View
-                webViewContainer.setVisibility(View.VISIBLE);
-                playerChangerButton.setIconResource(R.drawable.ic_layers);
-                
-                // Trigger the "Show" command in JS to render cached lyrics
-                if (lyricsWebViewFragment != null) {
-                    lyricsWebViewFragment.displayLyrics();
-                    // Sync to current position immediately
-                    lyricsWebViewFragment.updateTime(currentPosition);
-                }
-                Toast.makeText(this, "YouLy+ Engine", Toast.LENGTH_SHORT).show();
-                break;
-                
-            case 2: // Karaoke View
-                karaokeContainer.setVisibility(View.VISIBLE);
-                // Sync playback state and position immediately
-                if (karaokeLyricsFragment != null) {
-                    karaokeLyricsFragment.setPlaying(isPlaying);
-                    karaokeLyricsFragment.updateTime(currentPosition);
-                }
-                playerChangerButton.setIconResource(R.drawable.ic_music_note);
-                Toast.makeText(this, "Accompanist Engine", Toast.LENGTH_SHORT).show();
-                break;
-        }
     }
 
     private void startPositionUpdates() {
@@ -436,6 +521,78 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                     }
                 };
         updateHandler.post(updateRunnable);
+    }
+
+    private void togglePlayerView() {
+        // 1. Identify the CURRENT (Old) View
+        View oldView;
+        switch (currentPlayerMode) {
+            case 0:
+                oldView = syncedLyricsView;
+                break;
+            case 1:
+                oldView = webViewContainer;
+                break;
+            case 2:
+                oldView = karaokeContainer;
+                break;
+            default:
+                oldView = syncedLyricsView;
+                break;
+        }
+
+        // 2. Store current position before switching
+        long currentPosition = 0;
+        if (mediaController != null) {
+            PlaybackState state = mediaController.getPlaybackState();
+            if (state != null) {
+                currentPosition = state.getPosition() + timingOffset;
+            }
+        }
+
+        // 3. Switch Mode: Native (0) -> Web (1) -> Karaoke (2) -> Native (0)
+        currentPlayerMode = (currentPlayerMode + 1) % 3;
+
+        // 4. Identify the NEXT (New) View and configure it
+        View newView;
+        switch (currentPlayerMode) {
+            case 0: // Switching to NATIVE
+                newView = syncedLyricsView;
+                syncedLyricsView.updateTime(currentPosition);
+                playerChangerButton.setIconResource(R.drawable.ic_swap_horiz);
+                Toast.makeText(this, "Native Engine", Toast.LENGTH_SHORT).show();
+                break;
+
+            case 1: // Switching to WEB
+                newView = webViewContainer;
+                if (lyricsWebViewFragment != null) {
+                    lyricsWebViewFragment.displayLyrics();
+                    lyricsWebViewFragment.updateTime(currentPosition);
+                    lyricsWebViewFragment.setPlaying(isPlaying);
+                }
+                playerChangerButton.setIconResource(
+                        R.drawable.ic_layers); // Use an icon that represents 'Web' or 'Layers'
+                Toast.makeText(this, "YouLy+ Engine", Toast.LENGTH_SHORT).show();
+                break;
+
+            case 2: // Switching to KARAOKE
+                newView = karaokeContainer;
+                if (karaokeLyricsFragment != null) {
+                    karaokeLyricsFragment.setPlaying(isPlaying);
+                    karaokeLyricsFragment.updateTime(currentPosition);
+                }
+                playerChangerButton.setIconResource(R.drawable.ic_music_note);
+                Toast.makeText(this, "Accompanist Engine", Toast.LENGTH_SHORT).show();
+                break;
+
+            default:
+                newView = syncedLyricsView;
+                break;
+        }
+
+        // 5. Trigger the Animation
+        // We reveal 'newView' on top of 'oldView'
+        animateReveal(newView, oldView);
     }
 
     private String formatTime(long millis) {

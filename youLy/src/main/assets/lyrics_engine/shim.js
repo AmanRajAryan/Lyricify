@@ -1,11 +1,20 @@
 import { LyricsPlusRenderer } from './src/modules/lyrics/lyricsRenderer.js';
 import { MessageHandler } from './src/background/core/messageHandler.js'; 
 
+// =========================================================
+//  USER CONFIGURATION
+// =========================================================
+const BUTTON_POS_BOTTOM = '12em';   // Distance from bottom
+const BUTTON_POS_RIGHT  = '1.5em'; // Distance from right
+const FONT_SIZE_BASE    = 46;      // Font size
+const FONT_WEIGHT       = 900;     // Boldness (800 or 900)
+// =========================================================
+
 // --- 1. MOCK ENVIRONMENT ---
 window.t = (key) => key; 
 window.DOMPurify = { sanitize: (html) => html }; 
 
-// --- 2. STICKY SMOOTH CLOCK (With Pause Support) ---
+// --- 2. STICKY SMOOTH CLOCK ---
 const SmoothClock = {
     baseSysTime: 0,
     baseSongTime: 0,
@@ -51,7 +60,8 @@ const SmoothClock = {
 
 // --- 3. STATE MANAGEMENT ---
 let rendererInstance = null;
-let cachedLyricsData = null;     
+let cachedLyricsData = null;
+let currentActiveLyrics = null; 
 let isSearchOnlyMode = false;    
 let lastSongId = "";             
 
@@ -67,15 +77,14 @@ function initRenderer() {
         });
         window.renderer = rendererInstance;
 
-        // --- VISUAL BOOST PATCH (Mobile Specific) ---
+        // --- VISUAL BOOST PATCH ---
         const style = document.createElement('style');
         style.innerHTML = `
-            /* 1. BOOST GLOW (2x Intensity) */
+            /* 1. BOOST GLOW */
             @keyframes grow-dynamic {
                 0% { transform: matrix3d(var(--min-scale), 0, 0, 0, 0, var(--min-scale), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0)); }
                 25%, 30% { 
                     transform: matrix3d(var(--max-scale), 0, 0, 0, 0, var(--max-scale), 0, 0, 0, 0, 1, 0, var(--char-offset-x, 0), var(--translate-y-peak, -2%), 0, 1); 
-                    /* 2x Glow (0.2em) */
                     filter: drop-shadow(0 0 0.2em rgba(255, 255, 255, 0.8)); 
                 }
                 100% { transform: matrix3d(var(--min-scale), 0, 0, 0, 0, var(--min-scale), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); }
@@ -83,20 +92,40 @@ function initRenderer() {
 
             /* 2. SUPER BOLD FONT */
             .lyrics-line {
-                font-weight: 900 !important; /* Maximum Boldness */
+                font-weight: ${FONT_WEIGHT} !important; 
             }
 
-            /* 3. PURE WHITE PALETTE (Safe Method) */
-            /* Forces the animation engine to use Pure White for the fill */
+            /* 3. PURE WHITE PALETTE */
             #lyrics-plus-container {
                 --lyplus-lyrics-pallete: #ffffff !important; 
                 --lyplus-text-primary: #ffffff !important;
                 -webkit-font-smoothing: antialiased;
             }
-            
-            /* Ensure Opacity is maxed out */
             .lyrics-line.active {
                 opacity: 1 !important;
+            }
+
+            /* 4. BUTTON POSITION */
+            #lyrics-plus-buttons-wrapper {
+                display: flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                z-index: 9999;
+                bottom: ${BUTTON_POS_BOTTOM} !important;
+                right: ${BUTTON_POS_RIGHT} !important;
+                position: fixed !important; 
+            }
+
+            /* 5. FIX DROPDOWN MENU POSITION */
+            #lyrics-plus-translation-dropdown {
+                top: auto !important;       
+                bottom: 120% !important;    
+                left: auto !important;      
+                right: 0 !important;        
+                transform: none !important; 
+                min-width: 160px;
+                background-color: rgba(20, 20, 20, 0.95) !important;
+                border: 1px solid rgba(255,255,255,0.2) !important;
             }
         `;
         document.head.appendChild(style);
@@ -142,6 +171,7 @@ window.LyricsPlusAPI = {
         if (rendererInstance) rendererInstance.cleanupLyrics();
         SmoothClock.isPaused = true;
         cachedLyricsData = null; 
+        currentActiveLyrics = null;
         lastSongId = "";
     },
 
@@ -164,12 +194,13 @@ window.LyricsPlusAPI = {
 function renderInternal(lyrics, songInfo, mode, settings) {
     const container = document.getElementById('lyrics-plus-container');
     if (container) {
-        // Force settings here if needed
-        const size = settings.fontSize || 46; 
+        const size = settings.fontSize || FONT_SIZE_BASE; 
         container.style.setProperty('--lyplus-font-size-base', size + 'px');
         container.style.display = 'block';
         container.style.height = '100vh';
     }
+
+    currentActiveLyrics = lyrics;
 
     rendererInstance.displayLyrics(
         lyrics, 
@@ -177,7 +208,38 @@ function renderInternal(lyrics, songInfo, mode, settings) {
         mode || 'none', 
         settings, 
         window.fetchAndDisplayLyrics, 
-        () => {}, 
+        // 6th Argument: Mode Switch Callback
+        (newMode, songInfoArg) => {
+            console.log("[Shim] Mode switch requested: " + newMode);
+            const targetInfo = songInfoArg || songInfo;
+
+            // 1. Update GLOBAL settings so the fetcher knows what to get
+            if (newMode === 'translate') {
+                window.currentSettings.translationEnabled = true;
+                window.currentSettings.romanizationEnabled = false;
+            } else if (newMode === 'romanize') {
+                window.currentSettings.translationEnabled = false;
+                window.currentSettings.romanizationEnabled = true;
+            } else if (newMode === 'both') {
+                window.currentSettings.translationEnabled = true;
+                window.currentSettings.romanizationEnabled = true;
+            } else {
+                window.currentSettings.translationEnabled = false;
+                window.currentSettings.romanizationEnabled = false;
+            }
+
+            // 2. TRIGGER RE-FETCH (The missing piece!)
+            // This forces the lyrics manager to download the translation.
+            if (window.fetchAndDisplayLyrics && targetInfo) {
+                console.log("[Shim] Refetching with new settings...");
+                window.fetchAndDisplayLyrics(targetInfo, true); // true = force reload
+            } else {
+                // Fallback if fetcher is missing
+                if (rendererInstance && currentActiveLyrics) {
+                    rendererInstance.updateDisplayMode(currentActiveLyrics, newMode, window.currentSettings);
+                }
+            }
+        }, 
         settings.largerTextMode || 'lyrics', 
         0
     );
@@ -193,10 +255,8 @@ window.AndroidAPI = {
         cachedLyricsData = null; 
         isSearchOnlyMode = true; 
 
-        // --- Init Loading Screen ---
         if (!rendererInstance) initRenderer();
         if (rendererInstance) rendererInstance.cleanupLyrics(); 
-        // ---------------------------
 
         const safeAlbum = album || "";
         const safeDuration = duration || 0;
@@ -252,13 +312,13 @@ window.currentSettings = {
     lyricsProvider: 'kpoe',
     wordByWord: true, 
     theme: 'dark',
-    translationEnabled: false,
+    translationEnabled: false, // Default off
     romanizationEnabled: false,
     largerTextMode: 'lyrics',
     useSponsorBlock: false,
     lightweight: false, 
     blurInactive: true, 
-    fontSize: 40,      // 46px Size
+    fontSize: FONT_SIZE_BASE, 
     customCSS: ''
 };
 
@@ -279,4 +339,4 @@ window.handleNativeResponse = (reqId, isSuccess, status, content) => {
     }
 };
 
-console.log("Shim loaded. Fixed Animation + 46px Bold.");
+console.log(`Shim loaded. Live Re-Fetch Enabled.`);

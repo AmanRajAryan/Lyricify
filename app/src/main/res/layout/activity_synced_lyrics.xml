@@ -163,8 +163,8 @@
             android:layout_height="wrap_content"
             android:layout_width="match_parent"
             android:gravity="center_vertical"
-            android:orientation="horizontal">
-
+            android:orientation="horizontal"
+            android:translationY="12dp">
             <TextView
                 android:layout_height="wrap_content"
                 android:layout_width="50dp"
@@ -181,7 +181,6 @@
                 android:layout_weight="1"
                 android:paddingStart="0dp"
                 android:paddingEnd="0dp" />
-
 
         </LinearLayout>
 

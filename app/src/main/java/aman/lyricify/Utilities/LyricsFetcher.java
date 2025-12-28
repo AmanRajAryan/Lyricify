@@ -193,6 +193,9 @@ public class LyricsFetcher {
             case "ELRC Multi-Person":
                 lyricsToDisplay = currentLyricsResponse.elrcMultiPerson;
                 break;
+            case "TTML":
+                lyricsToDisplay = currentLyricsResponse.ttml;
+                break;
         }
 
         String finalLyrics =

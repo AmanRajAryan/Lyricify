@@ -289,6 +289,11 @@ public class LyricsActivity extends AppCompatActivity {
             hasElrc = true;
         }
 
+        // Add TTML if available
+        if (response.ttml != null && !response.ttml.isEmpty() && !response.ttml.equals("null")) {
+            availableFormats.add("TTML");
+        }
+
         if (hasElrc) {
             hasElrcIndicator.setText("ELRC");
             hasElrcIndicator.setTextColor(Color.WHITE);

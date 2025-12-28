@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -479,7 +480,7 @@
                         android:textSize="16sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
-                
+
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
                     android:layout_width="match_parent"
@@ -503,13 +504,13 @@
                         android:textSize="16sp" />
 
                 </com.google.android.material.textfield.TextInputLayout>
-                
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:baselineAligned="false"
                     android:orientation="horizontal">
-                    
+
                     <com.google.android.material.textfield.TextInputLayout
                         style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
                         android:layout_width="0dp"
@@ -563,7 +564,7 @@
                     </com.google.android.material.textfield.TextInputLayout>
                 </LinearLayout>
 
-                </LinearLayout>
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -686,31 +687,70 @@
                             android:textSize="14sp" />
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
+                    <FrameLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:hint="Lyrics (Multi-Person)"
-                        app:boxBackgroundColor="#1E1E1E"
-                        app:boxBackgroundMode="filled"
-                        app:boxCornerRadiusBottomEnd="8dp"
-                        app:boxCornerRadiusBottomStart="8dp"
-                        app:boxCornerRadiusTopEnd="8dp"
-                        app:boxCornerRadiusTopStart="8dp"
-                        app:hintTextColor="#AAAAAA">
+                        android:layout_marginTop="8dp">
 
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/lyricsMultiEditText"
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/lyricsMultiInputLayout"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:gravity="top|start"
-                            android:inputType="textMultiLine"
-                            android:minLines="3"
-                            android:maxLines="8"
-                            android:textColor="#FFFFFF"
-                            android:textSize="14sp" />
-                    </com.google.android.material.textfield.TextInputLayout>
+                            android:hint="ELRC Multi-Person / TTML">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/lyricsMultiEditText"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="top|start"
+                                android:inputType="textMultiLine|textNoSuggestions"
+                                android:minLines="3" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <LinearLayout
+                            android:id="@+id/formatSwapperContainer"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="top|end"
+                            android:layout_marginEnd="12dp"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_surface_panel"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="4dp">
+
+                            <TextView
+                                android:id="@+id/labelElrc"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="ELRC"
+                                android:textColor="#FFFFFF"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_marginHorizontal="6dp"
+                                android:src="@drawable/ic_swap_horiz"
+                                app:tint="#B0B0B0" />
+
+                            <TextView
+                                android:id="@+id/labelTtml"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="TTML"
+                                android:textColor="#80FFFFFF"
+                                android:textSize="12sp"
+                                android:textStyle="normal" />
+
+                        </LinearLayout>
+
+                    </FrameLayout>
+
 
                 </LinearLayout>
             </LinearLayout>

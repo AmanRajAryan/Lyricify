@@ -4,6 +4,8 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -53,24 +55,23 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     private TextInputEditText unsyncedLyricsEditText,
             lrcEditText,
             elrcEditText,
-            lyricsMultiEditText;
+            lyricsMultiEditText; 
+
+    // SWAPPER UI
+    private LinearLayout formatSwapperContainer;
+    private TextView labelElrc, labelTtml;
+
     private LinearLayout lyricsHeader, lyricsContainer;
     private ImageView lyricsArrow;
     private boolean isLyricsVisible = false;
 
     private MaterialToolbar toolbar;
-    private MaterialButton changeArtworkButton,
-            resetArtworkButton,
-            fetchFromApiButton,
-            restoreTagsButton;
+    private MaterialButton changeArtworkButton, resetArtworkButton, fetchFromApiButton, restoreTagsButton;
     private ExtendedFloatingActionButton saveButton, addFieldButton;
     private LinearLayout tagFieldsContainer;
-
-    // Extended Tags UI
     private LinearLayout extendedTagsHeader, extendedTagsContainer;
     private ImageView extendedTagsArrow;
     private boolean isExtendedTagsVisible = false;
-
     private FrameLayout loadingOverlay;
     private TextView loadingText;
 
@@ -82,27 +83,29 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     private boolean artworkChanged = false;
     private HashMap<String, String> originalMetadata;
 
-    // Song data passed via Intent
-    private String intentTitle;
-    private String intentArtist;
-    private String intentAlbum;
-    private String intentArtworkUrl;
-    private String intentSongId;
-
-    // Cached metadata
+    // Intent Data
+    private String intentTitle, intentArtist, intentAlbum, intentArtworkUrl, intentSongId;
     private ApiClient.LyricsResponse cachedMetadata;
     private static final String WAITING_MESSAGE = "No cached metadata available, waiting!";
 
     // Custom fields list
     private List<CustomField> customFields = new ArrayList<>();
-
-    // Launchers
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private ActivityResultLauncher<Intent> directoryPickerLauncher;
 
     // Delegates
     private TagEditorUIManager uiManager;
     private TagEditorDataManager dataManager;
+
+    // --- Swapper State Management ---
+    private boolean isTtmlMode = false; // False = ELRC MP, True = TTML
+    
+    // Active Content Holders
+    private String currentElrcContent = "";
+    private String currentTtmlContent = "";
+
+    // The Single Truth from File
+    private String originalLyricsTagContent = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -111,10 +114,8 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         hideSystemUI();
 
         tagLib = new TagLib();
-
         initializeViews();
 
-        // Initialize delegates
         uiManager = new TagEditorUIManager(this);
         dataManager = new TagEditorDataManager(this, tagLib);
 
@@ -125,72 +126,62 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         loadCurrentTags();
         setupListeners();
 
-        // Register to listen for background updates
         ApiClient.registerCacheListener(this);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Unregister to prevent leaks
         ApiClient.unregisterCacheListener(this);
     }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) {
-            hideSystemUI();
-        }
+        if (hasFocus) hideSystemUI();
     }
 
-    // --- Cache Listener Interface ---
     @Override
     public void onCacheUpdated(ApiClient.LyricsResponse response) {
-        runOnUiThread(
-                () -> {
-                    this.cachedMetadata = response;
-                    if (loadingOverlay.getVisibility() == View.VISIBLE
-                            && loadingText.getText().toString().equals(WAITING_MESSAGE)) {
-
-                        populateFieldsFromCachedData();
-                        if (intentArtworkUrl == null) {
-                            hideLoading();
-                        }
-                        Toast.makeText(this, "Metadata received!", Toast.LENGTH_SHORT).show();
-                    }
-                });
+        runOnUiThread(() -> {
+            this.cachedMetadata = response;
+            if (loadingOverlay.getVisibility() == View.VISIBLE
+                    && loadingText.getText().toString().equals(WAITING_MESSAGE)) {
+                populateFieldsFromCachedData();
+                if (intentArtworkUrl == null) hideLoading();
+                Toast.makeText(this, "Metadata received!", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void initializeViews() {
         toolbar = findViewById(R.id.toolbar);
         artworkImageView = findViewById(R.id.artworkImageView);
         fileNameText = findViewById(R.id.fileNameText);
-
         titleEditText = findViewById(R.id.titleEditText);
         artistEditText = findViewById(R.id.artistEditText);
         albumEditText = findViewById(R.id.albumEditText);
         albumArtistEditText = findViewById(R.id.albumArtistEditText);
-
         genreEditText = findViewById(R.id.genreEditText);
         languageEditText = findViewById(R.id.languageEditText);
-
         trackNumberEditText = findViewById(R.id.trackNumberEditText);
         discNumberEditText = findViewById(R.id.discNumberEditText);
-
         composerEditText = findViewById(R.id.composerEditText);
         songwriterEditText = findViewById(R.id.songwriterEditText);
         commentEditText = findViewById(R.id.commentEditText);
-
         releaseDateEditText = findViewById(R.id.releaseDateEditText);
         audioLocaleEditText = findViewById(R.id.audioLocaleEditText);
         yearEditText = findViewById(R.id.yearEditText);
 
-        // Lyrics Fields
         unsyncedLyricsEditText = findViewById(R.id.unsyncedLyricsEditText);
         lrcEditText = findViewById(R.id.lrcEditText);
         elrcEditText = findViewById(R.id.elrcEditText);
         lyricsMultiEditText = findViewById(R.id.lyricsMultiEditText);
+
+        formatSwapperContainer = findViewById(R.id.formatSwapperContainer);
+        labelElrc = findViewById(R.id.labelElrc);
+        labelTtml = findViewById(R.id.labelTtml);
+
         lyricsHeader = findViewById(R.id.lyricsHeader);
         lyricsContainer = findViewById(R.id.lyricsContainer);
         lyricsArrow = findViewById(R.id.lyricsArrow);
@@ -198,21 +189,15 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         changeArtworkButton = findViewById(R.id.changeArtworkButton);
         resetArtworkButton = findViewById(R.id.resetArtworkButton);
         resetArtworkButton.setEnabled(false);
-
         fetchFromApiButton = findViewById(R.id.fetchFromApiButton);
         restoreTagsButton = findViewById(R.id.restoreTagsButton);
         restoreTagsButton.setEnabled(false);
-
         saveButton = findViewById(R.id.saveButton);
         addFieldButton = findViewById(R.id.addFieldButton);
-
         tagFieldsContainer = findViewById(R.id.tagFieldsContainer);
-
-        // Extended Tags
         extendedTagsHeader = findViewById(R.id.extendedTagsHeader);
         extendedTagsContainer = findViewById(R.id.extendedTagsContainer);
         extendedTagsArrow = findViewById(R.id.extendedTagsArrow);
-
         loadingOverlay = findViewById(R.id.loadingOverlay);
         loadingText = findViewById(R.id.loadingText);
     }
@@ -224,60 +209,40 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
             getSupportActionBar().setDisplayShowHomeEnabled(true);
         }
         toolbar.setNavigationOnClickListener(v -> onBackPressed());
-        toolbar.setOnMenuItemClickListener(
-                item -> {
-                    if (item.getItemId() == R.id.action_save) {
-                        saveTags();
-                        return true;
-                    }
-                    return false;
-                });
+        toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_save) {
+                saveTags();
+                return true;
+            }
+            return false;
+        });
     }
 
     private void setupImagePickerLauncher() {
-        imagePickerLauncher =
-                registerForActivityResult(
-                        new ActivityResultContracts.StartActivityForResult(),
-                        result -> {
-                            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                                Uri imageUri = result.getData().getData();
-                                if (imageUri != null) {
-                                    loadArtworkFromUri(imageUri);
-                                }
-                            }
-                        });
+        imagePickerLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                Uri imageUri = result.getData().getData();
+                if (imageUri != null) loadArtworkFromUri(imageUri);
+            }
+        });
     }
 
     private void setupDirectoryPickerLauncher() {
-        directoryPickerLauncher =
-                registerForActivityResult(
-                        new ActivityResultContracts.StartActivityForResult(),
-                        result -> {
-                            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                                Uri treeUri = result.getData().getData();
-                                if (treeUri != null) {
-                                    getContentResolver()
-                                            .takePersistableUriPermission(
-                                                    treeUri,
-                                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                                            | Intent
-                                                                    .FLAG_GRANT_WRITE_URI_PERMISSION);
-                                    Toast.makeText(
-                                                    this,
-                                                    "✓ Access granted! Try saving again.",
-                                                    Toast.LENGTH_LONG)
-                                            .show();
-                                }
-                            }
-                        });
+        directoryPickerLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                Uri treeUri = result.getData().getData();
+                if (treeUri != null) {
+                    getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    Toast.makeText(this, "✓ Access granted! Try saving again.", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
     }
-
+    
     public void openDirectoryPicker(String folderPath) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         Uri initialUri = FileSaver.getFolderUriForPath(folderPath);
-        if (initialUri != null) {
-            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri);
-        }
+        if (initialUri != null) intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri);
         directoryPickerLauncher.launch(intent);
     }
 
@@ -288,16 +253,10 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         intentAlbum = getIntent().getStringExtra("SONG_ALBUM");
         intentArtworkUrl = getIntent().getStringExtra("ARTWORK_URL");
         intentSongId = getIntent().getStringExtra("SONG_ID");
-
         if (getIntent().hasExtra("CACHED_METADATA")) {
-            cachedMetadata =
-                    (ApiClient.LyricsResponse) getIntent().getSerializableExtra("CACHED_METADATA");
+            cachedMetadata = (ApiClient.LyricsResponse) getIntent().getSerializableExtra("CACHED_METADATA");
         }
-
-        if (filePath != null) {
-            File file = new File(filePath);
-            fileNameText.setText(file.getName());
-        }
+        if (filePath != null) fileNameText.setText(new File(filePath).getName());
     }
 
     private void loadCurrentTags() {
@@ -310,6 +269,31 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                 (metadata, artwork) -> {
                     this.originalMetadata = metadata;
                     this.originalArtwork = artwork;
+                    
+                    // --- CASE INSENSITIVE FETCH ---
+                    // Explicitly normalize key lookups to avoid "lyrics" vs "LYRICS" mismatches
+                    Map<String, String> normalized = new HashMap<>();
+                    if (metadata != null) {
+                        for (Map.Entry<String, String> entry : metadata.entrySet()) {
+                            normalized.put(entry.getKey().toUpperCase(), entry.getValue());
+                        }
+                    }
+
+                    // 1. Capture single truth
+                    this.originalLyricsTagContent = normalized.getOrDefault("LYRICS", "");
+
+                    // 2. Heuristic check
+                    if (this.originalLyricsTagContent.trim().startsWith("<")) {
+                        this.isTtmlMode = true;
+                        this.currentTtmlContent = this.originalLyricsTagContent;
+                        this.currentElrcContent = ""; 
+                    } else {
+                        this.isTtmlMode = false;
+                        this.currentElrcContent = this.originalLyricsTagContent;
+                        this.currentTtmlContent = "";
+                    }
+
+                    updateSwapperUI();
                 });
     }
 
@@ -317,40 +301,25 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         saveButton.setOnClickListener(v -> saveTags());
         changeArtworkButton.setOnClickListener(v -> selectArtwork());
         resetArtworkButton.setOnClickListener(v -> resetArtwork());
-
-        fetchFromApiButton.setOnClickListener(
-                v -> {
-                    if (cachedMetadata != null) {
-                        populateFieldsFromCachedData();
-                    } else {
-                        showLoading(WAITING_MESSAGE);
-                        Toast.makeText(this, WAITING_MESSAGE, Toast.LENGTH_LONG).show();
-                    }
-                });
-
+        fetchFromApiButton.setOnClickListener(v -> {
+            if (cachedMetadata != null) populateFieldsFromCachedData();
+            else {
+                showLoading(WAITING_MESSAGE);
+                Toast.makeText(this, WAITING_MESSAGE, Toast.LENGTH_LONG).show();
+            }
+        });
         restoreTagsButton.setOnClickListener(v -> showRestoreConfirmation());
-        addFieldButton.setOnClickListener(
-                v ->
-                        uiManager.showAddCustomFieldDialog(
-                                customFields, this::updateRestoreButtonState));
-
+        addFieldButton.setOnClickListener(v -> uiManager.showAddCustomFieldDialog(customFields, this::updateRestoreButtonState));
         extendedTagsHeader.setOnClickListener(v -> toggleExtendedTags());
         lyricsHeader.setOnClickListener(v -> toggleLyrics());
+        
+        formatSwapperContainer.setOnClickListener(v -> toggleLyricsMode());
 
-        TextWatcher changeWatcher =
-                new TextWatcher() {
-                    @Override
-                    public void beforeTextChanged(
-                            CharSequence s, int start, int count, int after) {}
-
-                    @Override
-                    public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
-                    @Override
-                    public void afterTextChanged(Editable s) {
-                        updateRestoreButtonState();
-                    }
-                };
+        TextWatcher changeWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) { updateRestoreButtonState(); }
+        };
 
         titleEditText.addTextChangedListener(changeWatcher);
         artistEditText.addTextChangedListener(changeWatcher);
@@ -366,12 +335,44 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         composerEditText.addTextChangedListener(changeWatcher);
         songwriterEditText.addTextChangedListener(changeWatcher);
         commentEditText.addTextChangedListener(changeWatcher);
-
-        // Lyrics watchers
         unsyncedLyricsEditText.addTextChangedListener(changeWatcher);
         lrcEditText.addTextChangedListener(changeWatcher);
         elrcEditText.addTextChangedListener(changeWatcher);
         lyricsMultiEditText.addTextChangedListener(changeWatcher);
+    }
+
+    private void toggleLyricsMode() {
+        String visibleText = lyricsMultiEditText.getText().toString();
+        if (isTtmlMode) {
+            currentTtmlContent = visibleText;
+        } else {
+            currentElrcContent = visibleText;
+        }
+
+        isTtmlMode = !isTtmlMode;
+
+        updateSwapperUI();
+    }
+
+    private void updateSwapperUI() {
+        if (isTtmlMode) {
+            labelElrc.setTextColor(Color.parseColor("#80FFFFFF"));
+            labelElrc.setTypeface(null, Typeface.NORMAL);
+            labelTtml.setTextColor(Color.WHITE);
+            labelTtml.setTypeface(null, Typeface.BOLD);
+            
+            lyricsMultiEditText.setText(currentTtmlContent);
+            ((TextInputLayout) lyricsMultiEditText.getParent().getParent()).setHint("TTML");
+        } else {
+            labelElrc.setTextColor(Color.WHITE);
+            labelElrc.setTypeface(null, Typeface.BOLD);
+            labelTtml.setTextColor(Color.parseColor("#80FFFFFF"));
+            labelTtml.setTypeface(null, Typeface.NORMAL);
+            
+            lyricsMultiEditText.setText(currentElrcContent);
+            ((TextInputLayout) lyricsMultiEditText.getParent().getParent()).setHint("ELRC Multi-Person");
+        }
+        updateRestoreButtonState();
     }
 
     private void toggleExtendedTags() {
@@ -387,77 +388,62 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     }
 
     private void updateRestoreButtonState() {
-        boolean hasChanges =
-                dataManager.hasUnsavedChanges(
-                        originalMetadata,
-                        artworkChanged,
-                        customFields,
-                        titleEditText,
-                        artistEditText,
-                        albumEditText,
-                        albumArtistEditText,
-                        genreEditText,
-                        yearEditText,
-                        trackNumberEditText,
-                        discNumberEditText,
-                        composerEditText,
-                        songwriterEditText,
-                        commentEditText,
-                        releaseDateEditText,
-                        audioLocaleEditText,
-                        languageEditText,
-                        unsyncedLyricsEditText,
-                        lrcEditText,
-                        elrcEditText,
-                        lyricsMultiEditText);
-        restoreTagsButton.setEnabled(hasChanges);
+        if (originalMetadata == null) {
+            restoreTagsButton.setEnabled(false);
+            return;
+        }
+
+        String currentVisibleText = lyricsMultiEditText.getText().toString();
+        // Check for changes in Lyrics
+        boolean lyricsChanged = !currentVisibleText.equals(originalLyricsTagContent);
+
+        // Check for changes in Standard Fields
+        boolean otherFieldsChanged = dataManager.hasUnsavedChanges(
+                originalMetadata, artworkChanged, customFields,
+                titleEditText, artistEditText, albumEditText, albumArtistEditText,
+                genreEditText, yearEditText, trackNumberEditText, discNumberEditText,
+                composerEditText, songwriterEditText, commentEditText, releaseDateEditText,
+                audioLocaleEditText, languageEditText,
+                unsyncedLyricsEditText, lrcEditText, elrcEditText, 
+                lyricsMultiEditText 
+        );
+
+        restoreTagsButton.setEnabled(lyricsChanged || otherFieldsChanged);
     }
 
     private void showRestoreConfirmation() {
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Restore to Original")
-                .setMessage("Revert all changes to how they were when you opened this file?")
+                .setMessage("Revert all changes?")
                 .setPositiveButton("Restore", (dialog, which) -> restoreOriginalTags())
-                .setNegativeButton("Cancel", null)
-                .show();
+                .setNegativeButton("Cancel", null).show();
     }
 
-    // --- NEW ERROR DIALOG METHOD ---
     public void showErrorDialog(String title, String message) {
-        runOnUiThread(() -> {
-            new MaterialAlertDialogBuilder(this)
-                    .setTitle(title)
-                    .setMessage(message)
-                    .setPositiveButton("OK", null)
-                    .show();
-        });
+        runOnUiThread(() -> new MaterialAlertDialogBuilder(this)
+                .setTitle(title).setMessage(message).setPositiveButton("OK", null).show());
     }
-    // ---------------------------------
 
     private void restoreOriginalTags() {
         dataManager.restoreOriginalTags(
-                originalMetadata,
-                customFields,
-                extendedTagsContainer,
-                tagFieldsContainer,
-                titleEditText,
-                artistEditText,
-                albumEditText,
-                albumArtistEditText,
-                genreEditText,
-                yearEditText,
-                trackNumberEditText,
-                discNumberEditText,
-                composerEditText,
-                songwriterEditText,
-                commentEditText,
-                releaseDateEditText,
-                audioLocaleEditText,
-                languageEditText,
-                unsyncedLyricsEditText,
-                lrcEditText,
-                elrcEditText,
-                lyricsMultiEditText);
+                originalMetadata, customFields, extendedTagsContainer, tagFieldsContainer,
+                titleEditText, artistEditText, albumEditText, albumArtistEditText,
+                genreEditText, yearEditText, trackNumberEditText, discNumberEditText,
+                composerEditText, songwriterEditText, commentEditText, releaseDateEditText,
+                audioLocaleEditText, languageEditText,
+                unsyncedLyricsEditText, lrcEditText, elrcEditText, lyricsMultiEditText);
+
+        if (originalLyricsTagContent.trim().startsWith("<")) {
+            isTtmlMode = true;
+            currentTtmlContent = originalLyricsTagContent;
+            currentElrcContent = "";
+        } else {
+            isTtmlMode = false;
+            currentElrcContent = originalLyricsTagContent;
+            currentTtmlContent = "";
+        }
+        
+        updateSwapperUI(); 
 
         resetArtwork();
         restoreTagsButton.setEnabled(false);
@@ -466,131 +452,61 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
     private void populateFieldsFromCachedData() {
         showLoading("Applying cached metadata...");
+        runOnUiThread(() -> {
+            if (titleEditText.getText().toString().isEmpty()) titleEditText.setText(intentTitle);
+            if (artistEditText.getText().toString().isEmpty()) artistEditText.setText(intentArtist);
+            
+            if (cachedMetadata != null) {
+                if (cachedMetadata.genreNames != null && !cachedMetadata.genreNames.isEmpty()) genreEditText.setText(String.join(", ", cachedMetadata.genreNames));
+                else if (cachedMetadata.genre != null) genreEditText.setText(cachedMetadata.genre);
+                
+                if (cachedMetadata.audioLocale != null) audioLocaleEditText.setText(cachedMetadata.audioLocale);
+                if (cachedMetadata.releaseDate != null) releaseDateEditText.setText(cachedMetadata.releaseDate);
+                if (cachedMetadata.trackNumber != null) trackNumberEditText.setText(cachedMetadata.trackNumber);
+                if (cachedMetadata.discNumber != null) discNumberEditText.setText(cachedMetadata.discNumber);
+                if (cachedMetadata.composerName != null) composerEditText.setText(cachedMetadata.composerName);
+                if (cachedMetadata.songwriters != null) songwriterEditText.setText(String.join(", ", cachedMetadata.songwriters));
+                
+                if (cachedMetadata.contentRating != null) uiManager.addOrUpdateCustomField("CONTENTRATING", cachedMetadata.contentRating, customFields, extendedTagsContainer, this::updateRestoreButtonState);
+                if (cachedMetadata.isrc != null) uiManager.addOrUpdateCustomField("ISRC", cachedMetadata.isrc, customFields, extendedTagsContainer, this::updateRestoreButtonState);
 
-        runOnUiThread(
-                () -> {
-                    if (titleEditText.getText().toString().isEmpty())
-                        titleEditText.setText(intentTitle);
-                    if (artistEditText.getText().toString().isEmpty())
-                        artistEditText.setText(intentArtist);
+                if (cachedMetadata.plain != null) unsyncedLyricsEditText.setText(cachedMetadata.plain);
+                if (cachedMetadata.lrc != null) lrcEditText.setText(cachedMetadata.lrc);
+                if (cachedMetadata.elrc != null) elrcEditText.setText(cachedMetadata.elrc);
 
-                    if (cachedMetadata != null) {
-                        if (cachedMetadata.genreNames != null
-                                && !cachedMetadata.genreNames.isEmpty()) {
-                            genreEditText.setText(String.join(", ", cachedMetadata.genreNames));
-                        } else if (cachedMetadata.genre != null
-                                && !cachedMetadata.genre.isEmpty()) {
-                            genreEditText.setText(cachedMetadata.genre);
-                        }
+                if (cachedMetadata.elrcMultiPerson != null) currentElrcContent = cachedMetadata.elrcMultiPerson;
+                if (cachedMetadata.ttml != null) currentTtmlContent = cachedMetadata.ttml;
 
-                        if (cachedMetadata.audioLocale != null
-                                && !cachedMetadata.audioLocale.isEmpty()) {
-                            audioLocaleEditText.setText(cachedMetadata.audioLocale);
-                        }
+                updateSwapperUI();
+            }
 
-                        if (cachedMetadata.releaseDate != null
-                                && !cachedMetadata.releaseDate.isEmpty()) {
-                            releaseDateEditText.setText(cachedMetadata.releaseDate);
-                            if (cachedMetadata.releaseDate.length() >= 4) {
-                                yearEditText.setText(cachedMetadata.releaseDate.substring(0, 4));
-                            }
-                        }
-
-                        if (cachedMetadata.trackNumber != null
-                                && !cachedMetadata.trackNumber.isEmpty())
-                            trackNumberEditText.setText(cachedMetadata.trackNumber);
-                        if (cachedMetadata.discNumber != null
-                                && !cachedMetadata.discNumber.isEmpty())
-                            discNumberEditText.setText(cachedMetadata.discNumber);
-
-                        if (cachedMetadata.composerName != null
-                                && !cachedMetadata.composerName.isEmpty()) {
-                            composerEditText.setText(cachedMetadata.composerName);
-                        }
-
-                        if (cachedMetadata.songwriters != null
-                                && !cachedMetadata.songwriters.isEmpty()) {
-                            songwriterEditText.setText(
-                                    String.join(", ", cachedMetadata.songwriters));
-                        }
-
-                        if (cachedMetadata.contentRating != null
-                                && !cachedMetadata.contentRating.isEmpty())
-                            uiManager.addOrUpdateCustomField(
-                                    "CONTENTRATING",
-                                    cachedMetadata.contentRating,
-                                    customFields,
-                                    extendedTagsContainer,
-                                    this::updateRestoreButtonState);
-                        if (cachedMetadata.isrc != null && !cachedMetadata.isrc.isEmpty())
-                            uiManager.addOrUpdateCustomField(
-                                    "ISRC",
-                                    cachedMetadata.isrc,
-                                    customFields,
-                                    extendedTagsContainer,
-                                    this::updateRestoreButtonState);
-
-                        // Populate Lyrics
-                        if (cachedMetadata.plain != null && !cachedMetadata.plain.isEmpty())
-                            unsyncedLyricsEditText.setText(cachedMetadata.plain);
-                        if (cachedMetadata.lrc != null && !cachedMetadata.lrc.isEmpty())
-                            lrcEditText.setText(cachedMetadata.lrc);
-                        if (cachedMetadata.elrc != null && !cachedMetadata.elrc.isEmpty())
-                            elrcEditText.setText(cachedMetadata.elrc);
-                        if (cachedMetadata.elrcMultiPerson != null
-                                && !cachedMetadata.elrcMultiPerson.isEmpty())
-                            lyricsMultiEditText.setText(cachedMetadata.elrcMultiPerson);
-                    }
-
-                    if (intentArtworkUrl != null) {
-                        String artworkUrl =
-                                intentArtworkUrl
-                                        .replace("{w}", "600")
-                                        .replace("{h}", "600")
-                                        .replace("{f}", "jpg");
-                        loadArtworkWithGlide(artworkUrl);
-                    } else {
-                        hideLoading();
-                        Toast.makeText(this, "Metadata applied!", Toast.LENGTH_SHORT).show();
-                    }
-                });
+            if (intentArtworkUrl != null) {
+                String artworkUrl = intentArtworkUrl.replace("{w}", "600").replace("{h}", "600").replace("{f}", "jpg");
+                loadArtworkWithGlide(artworkUrl);
+            } else {
+                hideLoading();
+                Toast.makeText(this, "Metadata applied!", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void loadArtworkWithGlide(String url) {
-        Glide.with(this)
-                .asBitmap()
-                .load(url)
-                .into(
-                        new com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
-                            @Override
-                            public void onResourceReady(
-                                    Bitmap resource,
-                                    com.bumptech.glide.request.transition.Transition<? super Bitmap>
-                                            t) {
-                                selectedArtwork = resource;
-                                artworkImageView.setImageBitmap(resource);
-                                artworkChanged = true;
-                                resetArtworkButton.setEnabled(true);
-                                updateRestoreButtonState();
-                                hideLoading();
-                                Toast.makeText(
-                                                TagEditorActivity.this,
-                                                "Metadata fetched!",
-                                                Toast.LENGTH_SHORT)
-                                        .show();
-                            }
-
-                            @Override
-                            public void onLoadCleared(android.graphics.drawable.Drawable p) {
-                                hideLoading();
-                            }
-                        });
+        Glide.with(this).asBitmap().load(url).into(new com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
+            @Override public void onResourceReady(Bitmap resource, com.bumptech.glide.request.transition.Transition<? super Bitmap> t) {
+                selectedArtwork = resource;
+                artworkImageView.setImageBitmap(resource);
+                artworkChanged = true;
+                resetArtworkButton.setEnabled(true);
+                updateRestoreButtonState();
+                hideLoading();
+                Toast.makeText(TagEditorActivity.this, "Metadata fetched!", Toast.LENGTH_SHORT).show();
+            }
+            @Override public void onLoadCleared(android.graphics.drawable.Drawable p) { hideLoading(); }
+        });
     }
 
-    private void selectArtwork() {
-        imagePickerLauncher.launch(new Intent(Intent.ACTION_PICK).setType("image/*"));
-    }
-
+    private void selectArtwork() { imagePickerLauncher.launch(new Intent(Intent.ACTION_PICK).setType("image/*")); }
+    
     private void loadArtworkFromUri(Uri uri) {
         try {
             InputStream is = getContentResolver().openInputStream(uri);
@@ -600,177 +516,77 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
             resetArtworkButton.setEnabled(true);
             updateRestoreButtonState();
             is.close();
-            Toast.makeText(this, "Artwork updated", Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-        }
+        } catch (Exception e) {}
     }
 
     private void resetArtwork() {
-        if (originalArtwork != null) {
-            artworkImageView.setImageBitmap(originalArtwork);
-        } else {
-            artworkImageView.setImageResource(R.drawable.ic_music_note);
-        }
+        if (originalArtwork != null) artworkImageView.setImageBitmap(originalArtwork);
+        else artworkImageView.setImageResource(R.drawable.ic_music_note);
         selectedArtwork = null;
         artworkChanged = false;
         resetArtworkButton.setEnabled(false);
         updateRestoreButtonState();
     }
 
-    private void loadArtworkFromUrl(String u) {
-        Glide.with(this)
-                .asBitmap()
-                .load(u.replace("{w}", "600").replace("{h}", "600").replace("{f}", "jpg"))
-                .into(
-                        new com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
-                            @Override
-                            public void onResourceReady(
-                                    Bitmap r,
-                                    com.bumptech.glide.request.transition.Transition<? super Bitmap>
-                                            t) {
-                                artworkImageView.setImageBitmap(r);
-                            }
-
-                            @Override
-                            public void onLoadCleared(android.graphics.drawable.Drawable p) {}
-                        });
-    }
-
     private void saveTags() {
+        String visible = lyricsMultiEditText.getText().toString();
+        if (isTtmlMode) currentTtmlContent = visible;
+        else currentElrcContent = visible;
+        
         dataManager.saveTags(
-                filePath,
-                customFields,
-                artworkChanged,
-                selectedArtwork,
-                originalMetadata,
-                this::showLoading,
-                this::hideLoading,
-                titleEditText,
-                artistEditText,
-                albumEditText,
-                albumArtistEditText,
-                genreEditText,
-                yearEditText,
-                trackNumberEditText,
-                discNumberEditText,
-                composerEditText,
-                songwriterEditText,
-                commentEditText,
-                releaseDateEditText,
-                audioLocaleEditText,
-                languageEditText,
-                unsyncedLyricsEditText,
-                lrcEditText,
-                elrcEditText,
-                lyricsMultiEditText);
+                filePath, customFields, artworkChanged, selectedArtwork, originalMetadata,
+                this::showLoading, this::hideLoading,
+                titleEditText, artistEditText, albumEditText, albumArtistEditText,
+                genreEditText, yearEditText, trackNumberEditText, discNumberEditText,
+                composerEditText, songwriterEditText, commentEditText, releaseDateEditText,
+                audioLocaleEditText, languageEditText,
+                unsyncedLyricsEditText, lrcEditText, elrcEditText, lyricsMultiEditText
+        );
     }
 
     void showLoading(String m) {
-        runOnUiThread(
-                () -> {
-                    loadingText.setText(m);
-                    loadingOverlay.setVisibility(View.VISIBLE);
-                });
+        runOnUiThread(() -> {
+            loadingText.setText(m);
+            loadingOverlay.setVisibility(View.VISIBLE);
+        });
     }
 
-    void hideLoading() {
-        runOnUiThread(() -> loadingOverlay.setVisibility(View.GONE));
-    }
+    void hideLoading() { runOnUiThread(() -> loadingOverlay.setVisibility(View.GONE)); }
 
     @Override
     public void onBackPressed() {
-        boolean hasChanges =
-                dataManager.hasUnsavedChanges(
-                        originalMetadata,
-                        artworkChanged,
-                        customFields,
-                        titleEditText,
-                        artistEditText,
-                        albumEditText,
-                        albumArtistEditText,
-                        genreEditText,
-                        yearEditText,
-                        trackNumberEditText,
-                        discNumberEditText,
-                        composerEditText,
-                        songwriterEditText,
-                        commentEditText,
-                        releaseDateEditText,
-                        audioLocaleEditText,
-                        languageEditText,
-                        unsyncedLyricsEditText,
-                        lrcEditText,
-                        elrcEditText,
-                        lyricsMultiEditText);
-
-        if (hasChanges)
+        updateRestoreButtonState(); 
+        if (restoreTagsButton.isEnabled()) {
             new MaterialAlertDialogBuilder(this)
                     .setTitle("Discard?")
                     .setPositiveButton("Discard", (d, w) -> super.onBackPressed())
-                    .setNegativeButton("Cancel", null)
-                    .show();
-        else super.onBackPressed();
+                    .setNegativeButton("Cancel", null).show();
+        } else super.onBackPressed();
     }
-
-    // Getters for delegates
-    public ImageView getArtworkImageView() {
-        return artworkImageView;
-    }
-
-    public LinearLayout getExtendedTagsContainer() {
-        return extendedTagsContainer;
-    }
-
-    public LinearLayout getTagFieldsContainer() {
-        return tagFieldsContainer;
-    }
-
-    public TextView getLoadingText() {
-        return loadingText;
-    }
-
-    public List<CustomField> getCustomFields() {
-        return customFields;
-    }
-
-    static class CustomField {
-        String tag;
-        String value;
-        TextInputEditText editText;
-        TextInputLayout layout;
-    }
-
+    
+    public ImageView getArtworkImageView() { return artworkImageView; }
+    public LinearLayout getExtendedTagsContainer() { return extendedTagsContainer; }
+    public LinearLayout getTagFieldsContainer() { return tagFieldsContainer; }
+    public TextView getLoadingText() { return loadingText; }
+    public List<CustomField> getCustomFields() { return customFields; }
+    static class CustomField { String tag; String value; TextInputEditText editText; TextInputLayout layout; }
+    
     private void hideSystemUI() {
-        // 1. The "Nuclear" Option: Forces layout to ignore all screen boundaries
-        getWindow()
-                .setFlags(
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
-
-        // 2. Standard method to hide bars (for clean immersive mode)
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-            WindowInsetsControllerCompat controller =
-                    WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+            WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
             if (controller != null) {
                 controller.hide(WindowInsetsCompat.Type.systemBars());
-                controller.setSystemBarsBehavior(
-                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                controller.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
         } else {
-            // Legacy method for older Android versions
             View decorView = getWindow().getDecorView();
-            int uiOptions =
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            | View.SYSTEM_UI_FLAG_FULLSCREEN
-                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+            int uiOptions = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
             decorView.setSystemUiVisibility(uiOptions);
         }
-
-        // 3. Cutout mode (Essential for notches)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            getWindow().getAttributes().layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            getWindow().getAttributes().layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         }
     }
 }

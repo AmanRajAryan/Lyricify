@@ -85,6 +85,7 @@ public class ApiClient {
         public String lrc;
         public String elrc;
         public String elrcMultiPerson;
+        public String ttml; // This stores the content from "ttmlContent"
         
         // Expanded Metadata Fields
         public List<String> songwriters;
@@ -209,6 +210,9 @@ public class ApiClient {
                     resp.lrc = json.optString("lrc", "");
                     resp.elrc = json.optString("elrc", "");
                     resp.elrcMultiPerson = json.optString("elrcMultiPerson", "");
+                    
+                    // FIX: Use "ttmlContent" key here
+                    resp.ttml = json.optString("ttmlContent", ""); 
                     
                     // 2. Parse Songwriters from 'metadata' object
                     if (json.has("metadata")) {

@@ -123,7 +123,6 @@ public class TagEditorDataManager {
                                 activity.runOnUiThread(
                                         () -> {
                                             hideLoading.run();
-                                            // CHANGED: Use Error Dialog
                                             String err =
                                                     e.getClass().getSimpleName()
                                                             + ": "
@@ -203,128 +202,20 @@ public class TagEditorDataManager {
             List<TagEditorActivity.CustomField> customFields,
             LinearLayout extendedTagsContainer,
             LinearLayout tagFieldsContainer,
-            TextInputEditText titleEditText,
-            TextInputEditText artistEditText,
-            TextInputEditText albumEditText,
-            TextInputEditText albumArtistEditText,
-            TextInputEditText genreEditText,
-            TextInputEditText yearEditText,
-            TextInputEditText trackNumberEditText,
-            TextInputEditText discNumberEditText,
-            TextInputEditText composerEditText,
-            TextInputEditText songwriterEditText,
-            TextInputEditText commentEditText,
-            TextInputEditText releaseDateEditText,
-            TextInputEditText audioLocaleEditText,
-            TextInputEditText languageEditText,
-            TextInputEditText unsyncedLyricsEditText,
-            TextInputEditText lrcEditText,
-            TextInputEditText elrcEditText,
-            TextInputEditText lyricsMultiEditText) {
+            TextInputEditText... views) { // Accepting varargs to match signature usage
+        
         if (originalMetadata != null) {
-            titleEditText.setText(originalMetadata.getOrDefault("TITLE", ""));
-            artistEditText.setText(originalMetadata.getOrDefault("ARTIST", ""));
-            albumEditText.setText(originalMetadata.getOrDefault("ALBUM", ""));
-            albumArtistEditText.setText(originalMetadata.getOrDefault("ALBUMARTIST", ""));
-            genreEditText.setText(originalMetadata.getOrDefault("GENRE", ""));
-            yearEditText.setText(originalMetadata.getOrDefault("DATE", ""));
-            trackNumberEditText.setText(originalMetadata.getOrDefault("TRACKNUMBER", ""));
-            discNumberEditText.setText(originalMetadata.getOrDefault("DISCNUMBER", ""));
-            composerEditText.setText(originalMetadata.getOrDefault("COMPOSER", ""));
-            songwriterEditText.setText(
-                    originalMetadata.getOrDefault(
-                            "LYRICIST", originalMetadata.getOrDefault("WRITER", "")));
-            commentEditText.setText(originalMetadata.getOrDefault("COMMENT", ""));
-            releaseDateEditText.setText(originalMetadata.getOrDefault("RELEASEDATE", ""));
-            audioLocaleEditText.setText(originalMetadata.getOrDefault("LOCALE", ""));
-            languageEditText.setText(originalMetadata.getOrDefault("LANGUAGE", ""));
-
-            unsyncedLyricsEditText.setText(originalMetadata.getOrDefault("UNSYNCEDLYRICS", ""));
-            lrcEditText.setText(originalMetadata.getOrDefault("LRC", ""));
-            elrcEditText.setText(originalMetadata.getOrDefault("ELRC", ""));
-            lyricsMultiEditText.setText(originalMetadata.getOrDefault("LYRICS", ""));
-
-            extendedTagsContainer.removeAllViews();
-
-            for (TagEditorActivity.CustomField f : customFields) {
-                if (f.layout.getParent() == tagFieldsContainer
-                        || f.layout.getParent() == extendedTagsContainer) {
-                    ((ViewGroup) f.layout.getParent()).removeView(f.layout);
-                }
-            }
-            customFields.clear();
-
-            TagEditorUIManager uiManager = new TagEditorUIManager(activity);
+            // Re-map to UI Metadata for case-insensitive lookup
+            HashMap<String, String> uiMetadata = new HashMap<>();
             for (Map.Entry<String, String> entry : originalMetadata.entrySet()) {
-                String key = entry.getKey();
-                if (!KNOWN_TAGS.contains(key)) {
-                    uiManager.addCustomField(
-                            key, entry.getValue(), extendedTagsContainer, customFields, () -> {});
-                }
+                uiMetadata.put(entry.getKey().toUpperCase(), entry.getValue());
             }
-
+            populateUIFromMetadata(uiMetadata);
         } else {
-            clearAllInputs(
-                    titleEditText,
-                    artistEditText,
-                    albumEditText,
-                    albumArtistEditText,
-                    genreEditText,
-                    yearEditText,
-                    trackNumberEditText,
-                    discNumberEditText,
-                    composerEditText,
-                    songwriterEditText,
-                    commentEditText,
-                    releaseDateEditText,
-                    audioLocaleEditText,
-                    languageEditText,
-                    unsyncedLyricsEditText,
-                    lrcEditText,
-                    elrcEditText,
-                    lyricsMultiEditText);
-            extendedTagsContainer.removeAllViews();
-            customFields.clear();
+             for(TextInputEditText v : views) v.setText("");
+             extendedTagsContainer.removeAllViews();
+             customFields.clear();
         }
-    }
-
-    private void clearAllInputs(
-            TextInputEditText titleEditText,
-            TextInputEditText artistEditText,
-            TextInputEditText albumEditText,
-            TextInputEditText albumArtistEditText,
-            TextInputEditText genreEditText,
-            TextInputEditText yearEditText,
-            TextInputEditText trackNumberEditText,
-            TextInputEditText discNumberEditText,
-            TextInputEditText composerEditText,
-            TextInputEditText songwriterEditText,
-            TextInputEditText commentEditText,
-            TextInputEditText releaseDateEditText,
-            TextInputEditText audioLocaleEditText,
-            TextInputEditText languageEditText,
-            TextInputEditText unsyncedLyricsEditText,
-            TextInputEditText lrcEditText,
-            TextInputEditText elrcEditText,
-            TextInputEditText lyricsMultiEditText) {
-        titleEditText.setText("");
-        artistEditText.setText("");
-        albumEditText.setText("");
-        albumArtistEditText.setText("");
-        genreEditText.setText("");
-        yearEditText.setText("");
-        trackNumberEditText.setText("");
-        discNumberEditText.setText("");
-        composerEditText.setText("");
-        songwriterEditText.setText("");
-        commentEditText.setText("");
-        releaseDateEditText.setText("");
-        audioLocaleEditText.setText("");
-        languageEditText.setText("");
-        unsyncedLyricsEditText.setText("");
-        lrcEditText.setText("");
-        elrcEditText.setText("");
-        lyricsMultiEditText.setText("");
     }
 
     public void saveTags(
@@ -354,6 +245,32 @@ public class TagEditorDataManager {
             TextInputEditText elrcEditText,
             TextInputEditText lyricsMultiEditText) {
         if (filePath == null || filePath.isEmpty()) return;
+
+        // READ UI ON MAIN THREAD
+        String sTitle = titleEditText.getText().toString().trim();
+        String sArtist = artistEditText.getText().toString().trim();
+        String sAlbum = albumEditText.getText().toString().trim();
+        String sAlbumArtist = albumArtistEditText.getText().toString().trim();
+        String sGenre = genreEditText.getText().toString().trim();
+        String sDate = yearEditText.getText().toString().trim();
+        String sTrack = trackNumberEditText.getText().toString().trim();
+        String sDisc = discNumberEditText.getText().toString().trim();
+        String sComposer = composerEditText.getText().toString().trim();
+        String sWriter = songwriterEditText.getText().toString().trim();
+        String sComment = commentEditText.getText().toString().trim();
+        String sRelease = releaseDateEditText.getText().toString().trim();
+        String sLocale = audioLocaleEditText.getText().toString().trim();
+        String sLang = languageEditText.getText().toString().trim();
+        String sUnsynced = unsyncedLyricsEditText.getText().toString().trim();
+        String sLrc = lrcEditText.getText().toString().trim();
+        String sElrc = elrcEditText.getText().toString().trim();
+        String sMulti = lyricsMultiEditText.getText().toString().trim();
+
+        Map<String, String> customTagsMap = new HashMap<>();
+        for (TagEditorActivity.CustomField field : customFields) {
+            customTagsMap.put(field.tag, field.editText.getText().toString().trim());
+        }
+
         showLoading.accept("Saving tags...");
 
         new Thread(
@@ -361,66 +278,39 @@ public class TagEditorDataManager {
                             try {
                                 HashMap<String, String> newMetadataMap = new HashMap<>();
 
-                                newMetadataMap.put(
-                                        "TITLE", titleEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "ARTIST", artistEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "ALBUM", albumEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "ALBUMARTIST",
-                                        albumArtistEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "GENRE", genreEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "DATE", yearEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "TRACKNUMBER",
-                                        trackNumberEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "DISCNUMBER",
-                                        discNumberEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "COMPOSER", composerEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "LYRICIST", songwriterEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "COMMENT", commentEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "RELEASEDATE",
-                                        releaseDateEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "LOCALE", audioLocaleEditText.getText().toString().trim());
-                                newMetadataMap.put(
-                                        "LANGUAGE", languageEditText.getText().toString().trim());
+                                newMetadataMap.put("TITLE", sTitle);
+                                newMetadataMap.put("ARTIST", sArtist);
+                                newMetadataMap.put("ALBUM", sAlbum);
+                                newMetadataMap.put("ALBUMARTIST", sAlbumArtist);
+                                newMetadataMap.put("GENRE", sGenre);
+                                newMetadataMap.put("DATE", sDate);
+                                newMetadataMap.put("TRACKNUMBER", sTrack);
+                                newMetadataMap.put("DISCNUMBER", sDisc);
+                                newMetadataMap.put("COMPOSER", sComposer);
+                                newMetadataMap.put("LYRICIST", sWriter);
+                                newMetadataMap.put("COMMENT", sComment);
+                                newMetadataMap.put("RELEASEDATE", sRelease);
+                                newMetadataMap.put("LOCALE", sLocale);
+                                newMetadataMap.put("LANGUAGE", sLang);
 
-                                String unsyncedLyrics =
-                                        unsyncedLyricsEditText.getText().toString().trim();
-                                String lrc = lrcEditText.getText().toString().trim();
-                                String elrc = elrcEditText.getText().toString().trim();
-                                String elrcMulti = lyricsMultiEditText.getText().toString().trim();
-
-                                newMetadataMap.put("UNSYNCEDLYRICS", unsyncedLyrics);
-                                newMetadataMap.put("LRC", lrc);
-                                newMetadataMap.put("ELRC", elrc);
+                                newMetadataMap.put("UNSYNCEDLYRICS", sUnsynced);
+                                newMetadataMap.put("LRC", sLrc);
+                                newMetadataMap.put("ELRC", sElrc);
 
                                 String bestLyrics = "";
-                                if (isValidLyrics(elrcMulti)) {
-                                    bestLyrics = elrcMulti;
-                                } else if (isValidLyrics(elrc)) {
-                                    bestLyrics = elrc;
-                                } else if (isValidLyrics(lrc)) {
-                                    bestLyrics = lrc;
-                                } else if (isValidLyrics(unsyncedLyrics)) {
-                                    bestLyrics = unsyncedLyrics;
+                                if (isValidLyrics(sMulti)) {
+                                    bestLyrics = sMulti;
+                                } else if (isValidLyrics(sElrc)) {
+                                    bestLyrics = sElrc;
+                                } else if (isValidLyrics(sLrc)) {
+                                    bestLyrics = sLrc;
+                                } else if (isValidLyrics(sUnsynced)) {
+                                    bestLyrics = sUnsynced;
                                 }
 
                                 newMetadataMap.put("LYRICS", bestLyrics);
 
-                                for (TagEditorActivity.CustomField field : customFields) {
-                                    newMetadataMap.put(
-                                            field.tag, field.editText.getText().toString().trim());
-                                }
+                                newMetadataMap.putAll(customTagsMap);
 
                                 File originalFile = new File(filePath);
 
@@ -539,7 +429,6 @@ public class TagEditorDataManager {
                                                 activity.runOnUiThread(
                                                         () -> {
                                                             hideLoading.run();
-                                                            // CHANGED: Use Error Dialog
                                                             activity.showErrorDialog(
                                                                     "Storage Write Error", e);
                                                         });
@@ -560,7 +449,6 @@ public class TagEditorDataManager {
                                 activity.runOnUiThread(
                                         () -> {
                                             hideLoading.run();
-                                            // CHANGED: Use Error Dialog
                                             String err =
                                                     e.getClass().getSimpleName()
                                                             + ": "
@@ -600,6 +488,7 @@ public class TagEditorDataManager {
                 .show();
     }
 
+    // FIXED: Full implementation restored
     public boolean hasUnsavedChanges(
             HashMap<String, String> originalMetadata,
             boolean artworkChanged,
@@ -675,6 +564,8 @@ public class TagEditorDataManager {
             return true;
         if (!equals(elrcEditText.getText().toString(), normalizedOriginal.getOrDefault("ELRC", "")))
             return true;
+        
+        // Activity handles Multi manually, but we keep this check consistent
         if (!equals(
                 lyricsMultiEditText.getText().toString(),
                 normalizedOriginal.getOrDefault("LYRICS", ""))) return true;

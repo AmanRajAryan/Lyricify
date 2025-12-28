@@ -6,7 +6,7 @@ import { MessageHandler } from './src/background/core/messageHandler.js';
 // =========================================================
 const BUTTON_POS_BOTTOM = '12em';   // Distance from bottom
 const BUTTON_POS_RIGHT  = '1.5em'; // Distance from right
-const FONT_SIZE_BASE    = 46;      // Font size
+const FONT_SIZE_BASE    = 40;      // Font size
 const FONT_WEIGHT       = 900;     // Boldness (800 or 900)
 // =========================================================
 

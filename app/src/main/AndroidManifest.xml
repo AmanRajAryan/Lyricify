@@ -6,9 +6,15 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+
+    <queries>
+        <provider android:authorities="aman.loghub.provider" />
+    </queries>
+
 
     <application
         android:name="Log"
@@ -30,13 +36,18 @@
         </activity>
 
         <activity android:name="LyricsActivity" />
-        
-        <activity 
-            android:name=".SyncedLyricsActivity" 
+
+        <activity
+            android:name=".SyncedLyricsActivity"
             android:launchMode="singleTask" />
-            
+
         <activity android:name="TagEditorActivity" />
         <activity android:name="CrashActivity" />
+<activity
+    android:name=".YoulyPlayerActivity"
+    android:exported="false"
+    android:screenOrientation="portrait" />
+
 
         <service
             android:name=".SongNotificationListener"
@@ -48,7 +59,9 @@
             </intent-filter>
         </service>
 
-        <service android:name=".FloatingLyricsService" android:exported="false"/>
+        <service
+                android:name=".FloatingLyricsService"
+                android:exported="false" />
 
     </application>
 </manifest>

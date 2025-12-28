@@ -1,35 +1,35 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/SyncedLyricsActivity.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/MainActivity.java",
       "selection": {
         "end": {
-          "column": 0,
-          "index": 27197,
-          "line": 663
+          "column": 3,
+          "index": 3815,
+          "line": 113
         },
         "start": {
-          "column": 0,
-          "index": 0,
-          "line": 0
+          "column": 3,
+          "index": 3815,
+          "line": 113
         }
       }
     },
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/activity_synced_lyrics.xml",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/activity_main.xml",
       "selection": {
         "end": {
-          "column": 40,
-          "index": 9350,
-          "line": 229
+          "column": 43,
+          "index": 7817,
+          "line": 183
         },
         "start": {
-          "column": 40,
-          "index": 9350,
-          "line": 229
+          "column": 43,
+          "index": 7817,
+          "line": 183
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/SyncedLyricsActivity.java"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/activity_main.xml"
 }

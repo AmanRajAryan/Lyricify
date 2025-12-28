@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -30,17 +31,28 @@ public class LyricsSharedEngine {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final OkHttpClient okHttpClient;
 
+    // Buffering Logic
+    private boolean isJsReady = false;
+    private PendingSong pendingSong = null;
+
+    private static class PendingSong {
+        String title, artist, album;
+        long duration;
+        PendingSong(String t, String a, String al, long d) {
+            title = t; artist = a; album = al; duration = d;
+        }
+    }
+
     public static LyricsSharedEngine getInstance(Context context) {
         if (instance == null) {
             instance = new LyricsSharedEngine(context.getApplicationContext());
         }
-        
-        Log.init(context);
+        // Assuming Log.init is a custom logger you have
+        // Log.init(context); 
         return instance;
     }
 
     private LyricsSharedEngine(Context context) {
-        
         this.context = context;
         this.okHttpClient = new OkHttpClient.Builder()
                 .connectTimeout(30, TimeUnit.SECONDS)
@@ -75,7 +87,8 @@ public class LyricsSharedEngine {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onConsoleMessage(ConsoleMessage cm) {
-                Log.d("YouLyJS", cm.message() + " -- (" + cm.lineNumber() + ")");
+                // Use standard Android Log if custom Log class is missing
+                android.util.Log.d("YouLyJS", cm.message() + " -- (" + cm.lineNumber() + ")");
                 return true;
             }
         });
@@ -89,31 +102,62 @@ public class LyricsSharedEngine {
         this.activeListener = listener;
     }
 
+    // --- NEW: Centralized Load Method with Buffering ---
+    public void loadLyrics(String title, String artist, String album, long durationSeconds) {
+        if (isJsReady) {
+            String safeTitle = escape(title);
+            String safeArtist = escape(artist);
+            String safeAlbum = escape(album);
+            String js = String.format(
+                    "if(window.AndroidAPI) window.AndroidAPI.loadSong('%s', '%s', '%s', %d);",
+                    safeTitle, safeArtist, safeAlbum, durationSeconds);
+            runJs(js);
+        } else {
+            android.util.Log.d("YouLyEngine", "JS not ready. Buffering song: " + title);
+            pendingSong = new PendingSong(title, artist, album, durationSeconds);
+        }
+    }
+
     private void runJs(String js) {
         mainHandler.post(() -> {
             if (webView != null) webView.evaluateJavascript(js, null);
         });
     }
 
+    private String escape(String s) {
+        return s == null ? "" : s.replace("'", "\\'");
+    }
+
     // --- SHARED BRIDGE ---
     private class SharedBridge {
         
-        // CHANGED: Use String and parse it to be safe against JS number types
+        // 1. ENGINE READY SIGNAL
+        @JavascriptInterface
+        public void onEngineReady() {
+            android.util.Log.d("YouLyNative", "Engine Ready Signal Received!");
+            isJsReady = true;
+            
+            // Flush Buffer
+            if (pendingSong != null) {
+                mainHandler.post(() -> {
+                    android.util.Log.d("YouLyNative", "Flushing buffered song: " + pendingSong.title);
+                    loadLyrics(pendingSong.title, pendingSong.artist, pendingSong.album, pendingSong.duration);
+                    pendingSong = null;
+                });
+            }
+        }
+
         @JavascriptInterface
         public void seekTo(String timeMsStr) {
             try {
                 long timeMs = Long.parseLong(timeMsStr);
-                Log.d("YouLyNative", "Seek request received: " + timeMs);
-                
                 mainHandler.post(() -> {
                     if (activeListener != null) {
                         activeListener.onSeekRequest(timeMs);
-                    } else {
-                        Log.w("YouLyNative", "No active listener for seek!");
                     }
                 });
             } catch (Exception e) {
-                Log.e("YouLyNative", "Failed to parse seek time: " + timeMsStr);
+                android.util.Log.e("YouLyNative", "Failed to parse seek time: " + timeMsStr);
             }
         }
 

@@ -4,6 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.content.ComponentName;
+import android.graphics.Bitmap;
 import android.graphics.RenderEffect;
 import android.graphics.Shader;
 import android.graphics.drawable.Animatable;
@@ -33,11 +34,11 @@ import aman.youly.LyricsWebViewFragment;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
+import jp.wasabeef.glide.transformations.BlurTransformation;
+
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-
-import jp.wasabeef.glide.transformations.BlurTransformation;
 
 import java.util.List;
 
@@ -84,11 +85,19 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     // Immersive State
     private boolean isImmersiveMode = false;
 
-    // Current Song Data
+    // Current Song Data (Live State)
     private String title;
     private String artist;
     private String lyrics;
-    private String artworkUrl;
+
+    // --- NEW: Original Entry State ---
+    private String originalTitle = "";
+    private String originalArtist = "";
+    private String originalArtworkUrl;
+    private boolean isShowingOriginalArt = true;
+    
+    // Flag to capture the initial session as "The Anchor"
+    private boolean isFirstMetadataUpdate = true;
 
     // Player Components
     private LyricsWebViewFragment lyricsWebViewFragment;
@@ -101,7 +110,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         setContentView(R.layout.activity_synced_lyrics);
 
         initializeViews();
-        extractIntentData();
+        extractIntentData(); // Populates UI only
 
         setupYouLyFragment();
         setupKaraokeFragment();
@@ -148,6 +157,23 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         fontSwitchButton = findViewById(R.id.fontSwitchButton);
 
         immersiveButton = findViewById(R.id.immersiveButton);
+
+        // Apply Native Blur (Only affects API 31+)
+        applyBlurEffect();
+    }
+
+    private void applyBlurEffect() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Native RenderEffect for Android 12+ (Safe on A15)
+            RenderEffect blurEffect = RenderEffect.createBlurEffect(250f, 150f, Shader.TileMode.CLAMP);
+            
+            if (immersiveBackground != null) {
+                immersiveBackground.setRenderEffect(blurEffect);
+            }
+            if (immersiveBackgroundOverlay != null) {
+                immersiveBackgroundOverlay.setRenderEffect(blurEffect);
+            }
+        }
     }
 
     private void setupControls() {
@@ -211,21 +237,13 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                     }
                 });
 
-        // --- NEW IMMERSIVE LOGIC ---
-        immersiveButton.setOnClickListener(
-                v -> {
-                    // Toggle Immersive Mode
-                    enableImmersiveMode(!isImmersiveMode);
-                });
+        immersiveButton.setOnClickListener(v -> enableImmersiveMode(!isImmersiveMode));
     }
 
     private void enableImmersiveMode(boolean enable) {
         isImmersiveMode = enable;
 
         if (enable) {
-            // ENTER IMMERSIVE MODE
-
-            // 1. Hide UI with Animation
             headerCard
                     .animate()
                     .alpha(0f)
@@ -245,18 +263,11 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                     .withEndAction(() -> controlsScrim.setVisibility(View.GONE));
             immersiveBackgroundOverlay.animate().alpha(0f).setDuration(500);
 
-            // 2. Animate button up (reducing bottom margin from 180 to 80)
             animateImmersiveButtonMargin(40);
-
-            // 3. Change Button Icon to "Exit"
             immersiveButton.setImageResource(R.drawable.ic_close);
-
             Toast.makeText(this, "Immersive Mode On", Toast.LENGTH_SHORT).show();
 
         } else {
-            // EXIT IMMERSIVE MODE
-
-            // 1. Show UI
             headerCard.setVisibility(View.VISIBLE);
             controlsLayout.setVisibility(View.VISIBLE);
             controlsScrim.setVisibility(View.VISIBLE);
@@ -266,10 +277,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
             controlsScrim.animate().alpha(1f).setDuration(300);
             immersiveBackgroundOverlay.animate().alpha(1f).setDuration(500);
 
-            // 2. Animate button down (increasing bottom margin from 80 to 180)
             animateImmersiveButtonMargin(180);
-
-            // 3. Change Button Icon back to "Fullscreen"
             immersiveButton.setImageResource(R.drawable.ic_fullscreen);
         }
     }
@@ -293,6 +301,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         animator.start();
     }
 
+    // --- METADATA UPDATE & ANCHOR LOGIC ---
     private void updateMetadata(MediaMetadata metadata) {
         if (metadata == null) return;
 
@@ -301,52 +310,120 @@ public class SyncedLyricsActivity extends AppCompatActivity {
             runOnUiThread(() -> progressSeekBar.setMax((int) duration));
         }
 
-        // --- AUTO FETCH / AUTOPLAY LOGIC ---
         String newTitle = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
         String newArtist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
         String newAlbum = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM);
 
-        // Check if song changed
-        if (newTitle != null && !newTitle.equals(title)) {
+        if (newTitle == null) newTitle = "";
+        if (newArtist == null) newArtist = "";
+
+        // --- FIRST RUN: CAPTURE ANCHOR ---
+        if (isFirstMetadataUpdate) {
+            originalTitle = newTitle;
+            originalArtist = newArtist;
+            
+            // Sync current state tracking
+            title = newTitle;
+            artist = newArtist;
+            
+            isFirstMetadataUpdate = false;
+            
+            // Ensure Player Changer is visible (we are on the correct song)
+            runOnUiThread(() -> playerChangerButton.setVisibility(View.VISIBLE));
+            
+            return;
+        }
+
+        // --- SUBSEQUENT RUNS: CHECK FOR CHANGES ---
+        if (!newTitle.equals(title)) {
             title = newTitle;
             artist = newArtist;
 
-            runOnUiThread(
-                    () -> {
-                        songTitleText.setText(title);
-                        songArtistText.setText(artist != null ? artist : "");
-                    });
+            // Song changed: Update UI Text now
+            runOnUiThread(() -> {
+                songTitleText.setText(title);
+                songArtistText.setText(artist);
+            });
 
-            // IF IN WEB MODE (Immersive or Normal) -> Trigger Auto Fetch
-            if (currentPlayerMode == 1 && lyricsWebViewFragment != null) {
-                long durSeconds = duration / 1000;
-                lyricsWebViewFragment.loadLyrics(title, artist, newAlbum, durSeconds);
+            // Compare against ANCHOR (the one we started with)
+            boolean isOriginalSong = title.trim().equalsIgnoreCase(originalTitle.trim()) &&
+                                     artist.trim().equalsIgnoreCase(originalArtist.trim());
 
-                if (isImmersiveMode) {
-                    runOnUiThread(
-                            () ->
-                                    Toast.makeText(this, "Loading: " + title, Toast.LENGTH_SHORT)
-                                            .show());
+            if (isOriginalSong) {
+                // --- MATCH (Back to Original) ---
+                runOnUiThread(() -> {
+                    playerChangerButton.setVisibility(View.VISIBLE);
+
+                    if (!isShowingOriginalArt) {
+                         loadArtwork(originalArtworkUrl); 
+                         isShowingOriginalArt = true;
+                    }
+                });
+
+                // Reload Original Lyrics into WebView
+                if (lyricsWebViewFragment != null) {
+                    long durSeconds = duration / 1000;
+                    lyricsWebViewFragment.loadLyrics(title, artist, newAlbum, durSeconds);
+                }
+
+            } else {
+                // --- MISMATCH (New Song) ---
+                Bitmap notifArt = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
+                if (notifArt == null) {
+                    notifArt = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
+                }
+                final Bitmap finalArt = notifArt;
+
+                runOnUiThread(() -> {
+                    // Use INVISIBLE to preserve layout spacing
+                    playerChangerButton.setVisibility(View.INVISIBLE);
+
+                    if (finalArt != null) {
+                        updateArtwork(finalArt);
+                        isShowingOriginalArt = false;
+                    }
+
+                    if (currentPlayerMode != 1) {
+                        switchToWebMode();
+                    }
+                });
+
+                if (lyricsWebViewFragment != null) {
+                    long durSeconds = duration / 1000;
+                    lyricsWebViewFragment.loadLyrics(title, artist, newAlbum, durSeconds);
                 }
             }
         }
     }
 
+    private void switchToWebMode() {
+        if (currentPlayerMode == 1) return;
+
+        View oldView;
+        if (currentPlayerMode == 2) oldView = karaokeContainer;
+        else oldView = syncedLyricsView; 
+
+        currentPlayerMode = 1;
+
+        immersiveButton.show();
+        prevButton.setVisibility(View.VISIBLE);
+        nextButton.setVisibility(View.VISIBLE);
+        playerChangerButton.setIconResource(R.drawable.ic_layers);
+
+        if (lyricsWebViewFragment != null) {
+             lyricsWebViewFragment.displayLyrics();
+             lyricsWebViewFragment.setPlaying(isPlaying);
+        }
+        animateReveal(webViewContainer, oldView);
+    }
+
     private void togglePlayerView() {
         View oldView;
         switch (currentPlayerMode) {
-            case 0:
-                oldView = syncedLyricsView;
-                break;
-            case 1:
-                oldView = webViewContainer;
-                break;
-            case 2:
-                oldView = karaokeContainer;
-                break;
-            default:
-                oldView = syncedLyricsView;
-                break;
+            case 0: oldView = syncedLyricsView; break;
+            case 1: oldView = webViewContainer; break;
+            case 2: oldView = karaokeContainer; break;
+            default: oldView = syncedLyricsView; break;
         }
 
         long currentPosition = 0;
@@ -355,22 +432,19 @@ public class SyncedLyricsActivity extends AppCompatActivity {
             if (state != null) currentPosition = state.getPosition() + timingOffset;
         }
 
-        // Cycle Mode
         currentPlayerMode = (currentPlayerMode + 1) % 3;
 
-        // --- LOGIC TO HIDE/SHOW BUTTONS ---
-        if (currentPlayerMode == 1) { // YouLy (Web) Mode
+        if (currentPlayerMode == 1) { 
             immersiveButton.show();
-            prevButton.setVisibility(View.VISIBLE); // Show skip buttons
+            prevButton.setVisibility(View.VISIBLE);
             nextButton.setVisibility(View.VISIBLE);
             playerChangerButton.setIconResource(R.drawable.ic_layers);
             Toast.makeText(this, "YouLy+ Engine", Toast.LENGTH_SHORT).show();
         } else {
             immersiveButton.hide();
-            prevButton.setVisibility(View.GONE); // Hide skip buttons
+            prevButton.setVisibility(View.GONE);
             nextButton.setVisibility(View.GONE);
 
-            // Force exit immersive mode if switching away from Web Engine
             if (isImmersiveMode) enableImmersiveMode(false);
 
             if (currentPlayerMode == 0) {
@@ -453,30 +527,75 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         title = getIntent().getStringExtra("SONG_TITLE");
         artist = getIntent().getStringExtra("SONG_ARTIST");
         lyrics = getIntent().getStringExtra("LYRICS");
-        artworkUrl = getIntent().getStringExtra("ARTWORK_URL");
+        originalArtworkUrl = getIntent().getStringExtra("ARTWORK_URL");
+        
         songTitleText.setText(title != null ? title : "Unknown Song");
         songArtistText.setText(artist != null ? artist : "Unknown Artist");
-        loadArtwork();
+        
+        loadArtwork(originalArtworkUrl);
     }
 
-    private void loadArtwork() {
-        if (artworkUrl != null && !artworkUrl.isEmpty()) {
+    // --- UPDATED: Fallback Logic for Artwork Loading ---
+    private void loadArtwork(String url) {
+        if (url != null && !url.isEmpty()) {
             String formattedUrl =
-                    artworkUrl.replace("{w}", "500").replace("{h}", "500").replace("{f}", "jpg");
+                    url.replace("{w}", "500").replace("{h}", "500").replace("{f}", "jpg");
+            
+            // Standard load into Header
             Glide.with(this).asBitmap().load(formattedUrl).into(headerArtwork);
-            Glide.with(this)
-                    .load(formattedUrl)
-                    .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 12)))
-                    .into(immersiveBackground);
-            Glide.with(this)
-                    .load(formattedUrl)
-                    .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 17)))
-                    .into(immersiveBackgroundOverlay);
+            
+            // BLUR LOGIC:
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // API 31+: Just load, RenderEffect handles the blur
+                Glide.with(this).load(formattedUrl).into(immersiveBackground);
+                Glide.with(this).load(formattedUrl).into(immersiveBackgroundOverlay);
+            } else {
+                // API 29-30: Use Glide Transformation (Fallback)
+                Glide.with(this)
+                        .load(formattedUrl)
+                        .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 12)))
+                        .into(immersiveBackground);
+                Glide.with(this)
+                        .load(formattedUrl)
+                        .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 17)))
+                        .into(immersiveBackgroundOverlay);
+            }
+
         } else {
-            headerArtwork.setImageResource(R.drawable.ic_music_note);
-            immersiveBackground.setImageResource(R.drawable.ic_music_note);
-            immersiveBackgroundOverlay.setImageResource(R.drawable.ic_music_note);
+            setPlaceholderArtwork();
         }
+    }
+
+    // --- UPDATED: Fallback Logic for Bitmap Updates ---
+    private void updateArtwork(Bitmap bitmap) {
+        if (bitmap != null) {
+            Glide.with(this).asBitmap().load(bitmap).into(headerArtwork);
+            
+            // BLUR LOGIC:
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // API 31+: Just load
+                Glide.with(this).load(bitmap).into(immersiveBackground);
+                Glide.with(this).load(bitmap).into(immersiveBackgroundOverlay);
+            } else {
+                // API 29-30: Use Glide Transformation (Fallback)
+                Glide.with(this)
+                        .load(bitmap)
+                        .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 12)))
+                        .into(immersiveBackground);
+                Glide.with(this)
+                        .load(bitmap)
+                        .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 17)))
+                        .into(immersiveBackgroundOverlay);
+            }
+        } else {
+            setPlaceholderArtwork();
+        }
+    }
+    
+    private void setPlaceholderArtwork() {
+        headerArtwork.setImageResource(R.drawable.ic_music_note);
+        immersiveBackground.setImageResource(R.drawable.ic_music_note);
+        immersiveBackgroundOverlay.setImageResource(R.drawable.ic_music_note);
     }
 
     private void setupYouLyFragment() {

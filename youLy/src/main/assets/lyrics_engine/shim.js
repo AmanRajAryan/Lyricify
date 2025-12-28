@@ -4,10 +4,10 @@ import { MessageHandler } from './src/background/core/messageHandler.js';
 // =========================================================
 //  USER CONFIGURATION
 // =========================================================
-const BUTTON_POS_BOTTOM = '12em';   // Distance from bottom
-const BUTTON_POS_RIGHT  = '1.5em'; // Distance from right
-const FONT_SIZE_BASE    = 40;      // Font size
-const FONT_WEIGHT       = 900;     // Boldness (800 or 900)
+const BUTTON_POS_BOTTOM = '12em';
+const BUTTON_POS_RIGHT  = '1.5em';
+const FONT_SIZE_BASE    = 40;
+const FONT_WEIGHT       = 900;
 // =========================================================
 
 // --- 1. MOCK ENVIRONMENT ---
@@ -58,6 +58,19 @@ const SmoothClock = {
     }
 };
 
+// --- HELPER: Hide Loader ---
+function hideBootLoader() {
+    const loader = document.getElementById('boot-loader');
+    if (loader) {
+        // Fade out and remove
+        loader.style.transition = 'opacity 0.3s ease';
+        loader.style.opacity = '0';
+        setTimeout(() => {
+            if (loader.parentNode) loader.parentNode.removeChild(loader);
+        }, 300);
+    }
+}
+
 // --- 3. STATE MANAGEMENT ---
 let rendererInstance = null;
 let cachedLyricsData = null;
@@ -66,6 +79,7 @@ let isSearchOnlyMode = false;
 let lastSongId = "";             
 
 function initRenderer() {
+    if (rendererInstance) return; 
     console.log("[Shim] Initializing LyricsPlusRenderer...");
     try {
         rendererInstance = new LyricsPlusRenderer({
@@ -80,7 +94,6 @@ function initRenderer() {
         // --- VISUAL BOOST PATCH ---
         const style = document.createElement('style');
         style.innerHTML = `
-            /* 1. BOOST GLOW */
             @keyframes grow-dynamic {
                 0% { transform: matrix3d(var(--min-scale), 0, 0, 0, 0, var(--min-scale), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0)); }
                 25%, 30% { 
@@ -89,23 +102,13 @@ function initRenderer() {
                 }
                 100% { transform: matrix3d(var(--min-scale), 0, 0, 0, 0, var(--min-scale), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); }
             }
-
-            /* 2. SUPER BOLD FONT */
-            .lyrics-line {
-                font-weight: ${FONT_WEIGHT} !important; 
-            }
-
-            /* 3. PURE WHITE PALETTE */
+            .lyrics-line { font-weight: ${FONT_WEIGHT} !important; }
             #lyrics-plus-container {
                 --lyplus-lyrics-pallete: #ffffff !important; 
                 --lyplus-text-primary: #ffffff !important;
                 -webkit-font-smoothing: antialiased;
             }
-            .lyrics-line.active {
-                opacity: 1 !important;
-            }
-
-            /* 4. BUTTON POSITION */
+            .lyrics-line.active { opacity: 1 !important; }
             #lyrics-plus-buttons-wrapper {
                 display: flex !important;
                 visibility: visible !important;
@@ -115,8 +118,6 @@ function initRenderer() {
                 right: ${BUTTON_POS_RIGHT} !important;
                 position: fixed !important; 
             }
-
-            /* 5. FIX DROPDOWN MENU POSITION */
             #lyrics-plus-translation-dropdown {
                 top: auto !important;       
                 bottom: 120% !important;    
@@ -186,8 +187,12 @@ window.LyricsPlusAPI = {
 
         renderInternal(lyrics, songInfo, mode, settings);
     },
-    displaySongNotFound: () => rendererInstance?.displaySongNotFound(),
-    displaySongError: () => rendererInstance?.displaySongError(),
+    displaySongNotFound: () => {
+        rendererInstance?.displaySongNotFound();
+    },
+    displaySongError: () => {
+        rendererInstance?.displaySongError();
+    },
     t: window.t
 };
 
@@ -208,12 +213,10 @@ function renderInternal(lyrics, songInfo, mode, settings) {
         mode || 'none', 
         settings, 
         window.fetchAndDisplayLyrics, 
-        // 6th Argument: Mode Switch Callback
         (newMode, songInfoArg) => {
             console.log("[Shim] Mode switch requested: " + newMode);
             const targetInfo = songInfoArg || songInfo;
 
-            // 1. Update GLOBAL settings so the fetcher knows what to get
             if (newMode === 'translate') {
                 window.currentSettings.translationEnabled = true;
                 window.currentSettings.romanizationEnabled = false;
@@ -228,13 +231,10 @@ function renderInternal(lyrics, songInfo, mode, settings) {
                 window.currentSettings.romanizationEnabled = false;
             }
 
-            // 2. TRIGGER RE-FETCH (The missing piece!)
-            // This forces the lyrics manager to download the translation.
             if (window.fetchAndDisplayLyrics && targetInfo) {
                 console.log("[Shim] Refetching with new settings...");
-                window.fetchAndDisplayLyrics(targetInfo, true); // true = force reload
+                window.fetchAndDisplayLyrics(targetInfo, true); 
             } else {
-                // Fallback if fetcher is missing
                 if (rendererInstance && currentActiveLyrics) {
                     rendererInstance.updateDisplayMode(currentActiveLyrics, newMode, window.currentSettings);
                 }
@@ -312,7 +312,7 @@ window.currentSettings = {
     lyricsProvider: 'kpoe',
     wordByWord: true, 
     theme: 'dark',
-    translationEnabled: false, // Default off
+    translationEnabled: false, 
     romanizationEnabled: false,
     largerTextMode: 'lyrics',
     useSponsorBlock: false,
@@ -339,4 +339,16 @@ window.handleNativeResponse = (reqId, isSuccess, status, content) => {
     }
 };
 
-console.log(`Shim loaded. Live Re-Fetch Enabled.`);
+// --- BOOT SEQUENCE ---
+console.log(`Shim loaded.`);
+
+// 1. Initialize Renderer (Creates the 'Cloud' loader UI hiddenly)
+initRenderer();
+
+// 2. Hide our 'Boot Loader' immediately. The Engine's internal loader will now be visible if it needs to be.
+hideBootLoader();
+
+// 3. Notify Android we are ready for data
+if (window.AndroidBridge && window.AndroidBridge.onEngineReady) {
+    window.AndroidBridge.onEngineReady();
+}

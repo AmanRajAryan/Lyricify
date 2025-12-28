@@ -21,6 +21,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
@@ -36,6 +37,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
@@ -45,6 +47,8 @@ import java.util.List;
 import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
+
+    FloatingActionButton youlyPlayerFab;
 
     // UI Components
     private TextInputEditText searchEditText;
@@ -81,15 +85,21 @@ public class MainActivity extends AppCompatActivity {
 
         loadSortPreferences();
 
-
         initializeViews();
         initializeManagers();
         setupListeners();
 
         nowPlayingManager.register();
-    }
 
-    
+        // Remove the old button code and add this:
+        youlyPlayerFab = findViewById(R.id.youlyPlayerFab);
+
+        youlyPlayerFab.setOnClickListener(
+                v -> {
+                    Intent intent = new Intent(MainActivity.this, YoulyPlayerActivity.class);
+                    startActivity(intent);
+                });
+    }
 
     @Override
     protected void onResume() {

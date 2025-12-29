@@ -1,205 +1,213 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
+<androidx.drawerlayout.widget.DrawerLayout 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/drawerLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_dark">
+    android:background="@color/background_dark"
+    tools:openDrawer="start">
 
-    <LinearLayout
+    <androidx.coordinatorlayout.widget.CoordinatorLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:paddingTop="16dp">
+        android:layout_height="match_parent">
 
-
-        <aman.lyricify.components.FluidLayout
-            android:id="@+id/my_fluid_container"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="5dp">
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingTop="16dp">
 
-
-            <TextView
-                android:id="@+id/glowText"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:letterSpacing="0.2"
-                android:text="LYRICIFY"
-                android:textColor="@color/text_primary"
-                android:textSize="35sp"
-                android:textStyle="bold"
-                android:paddingBottom="16dp" />
+                android:layout_marginBottom="5dp">
 
-        </aman.lyricify.components.FluidLayout>
+                <ImageButton
+                    android:id="@+id/btnMenu"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center_vertical|start"
+                    android:layout_marginStart="16dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Menu"
+                    android:src="@drawable/ic_menu"
+                    app:tint="@color/text_primary" />
 
+                <aman.lyricify.components.FluidLayout
+                    android:id="@+id/my_fluid_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center">
 
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/nowPlayingCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginBottom="16dp"
-            android:visibility="gone"
-            app:cardBackgroundColor="@color/surface_dark"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="6dp"
-            app:strokeColor="@color/primary_purple"
-            app:strokeWidth="1dp">
+                    <TextView
+                        android:id="@+id/glowText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:letterSpacing="0.2"
+                        android:text="LYRICIFY"
+                        android:textColor="@color/text_primary"
+                        android:textSize="35sp"
+                        android:textStyle="bold"
+                        android:paddingBottom="16dp" />
+
+                </aman.lyricify.components.FluidLayout>
+                
+                <ImageButton
+                    android:id="@+id/sortButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center_vertical|end"
+                    android:layout_marginEnd="16dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_sort"
+                    app:tint="@color/text_primary" />
+            </FrameLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/nowPlayingCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginBottom="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:visibility="gone"
+                app:cardBackgroundColor="#252525"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="6dp">
+                
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="12dp">
+                    <com.google.android.material.imageview.ShapeableImageView
+                        android:id="@+id/nowPlayingArtwork"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="@color/surface_dark"
+                        app:shapeAppearanceOverlay="@style/RoundedImage" />
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="12dp">
+                        <TextView
+                            android:id="@+id/nowPlayingTitle"
+                            android:text="Song Title"
+                            android:textColor="#FFF"
+                            android:textStyle="bold"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:singleLine="true" />
+                        <TextView
+                            android:id="@+id/nowPlayingArtist"
+                            android:text="Artist"
+                            android:textColor="#AAA"
+                            android:textSize="12sp"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:singleLine="true" />
+                         <TextView
+                            android:id="@+id/nowPlayingFilePath"
+                            android:visibility="gone"
+                            android:layout_width="0dp"
+                            android:layout_height="0dp" />
+                    </LinearLayout>
+                     <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_music_note"
+                        app:tint="@color/primary_purple" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp">
+                android:paddingHorizontal="16dp"
+                android:paddingBottom="8dp">
 
-                <com.google.android.material.imageview.ShapeableImageView
-                    android:id="@+id/nowPlayingArtwork"
-                    android:layout_width="70dp"
-                    android:layout_height="70dp"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/ic_music_note"
-                    app:shapeAppearanceOverlay="@style/RoundedImage" />
-
-                <LinearLayout
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:paddingHorizontal="12dp">
+                    android:hint="Search your library..."
+                    app:boxBackgroundColor="@color/surface_dark"
+                    app:boxCornerRadiusBottomEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusTopStart="12dp"
+                    app:boxStrokeWidth="0dp"
+                    app:endIconMode="clear_text"
+                    app:hintTextColor="#AAA"
+                    app:startIconDrawable="@drawable/ic_search"
+                    app:startIconTint="#AAA">
 
-                    <TextView
-                        android:id="@+id/nowPlayingTitle"
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/searchEditText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:ellipsize="marquee"
-                        android:marqueeRepeatLimit="marquee_forever"
-                        android:singleLine="true"
-                        android:text="Song Title"
-                        android:textColor="@color/primary_purple"
-                        android:textSize="20sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/nowPlayingArtist"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:ellipsize="end"
-                        android:maxLines="1"
-                        android:text="Artist"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="16sp" />
-
-                    <TextView
-                        android:id="@+id/nowPlayingFilePath"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:ellipsize="middle"
-                        android:singleLine="true"
-                        android:paddingTop="2dp"
-                        android:text="/storage/emulated/0/Music..."
-                        android:textColor="#80FFFFFF"
-                        android:textSize="10sp"
-                        android:visibility="visible" />
-                </LinearLayout>
-
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_search"
-                    app:tint="@color/primary_purple" />
+                        android:inputType="text"
+                        android:textColor="@color/text_primary" />
+                </com.google.android.material.textfield.TextInputLayout>
 
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginBottom="16dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="0dp"
+            <ProgressBar
+                android:id="@+id/songLoading"
+                style="?android:attr/progressBarStyle"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:indeterminateTint="@color/primary_purple"
+                android:visibility="gone" />
+
+            <ListView
+                android:id="@+id/songListView"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
                 android:layout_weight="1"
-                app:boxBackgroundColor="@color/surface_dark"
-                app:boxCornerRadiusBottomEnd="25dp"
-                app:boxCornerRadiusBottomStart="25dp"
-                app:boxCornerRadiusTopEnd="25dp"
-                app:boxCornerRadiusTopStart="25dp"
-                app:boxStrokeWidth="0dp"
-                app:boxStrokeWidthFocused="0dp"
-                app:hintEnabled="false"
-                app:endIconMode="clear_text">
+                android:divider="@null"
+                android:dividerHeight="0dp"
+                android:clipToPadding="false"
+                android:paddingBottom="88dp"
+                android:scrollbars="vertical"
+                android:fastScrollEnabled="true"
+            />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/searchEditText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@null"
-                    android:hint="Search songs..."
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="#80FFFFFF"
-                    android:paddingVertical="12dp"
-                    android:paddingStart="20dp"
-                    android:inputType="text" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/sortButton"
-                android:layout_width="50dp"
-                android:layout_height="45dp"
-                android:layout_marginStart="8dp"
-                android:backgroundTint="@color/primary_purple"
-                android:insetBottom="0dp"
-                android:insetTop="0dp"
-                app:cornerRadius="16dp"
-                app:icon="@drawable/ic_sort"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:iconTint="#000" />
         </LinearLayout>
 
-        <ProgressBar
-            android:id="@+id/songLoading"
-            style="?android:attr/progressBarStyle"
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/youlyPlayerFab"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:indeterminateTint="@color/primary_purple"
-            android:visibility="gone" />
+            android:layout_gravity="bottom|end"
+            android:layout_margin="24dp"
+            android:src="@drawable/ic_play_arrow"
+            app:backgroundTint="@color/primary_purple"
+            app:tint="#000000"
+            app:elevation="6dp"
+            app:fabCustomSize="56dp" />
 
-        <ListView
-            android:id="@+id/songListView"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:divider="@null"
-            android:dividerHeight="0dp"
-            android:clipToPadding="false"
-            android:paddingBottom="88dp"
-            android:scrollbars="vertical"
-            android:fastScrollEnabled="true"
-        />
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
-    </LinearLayout>
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/youlyPlayerFab"
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/navView"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="24dp"
-        android:src="@drawable/ic_play_arrow"
-        app:backgroundTint="@color/primary_purple"
-        app:tint="#000000"
-        app:elevation="6dp"
-        app:pressedTranslationZ="12dp"
-        app:fabCustomSize="72dp"
-        app:maxImageSize="36dp" />
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="#1E1E1E"
+        app:headerLayout="@layout/nav_header"
+        app:itemIconTint="#FFFFFF"
+        app:itemTextColor="#FFFFFF"
+        app:menu="@menu/drawer_menu" />
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+</androidx.drawerlayout.widget.DrawerLayout>

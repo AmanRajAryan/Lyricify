@@ -64,11 +64,6 @@
                             android:layout_weight="1"
                             android:hint="Title"
                             app:boxBackgroundColor="#1E1E1E"
-                            app:boxBackgroundMode="filled"
-                            app:boxCornerRadiusTopStart="12dp"
-                            app:boxCornerRadiusTopEnd="12dp"
-                            app:boxCornerRadiusBottomStart="0dp"
-                            app:boxCornerRadiusBottomEnd="0dp"
                             app:boxStrokeWidth="0dp"
                             app:hintTextColor="#AAAAAA">
 
@@ -96,11 +91,6 @@
                             android:layout_weight="1"
                             android:hint="Artist"
                             app:boxBackgroundColor="#1E1E1E"
-                            app:boxBackgroundMode="filled"
-                            app:boxCornerRadiusTopStart="0dp"
-                            app:boxCornerRadiusTopEnd="0dp"
-                            app:boxCornerRadiusBottomStart="12dp"
-                            app:boxCornerRadiusBottomEnd="12dp"
                             app:boxStrokeWidth="0dp"
                             app:hintTextColor="#AAAAAA">
 
@@ -135,6 +125,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
+                    android:layout_marginTop="12dp"
                     android:indeterminateTint="@color/primary_purple"
                     android:visibility="gone" />
 
@@ -143,7 +134,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:gravity="center"
-                    android:paddingTop="20dp"
+                    android:paddingTop="12dp"
                     android:text="No results found"
                     android:textColor="@color/text_secondary"
                     android:visibility="gone" />
@@ -160,8 +151,22 @@
                 android:scrollbars="none"
                 android:clipToPadding="false"
                 android:paddingHorizontal="16dp"
-                android:paddingBottom="24dp" />
+                android:paddingBottom="80dp" />
 
         </LinearLayout>
+
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/btnManualEdit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="24dp"
+            android:text="Edit Tags Manually"
+            android:textColor="#FFFFFF"
+            app:backgroundTint="#424242"
+            app:icon="@drawable/ic_edit"
+            app:iconTint="#FFFFFF"
+            android:elevation="6dp" />
+
     </com.google.android.material.card.MaterialCardView>
 </FrameLayout>

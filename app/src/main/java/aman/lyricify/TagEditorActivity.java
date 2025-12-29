@@ -12,9 +12,7 @@ import android.os.Bundle;
 import android.provider.DocumentsContract;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.*;
 import androidx.activity.result.ActivityResultLauncher;
@@ -31,7 +29,6 @@ import com.google.android.material.floatingactionbutton.ExtendedFloatingActionBu
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import aman.taglib.TagLib;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -52,15 +49,11 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     private TextInputEditText commentEditText;
 
     // Lyrics Fields
-    private TextInputEditText unsyncedLyricsEditText,
-            lrcEditText,
-            elrcEditText,
-            lyricsMultiEditText; 
+    private TextInputEditText unsyncedLyricsEditText, lrcEditText, elrcEditText, lyricsMultiEditText; 
 
     // SWAPPER UI
     private LinearLayout formatSwapperContainer;
     private TextView labelElrc, labelTtml;
-
     private LinearLayout lyricsHeader, lyricsContainer;
     private ImageView lyricsArrow;
     private boolean isLyricsVisible = false;
@@ -88,23 +81,19 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     private ApiClient.LyricsResponse cachedMetadata;
     private static final String WAITING_MESSAGE = "No cached metadata available, waiting!";
 
-    // Custom fields list
+    // --- NEW: State Flag ---
+    private boolean hasAppliedMetadata = false;
+
     private List<CustomField> customFields = new ArrayList<>();
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private ActivityResultLauncher<Intent> directoryPickerLauncher;
 
-    // Delegates
     private TagEditorUIManager uiManager;
     private TagEditorDataManager dataManager;
 
-    // --- Swapper State Management ---
-    private boolean isTtmlMode = false; // False = ELRC MP, True = TTML
-    
-    // Active Content Holders
+    private boolean isTtmlMode = false;
     private String currentElrcContent = "";
     private String currentTtmlContent = "";
-
-    // The Single Truth from File
     private String originalLyricsTagContent = "";
 
     @Override
@@ -126,7 +115,10 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         loadCurrentTags();
         setupListeners();
 
-        ApiClient.registerCacheListener(this);
+        // Register for cache only if we have an ID (Lyrics Mode)
+        if (intentSongId != null || cachedMetadata != null) {
+            ApiClient.registerCacheListener(this);
+        }
     }
 
     @Override
@@ -201,7 +193,7 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         loadingOverlay = findViewById(R.id.loadingOverlay);
         loadingText = findViewById(R.id.loadingText);
     }
-
+    
     private void setupToolbar() {
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) {
@@ -270,8 +262,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                     this.originalMetadata = metadata;
                     this.originalArtwork = artwork;
                     
-                    // --- CASE INSENSITIVE FETCH ---
-                    // Explicitly normalize key lookups to avoid "lyrics" vs "LYRICS" mismatches
                     Map<String, String> normalized = new HashMap<>();
                     if (metadata != null) {
                         for (Map.Entry<String, String> entry : metadata.entrySet()) {
@@ -279,10 +269,8 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                         }
                     }
 
-                    // 1. Capture single truth
                     this.originalLyricsTagContent = normalized.getOrDefault("LYRICS", "");
 
-                    // 2. Heuristic check
                     if (this.originalLyricsTagContent.trim().startsWith("<")) {
                         this.isTtmlMode = true;
                         this.currentTtmlContent = this.originalLyricsTagContent;
@@ -301,18 +289,32 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         saveButton.setOnClickListener(v -> saveTags());
         changeArtworkButton.setOnClickListener(v -> selectArtwork());
         resetArtworkButton.setOnClickListener(v -> resetArtwork());
+        
+        // --- UPDATED LOGIC: First time apply directly, then show conflict dialog ---
         fetchFromApiButton.setOnClickListener(v -> {
-            if (cachedMetadata != null) populateFieldsFromCachedData();
-            else {
+            if (cachedMetadata != null) {
+                if (!hasAppliedMetadata) {
+                    // First time? Just apply it!
+                    populateFieldsFromCachedData();
+                    Toast.makeText(this, "Cached metadata applied!", Toast.LENGTH_SHORT).show();
+                } else {
+                    // Already applied? Ask user what to do.
+                    showMetadataConflictDialog();
+                }
+            } else if (intentSongId != null) {
+                // Waiting for data (Lyrics Mode)
                 showLoading(WAITING_MESSAGE);
                 Toast.makeText(this, WAITING_MESSAGE, Toast.LENGTH_LONG).show();
+            } else {
+                // No data, No ID (Manual Mode) -> Search
+                showIdentifySongDialog();
             }
         });
+        
         restoreTagsButton.setOnClickListener(v -> showRestoreConfirmation());
         addFieldButton.setOnClickListener(v -> uiManager.showAddCustomFieldDialog(customFields, this::updateRestoreButtonState));
         extendedTagsHeader.setOnClickListener(v -> toggleExtendedTags());
         lyricsHeader.setOnClickListener(v -> toggleLyrics());
-        
         formatSwapperContainer.setOnClickListener(v -> toggleLyricsMode());
 
         TextWatcher changeWatcher = new TextWatcher() {
@@ -339,6 +341,66 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         lrcEditText.addTextChangedListener(changeWatcher);
         elrcEditText.addTextChangedListener(changeWatcher);
         lyricsMultiEditText.addTextChangedListener(changeWatcher);
+    }
+
+    private void showMetadataConflictDialog() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Metadata Available")
+                .setMessage("Cached metadata is available. What would you like to do?")
+                .setPositiveButton("Apply Cached", (dialog, which) -> {
+                    populateFieldsFromCachedData();
+                    Toast.makeText(this, "Cached metadata applied!", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Search Again", (dialog, which) -> {
+                    showIdentifySongDialog();
+                })
+                .setNeutralButton("Dismiss", (dialog, which) -> dialog.dismiss())
+                .show();
+    }
+
+    private void showIdentifySongDialog() {
+        String currentTitle = titleEditText.getText().toString();
+        String currentArtist = artistEditText.getText().toString();
+        
+        MediaStoreHelper.LocalSong tempSong = new MediaStoreHelper.LocalSong(
+                null, filePath, currentTitle, currentArtist, "", -1, 0, 0
+        );
+        
+        IdentifySongDialog dialog = new IdentifySongDialog(this, tempSong, originalArtwork);
+        dialog.setHideManualButton(true); 
+        dialog.setOnSongSelectedListener(song -> {
+            fetchFullMetadataForSong(song);
+        });
+        dialog.show();
+    }
+    
+    private void fetchFullMetadataForSong(Song song) {
+        showLoading("Fetching details for " + song.getSongName() + "...");
+        
+        this.intentTitle = song.getSongName();
+        this.intentArtist = song.getArtistName();
+        this.intentAlbum = song.getAlbumName();
+        this.intentArtworkUrl = song.getArtwork();
+        this.intentSongId = song.getId();
+        
+        ApiClient.getLyrics(song.getId(), new ApiClient.LyricsCallback() {
+            @Override
+            public void onSuccess(ApiClient.LyricsResponse lyricsResponse) {
+                cachedMetadata = lyricsResponse;
+                runOnUiThread(() -> {
+                    populateFieldsFromCachedData();
+                    hideLoading();
+                });
+            }
+
+            @Override
+            public void onFailure(String error) {
+                runOnUiThread(() -> {
+                    hideLoading();
+                    showErrorDialog("Fetch Error", "Could not get details: " + error);
+                });
+            }
+        });
     }
 
     private void toggleLyricsMode() {
@@ -453,8 +515,12 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     private void populateFieldsFromCachedData() {
         showLoading("Applying cached metadata...");
         runOnUiThread(() -> {
+            // --- NEW: Mark as applied ---
+            hasAppliedMetadata = true;
+
             if (titleEditText.getText().toString().isEmpty()) titleEditText.setText(intentTitle);
             if (artistEditText.getText().toString().isEmpty()) artistEditText.setText(intentArtist);
+            if (albumEditText.getText().toString().isEmpty() && intentAlbum != null) albumEditText.setText(intentAlbum);
             
             if (cachedMetadata != null) {
                 if (cachedMetadata.genreNames != null && !cachedMetadata.genreNames.isEmpty()) genreEditText.setText(String.join(", ", cachedMetadata.genreNames));

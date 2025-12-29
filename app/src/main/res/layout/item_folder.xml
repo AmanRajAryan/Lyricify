@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="12dp"
+    android:gravity="center_vertical"
+    android:background="@drawable/item_background_ripple"> 
+    <ImageView
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:src="@drawable/ic_folder"
+        android:layout_marginEnd="12dp"
+        android:tint="#AAA"/>
+
+    <TextView
+        android:id="@+id/folderPathText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="/storage/emulated/0/Music"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"/>
+
+    <ImageButton
+        android:id="@+id/btnRemoveFolder"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_close"
+        android:tint="#F44336"/>
+
+</LinearLayout>

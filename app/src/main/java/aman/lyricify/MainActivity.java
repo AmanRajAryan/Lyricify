@@ -31,6 +31,7 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.compose.ui.platform.ComposeView;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
@@ -45,6 +46,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+
+import aman.lyricify.components.FluidCardFactory;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -99,6 +102,28 @@ public class MainActivity extends AppCompatActivity {
                     Intent intent = new Intent(MainActivity.this, YoulyPlayerActivity.class);
                     startActivity(intent);
                 });
+                
+                
+                
+                
+                
+                
+                
+                
+                
+
+
+
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
     }
 
     @Override

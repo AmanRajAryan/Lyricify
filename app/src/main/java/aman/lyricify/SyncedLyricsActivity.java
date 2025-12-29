@@ -95,7 +95,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private String originalArtist = "";
     private String originalArtworkUrl;
     private boolean isShowingOriginalArt = true;
-    
+
     // Flag to capture the initial session as "The Anchor"
     private boolean isFirstMetadataUpdate = true;
 
@@ -106,6 +106,9 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+         // --- KEEP SCREEN ON ---
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        
         hideSystemUI();
         setContentView(R.layout.activity_synced_lyrics);
 
@@ -165,8 +168,9 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private void applyBlurEffect() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // Native RenderEffect for Android 12+ (Safe on A15)
-            RenderEffect blurEffect = RenderEffect.createBlurEffect(250f, 150f, Shader.TileMode.CLAMP);
-            
+            RenderEffect blurEffect =
+                    RenderEffect.createBlurEffect(250f, 150f, Shader.TileMode.CLAMP);
+
             if (immersiveBackground != null) {
                 immersiveBackground.setRenderEffect(blurEffect);
             }
@@ -321,16 +325,16 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         if (isFirstMetadataUpdate) {
             originalTitle = newTitle;
             originalArtist = newArtist;
-            
+
             // Sync current state tracking
             title = newTitle;
             artist = newArtist;
-            
+
             isFirstMetadataUpdate = false;
-            
+
             // Ensure Player Changer is visible (we are on the correct song)
             runOnUiThread(() -> playerChangerButton.setVisibility(View.VISIBLE));
-            
+
             return;
         }
 
@@ -340,25 +344,28 @@ public class SyncedLyricsActivity extends AppCompatActivity {
             artist = newArtist;
 
             // Song changed: Update UI Text now
-            runOnUiThread(() -> {
-                songTitleText.setText(title);
-                songArtistText.setText(artist);
-            });
+            runOnUiThread(
+                    () -> {
+                        songTitleText.setText(title);
+                        songArtistText.setText(artist);
+                    });
 
             // Compare against ANCHOR (the one we started with)
-            boolean isOriginalSong = title.trim().equalsIgnoreCase(originalTitle.trim()) &&
-                                     artist.trim().equalsIgnoreCase(originalArtist.trim());
+            boolean isOriginalSong =
+                    title.trim().equalsIgnoreCase(originalTitle.trim())
+                            && artist.trim().equalsIgnoreCase(originalArtist.trim());
 
             if (isOriginalSong) {
                 // --- MATCH (Back to Original) ---
-                runOnUiThread(() -> {
-                    playerChangerButton.setVisibility(View.VISIBLE);
+                runOnUiThread(
+                        () -> {
+                            playerChangerButton.setVisibility(View.VISIBLE);
 
-                    if (!isShowingOriginalArt) {
-                         loadArtwork(originalArtworkUrl); 
-                         isShowingOriginalArt = true;
-                    }
-                });
+                            if (!isShowingOriginalArt) {
+                                loadArtwork(originalArtworkUrl);
+                                isShowingOriginalArt = true;
+                            }
+                        });
 
                 // Reload Original Lyrics into WebView
                 if (lyricsWebViewFragment != null) {
@@ -374,19 +381,20 @@ public class SyncedLyricsActivity extends AppCompatActivity {
                 }
                 final Bitmap finalArt = notifArt;
 
-                runOnUiThread(() -> {
-                    // Use INVISIBLE to preserve layout spacing
-                    playerChangerButton.setVisibility(View.INVISIBLE);
+                runOnUiThread(
+                        () -> {
+                            // Use INVISIBLE to preserve layout spacing
+                            playerChangerButton.setVisibility(View.INVISIBLE);
 
-                    if (finalArt != null) {
-                        updateArtwork(finalArt);
-                        isShowingOriginalArt = false;
-                    }
+                            if (finalArt != null) {
+                                updateArtwork(finalArt);
+                                isShowingOriginalArt = false;
+                            }
 
-                    if (currentPlayerMode != 1) {
-                        switchToWebMode();
-                    }
-                });
+                            if (currentPlayerMode != 1) {
+                                switchToWebMode();
+                            }
+                        });
 
                 if (lyricsWebViewFragment != null) {
                     long durSeconds = duration / 1000;
@@ -401,18 +409,19 @@ public class SyncedLyricsActivity extends AppCompatActivity {
 
         View oldView;
         if (currentPlayerMode == 2) oldView = karaokeContainer;
-        else oldView = syncedLyricsView; 
+        else oldView = syncedLyricsView;
 
         currentPlayerMode = 1;
 
         immersiveButton.show();
         prevButton.setVisibility(View.VISIBLE);
         nextButton.setVisibility(View.VISIBLE);
+        fontSwitchButton.setVisibility(View.INVISIBLE);
         playerChangerButton.setIconResource(R.drawable.ic_layers);
 
         if (lyricsWebViewFragment != null) {
-             lyricsWebViewFragment.displayLyrics();
-             lyricsWebViewFragment.setPlaying(isPlaying);
+            lyricsWebViewFragment.displayLyrics();
+            lyricsWebViewFragment.setPlaying(isPlaying);
         }
         animateReveal(webViewContainer, oldView);
     }
@@ -420,10 +429,18 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private void togglePlayerView() {
         View oldView;
         switch (currentPlayerMode) {
-            case 0: oldView = syncedLyricsView; break;
-            case 1: oldView = webViewContainer; break;
-            case 2: oldView = karaokeContainer; break;
-            default: oldView = syncedLyricsView; break;
+            case 0:
+                oldView = syncedLyricsView;
+                break;
+            case 1:
+                oldView = webViewContainer;
+                break;
+            case 2:
+                oldView = karaokeContainer;
+                break;
+            default:
+                oldView = syncedLyricsView;
+                break;
         }
 
         long currentPosition = 0;
@@ -434,16 +451,18 @@ public class SyncedLyricsActivity extends AppCompatActivity {
 
         currentPlayerMode = (currentPlayerMode + 1) % 3;
 
-        if (currentPlayerMode == 1) { 
+        if (currentPlayerMode == 1) {
             immersiveButton.show();
             prevButton.setVisibility(View.VISIBLE);
             nextButton.setVisibility(View.VISIBLE);
             playerChangerButton.setIconResource(R.drawable.ic_layers);
+            fontSwitchButton.setVisibility(View.INVISIBLE);
             Toast.makeText(this, "YouLy+ Engine", Toast.LENGTH_SHORT).show();
         } else {
             immersiveButton.hide();
             prevButton.setVisibility(View.GONE);
             nextButton.setVisibility(View.GONE);
+            fontSwitchButton.setVisibility(View.VISIBLE);
 
             if (isImmersiveMode) enableImmersiveMode(false);
 
@@ -528,10 +547,10 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         artist = getIntent().getStringExtra("SONG_ARTIST");
         lyrics = getIntent().getStringExtra("LYRICS");
         originalArtworkUrl = getIntent().getStringExtra("ARTWORK_URL");
-        
+
         songTitleText.setText(title != null ? title : "Unknown Song");
         songArtistText.setText(artist != null ? artist : "Unknown Artist");
-        
+
         loadArtwork(originalArtworkUrl);
     }
 
@@ -540,10 +559,10 @@ public class SyncedLyricsActivity extends AppCompatActivity {
         if (url != null && !url.isEmpty()) {
             String formattedUrl =
                     url.replace("{w}", "500").replace("{h}", "500").replace("{f}", "jpg");
-            
+
             // Standard load into Header
             Glide.with(this).asBitmap().load(formattedUrl).into(headerArtwork);
-            
+
             // BLUR LOGIC:
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 // API 31+: Just load, RenderEffect handles the blur
@@ -570,7 +589,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
     private void updateArtwork(Bitmap bitmap) {
         if (bitmap != null) {
             Glide.with(this).asBitmap().load(bitmap).into(headerArtwork);
-            
+
             // BLUR LOGIC:
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 // API 31+: Just load
@@ -591,7 +610,7 @@ public class SyncedLyricsActivity extends AppCompatActivity {
             setPlaceholderArtwork();
         }
     }
-    
+
     private void setPlaceholderArtwork() {
         headerArtwork.setImageResource(R.drawable.ic_music_note);
         immersiveBackground.setImageResource(R.drawable.ic_music_note);

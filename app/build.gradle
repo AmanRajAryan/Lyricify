@@ -104,12 +104,12 @@ dependencies {
 
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
 
-    implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("com.github.bumptech.glide:glide:5.0.5")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
     implementation("jp.wasabeef:glide-transformations:4.3.0")
 
-    implementation("com.mocharealm.accompanist:lyrics-core:0.4.0")
-    implementation("com.mocharealm.accompanist:lyrics-ui:1.0.9")
+    implementation("com.mocharealm.accompanist:lyrics-core:0.4.2")
+    implementation("com.mocharealm.accompanist:lyrics-ui:1.0.10")
 
     implementation(files("libs/library-release.aar"))
     

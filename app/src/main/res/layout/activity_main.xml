@@ -12,17 +12,28 @@
         android:orientation="vertical"
         android:paddingTop="16dp">
 
-        <TextView
-            android:id="@+id/glowText"
+
+        <aman.lyricify.components.FluidLayout
+            android:id="@+id/my_fluid_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
-            android:letterSpacing="0.15"
-            android:text="LYRICIFY"
-            android:textColor="@color/text_primary"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:paddingBottom="16dp" />
+            android:layout_marginBottom="5dp">
+
+
+            <TextView
+                android:id="@+id/glowText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:letterSpacing="0.2"
+                android:text="LYRICIFY"
+                android:textColor="@color/text_primary"
+                android:textSize="35sp"
+                android:textStyle="bold"
+                android:paddingBottom="16dp" />
+
+        </aman.lyricify.components.FluidLayout>
+
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/nowPlayingCard"
@@ -187,6 +198,8 @@
         app:backgroundTint="@color/primary_purple"
         app:tint="#000000"
         app:elevation="6dp"
-        app:pressedTranslationZ="12dp" />
+        app:pressedTranslationZ="12dp"
+        app:fabCustomSize="72dp"
+        app:maxImageSize="36dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

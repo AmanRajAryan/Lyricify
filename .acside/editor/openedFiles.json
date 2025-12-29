@@ -1,35 +1,20 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/MainActivity.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Fragments/KaraokeLyricsFragment.kt",
       "selection": {
         "end": {
-          "column": 3,
-          "index": 3815,
-          "line": 113
+          "column": 0,
+          "index": 18051,
+          "line": 488
         },
         "start": {
-          "column": 3,
-          "index": 3815,
-          "line": 113
-        }
-      }
-    },
-    {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/activity_main.xml",
-      "selection": {
-        "end": {
-          "column": 43,
-          "index": 7817,
-          "line": 183
-        },
-        "start": {
-          "column": 43,
-          "index": 7817,
-          "line": 183
+          "column": 0,
+          "index": 18051,
+          "line": 488
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/activity_main.xml"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Fragments/KaraokeLyricsFragment.kt"
 }

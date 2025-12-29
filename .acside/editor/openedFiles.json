@@ -1,0 +1,125 @@
+{
+  "allFiles": [
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/MainActivity.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 18176,
+          "line": 403
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/activity_main.xml",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 8505,
+          "line": 205
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/SettingsActivity",
+      "selection": {
+        "end": {
+          "column": 1,
+          "index": 5825,
+          "line": 149
+        },
+        "start": {
+          "column": 1,
+          "index": 5825,
+          "line": 149
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/item_folder.xml",
+      "selection": {
+        "end": {
+          "column": 15,
+          "index": 540,
+          "line": 13
+        },
+        "start": {
+          "column": 15,
+          "index": 540,
+          "line": 13
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Utilities/MediaStoreHelper.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 9288,
+          "line": 218
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/menu/drawer_menu.xml",
+      "selection": {
+        "end": {
+          "column": 7,
+          "index": 498,
+          "line": 13
+        },
+        "start": {
+          "column": 7,
+          "index": 498,
+          "line": 13
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/layout/nav_header.xml",
+      "selection": {
+        "end": {
+          "column": 15,
+          "index": 1072,
+          "line": 32
+        },
+        "start": {
+          "column": 15,
+          "index": 1072,
+          "line": 32
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/res/drawable/item_background_ripple.xml",
+      "selection": {
+        "end": {
+          "column": 9,
+          "index": 539,
+          "line": 14
+        },
+        "start": {
+          "column": 9,
+          "index": 539,
+          "line": 14
+        }
+      }
+    }
+  ],
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/MainActivity.java"
+}

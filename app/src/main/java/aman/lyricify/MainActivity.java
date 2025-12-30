@@ -1,5 +1,6 @@
 package aman.lyricify;
 
+import android.animation.ObjectAnimator;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
@@ -14,11 +15,11 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
+import android.view.animation.AnticipateInterpolator;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
@@ -27,17 +28,23 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.core.splashscreen.SplashScreen;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -50,6 +57,11 @@ public class MainActivity extends AppCompatActivity {
     private CardView nowPlayingCard;
     private ImageView nowPlayingArtwork;
     private TextView nowPlayingTitle, nowPlayingArtist, nowPlayingFilePath;
+
+    // Drawer Components
+    private DrawerLayout drawerLayout;
+    private NavigationView navigationView;
+    private View menuButton;
 
     // Data - Local
     private List<MediaStoreHelper.LocalSong> allLocalSongs = new ArrayList<>();
@@ -67,20 +79,70 @@ public class MainActivity extends AppCompatActivity {
     private int currentSortCriteria = R.id.rbTitle;
     private int currentSortOrder = R.id.rbAscending;
 
+    // Preference Keys
     private static final String PREFS_NAME = "LyricifyPrefs";
     private static final String KEY_SORT_CRITERIA = "sort_criteria";
     private static final String KEY_SORT_ORDER = "sort_order";
+    
+    // Folder Filtering Keys
+    private static final String KEY_FOLDERS = "music_folders";
+    private static final String KEY_BLACKLIST = "blacklist_folders";
+    private static final String KEY_SCAN_ALL = "scan_all_folders";
+    private static final String KEY_BLACKLIST_ENABLED = "blacklist_enabled";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // 1. INSTALL SPLASH SCREEN
+        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // 2. SETUP EXIT ANIMATION (With Crash Protection)
+        splashScreen.setOnExitAnimationListener(splashScreenView -> {
+            try {
+                // Use a local variable and check for null to prevent crashes
+                View iconView = splashScreenView.getIconView();
+                
+                // If icon is missing or null, just remove splash immediately
+                if (iconView == null) {
+                    splashScreenView.remove();
+                    return;
+                }
+
+                // Create a zoom out effect on the ICON
+                ObjectAnimator scaleX = ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 0f);
+                ObjectAnimator scaleY = ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 0f);
+                
+                // Fade out the entire splash VIEW (background)
+                ObjectAnimator alpha = ObjectAnimator.ofFloat(splashScreenView.getView(), View.ALPHA, 1f, 0f);
+                
+                // Combine animations
+                android.animation.AnimatorSet animatorSet = new android.animation.AnimatorSet();
+                animatorSet.playTogether(scaleX, scaleY, alpha);
+                animatorSet.setDuration(500); 
+                animatorSet.setInterpolator(new AnticipateInterpolator());
+                
+                animatorSet.addListener(new android.animation.AnimatorListenerAdapter() {
+                    @Override
+                    public void onAnimationEnd(android.animation.Animator animation) {
+                        splashScreenView.remove(); // Remove splash view when done
+                    }
+                });
+                
+                animatorSet.start();
+            } catch (Exception e) {
+                // Safely handle crash by removing splash
+                splashScreenView.remove();
+            }
+        });
 
         loadSortPreferences();
 
         initializeViews();
         initializeManagers();
         setupListeners();
+        setupDrawer();
 
         nowPlayingManager.register();
 
@@ -94,7 +156,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        checkPermissionAndOnboard();
+        
+        // FIX: Always run checkPermissionAndOnboard() to handle Notification Permission
+        // even if Storage Permission is already granted.
+        if (permissionManager.hasStoragePermission()) {
+            loadLocalSongs();
+        }
+        
+        checkPermissionAndOnboard(); // <--- THIS WAS SKIPPED BEFORE, NOW IT'S CALLED.
 
         if (mediaSessionHandler.hasNotificationAccess()) {
             mediaSessionHandler.initialize();
@@ -102,9 +171,12 @@ public class MainActivity extends AppCompatActivity {
                 nowPlayingCard.postDelayed(() -> mediaSessionHandler.checkActiveSessions(), 200);
             }
         }
+        
+        if (navigationView != null) {
+            navigationView.setCheckedItem(R.id.nav_library);
+        }
     }
 
-    // ... (Sort Preferences methods remain the same) ...
     private void loadSortPreferences() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         currentSortCriteria = prefs.getInt(KEY_SORT_CRITERIA, R.id.rbTitle);
@@ -132,9 +204,31 @@ public class MainActivity extends AppCompatActivity {
         nowPlayingTitle = findViewById(R.id.nowPlayingTitle);
         nowPlayingArtist = findViewById(R.id.nowPlayingArtist);
         nowPlayingFilePath = findViewById(R.id.nowPlayingFilePath);
+        
+        drawerLayout = findViewById(R.id.drawer_layout);
+        navigationView = findViewById(R.id.navigation_view);
+        menuButton = findViewById(R.id.menuButtonCard);
 
         localAdapter = new LocalSongAdapter(this, filteredLocalSongs);
         songListView.setAdapter(localAdapter);
+    }
+    
+    private void setupDrawer() {
+        if (menuButton != null) {
+            menuButton.setOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
+        }
+
+        if (navigationView != null) {
+            navigationView.setNavigationItemSelectedListener(item -> {
+                int id = item.getItemId();
+                if (id == R.id.nav_settings) {
+                    Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
+                    startActivity(intent);
+                }
+                drawerLayout.closeDrawer(GravityCompat.START);
+                return true;
+            });
+        }
     }
 
     private void initializeManagers() {
@@ -158,7 +252,6 @@ public class MainActivity extends AppCompatActivity {
                 Bitmap currentArt = nowPlayingManager.getCurrentArtwork();
                 MediaStoreHelper.LocalSong tempSong = new MediaStoreHelper.LocalSong(uri, path, title, artist, "", -1, 0, 0);
                 
-                // REFACTORED: Use IdentifySongDialog
                 new IdentifySongDialog(MainActivity.this, tempSong, currentArt).show();
             }
             @Override public void onFileFound(String filePath, Uri fileUri) {}
@@ -173,12 +266,62 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadLocalSongs() {
         if (!permissionManager.hasStoragePermission()) return;
-        songLoading.setVisibility(View.VISIBLE);
+        
+        if (allLocalSongs.isEmpty()) songLoading.setVisibility(View.VISIBLE);
+        
         new Thread(() -> {
-            List<MediaStoreHelper.LocalSong> songs = MediaStoreHelper.getAllSongs(this);
+            List<MediaStoreHelper.LocalSong> allDeviceSongs = MediaStoreHelper.getAllSongs(this);
+            
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            boolean scanAll = prefs.getBoolean(KEY_SCAN_ALL, true);
+            boolean blacklistEnabled = prefs.getBoolean(KEY_BLACKLIST_ENABLED, false);
+            
+            Set<String> whitelistPaths = prefs.getStringSet(KEY_FOLDERS, new HashSet<>());
+            Set<String> blacklistPaths = prefs.getStringSet(KEY_BLACKLIST, new HashSet<>());
+
+            List<MediaStoreHelper.LocalSong> pendingSongs = new ArrayList<>();
+
+            if (scanAll) {
+                pendingSongs.addAll(allDeviceSongs);
+            } else {
+                if (!whitelistPaths.isEmpty()) {
+                    for (MediaStoreHelper.LocalSong song : allDeviceSongs) {
+                        if (song.filePath != null) {
+                            for (String includePath : whitelistPaths) {
+                                if (song.filePath.startsWith(includePath)) {
+                                    pendingSongs.add(song);
+                                    break; 
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            List<MediaStoreHelper.LocalSong> finalFilteredList = new ArrayList<>();
+            
+            if (blacklistEnabled && !blacklistPaths.isEmpty()) {
+                for (MediaStoreHelper.LocalSong song : pendingSongs) {
+                    boolean isBlacklisted = false;
+                    if (song.filePath != null) {
+                        for (String blockPath : blacklistPaths) {
+                            if (song.filePath.startsWith(blockPath)) {
+                                isBlacklisted = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!isBlacklisted) {
+                        finalFilteredList.add(song);
+                    }
+                }
+            } else {
+                finalFilteredList.addAll(pendingSongs);
+            }
+
             runOnUiThread(() -> {
                 allLocalSongs.clear();
-                allLocalSongs.addAll(songs);
+                allLocalSongs.addAll(finalFilteredList);
                 applyCurrentSort();
                 filterLocalSongs(searchEditText.getText().toString());
                 songLoading.setVisibility(View.GONE);
@@ -217,11 +360,9 @@ public class MainActivity extends AppCompatActivity {
                 extractedBitmap = getBitmapFromImageView(artView);
             } catch (Exception ignored) {}
             
-            // REFACTORED: Use IdentifySongDialog
             new IdentifySongDialog(MainActivity.this, selectedSong, extractedBitmap).show();
         });
 
-        // NEW: Long click listener for direct Manual Tag Editing
         songListView.setOnItemLongClickListener((parent, view, position, id) -> {
             MediaStoreHelper.LocalSong selectedSong = filteredLocalSongs.get(position);
             Intent intent = new Intent(MainActivity.this, TagEditorActivity.class);
@@ -235,7 +376,6 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.sortButton).setOnClickListener(v -> showSortDialog());
     }
 
-    // ... (Sort Dialog logic logic remains the same) ...
     private void showSortDialog() {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -342,7 +482,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (NumberFormatException e) { return 0; }
     }
 
-    // ... (Permissions sheets remain unchanged) ...
     private void checkPermissionAndOnboard() {
         if (isShowingSheet) return;
         if (!permissionManager.hasStoragePermission()) {
@@ -362,7 +501,6 @@ public class MainActivity extends AppCompatActivity {
         BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
         View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_permission, null);
         bottomSheetDialog.setContentView(sheetView);
-        // ... (existing logic) ...
         if (bottomSheetDialog.getWindow() != null) bottomSheetDialog.getWindow().findViewById(com.google.android.material.R.id.design_bottom_sheet).setBackgroundResource(android.R.color.transparent);
         MaterialButton btnGrant = sheetView.findViewById(R.id.btnGrantAccess);
         MaterialButton btnNotNow = sheetView.findViewById(R.id.btnNotNow);

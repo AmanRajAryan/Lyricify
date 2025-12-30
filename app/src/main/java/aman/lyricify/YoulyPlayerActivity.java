@@ -56,7 +56,7 @@ public class YoulyPlayerActivity extends AppCompatActivity {
 
     // Buttons
     private FloatingActionButton playPauseButton;
-    private MaterialButton immersiveButton; 
+    private MaterialButton immersiveButton;
     private MaterialButton reloadButton;
     private MaterialButton prevButton, nextButton;
     private SquigglySeekBar progressSeekBar;
@@ -74,7 +74,7 @@ public class YoulyPlayerActivity extends AppCompatActivity {
 
     private boolean isImmersiveMode = false;
 
-    private String currentTitle = "DEFAULT_EMPTY_TITLE"; 
+    private String currentTitle = "DEFAULT_EMPTY_TITLE";
     private String currentArtist = "";
     private String currentAlbum = "";
     private long currentDuration = 0;
@@ -123,7 +123,7 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         prevButton = findViewById(R.id.prevButton);
         nextButton = findViewById(R.id.nextButton);
         progressSeekBar = findViewById(R.id.progressSeekBar);
-        
+
         immersiveButton = findViewById(R.id.immersiveButton);
         reloadButton = findViewById(R.id.reloadButton);
 
@@ -176,7 +176,7 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         });
 
         immersiveButton.setOnClickListener(v -> toggleImmersiveMode());
-        
+
         reloadButton.setOnClickListener(v -> {
             animateButton(v);
             if (lyricsWebViewFragment != null && !currentTitle.equals("DEFAULT_EMPTY_TITLE")) {
@@ -193,68 +193,36 @@ public class YoulyPlayerActivity extends AppCompatActivity {
 
         if (isImmersiveMode) {
             // --- ENTERING IMMERSIVE (HIDE UI) ---
-            
-            // Fade out Header
-            headerCard.animate()
-                    .alpha(0f)
-                    .setDuration(duration)
-                    .withEndAction(() -> headerCard.setVisibility(View.GONE))
-                    .start();
-
-            // Fade out Controls
-            controlsLayout.animate()
-                    .alpha(0f)
-                    .setDuration(duration)
-                    .withEndAction(() -> controlsLayout.setVisibility(View.GONE))
-                    .start();
-
-            // Fade out Scrim
-            controlsScrim.animate()
-                    .alpha(0f)
-                    .setDuration(duration)
-                    .withEndAction(() -> controlsScrim.setVisibility(View.GONE))
-                    .start();
-            
-            // Fade out Dimmer
-            immersiveBackgroundOverlay.animate()
-                    .alpha(0f)
-                    .setDuration(500)
-                    .start();
+            headerCard.animate().alpha(0f).setDuration(duration).withEndAction(() -> headerCard.setVisibility(View.GONE)).start();
+            controlsLayout.animate().alpha(0f).setDuration(duration).withEndAction(() -> controlsLayout.setVisibility(View.GONE)).start();
+            controlsScrim.animate().alpha(0f).setDuration(duration).withEndAction(() -> controlsScrim.setVisibility(View.GONE)).start();
+            immersiveBackgroundOverlay.animate().alpha(0f).setDuration(500).start();
 
             Toast.makeText(this, "Immersive Mode On (Tap Back to Exit)", Toast.LENGTH_SHORT).show();
-
         } else {
             // --- EXITING IMMERSIVE (SHOW UI) ---
-            
-            // 1. Prepare Header
             if (headerCard.getVisibility() != View.VISIBLE) {
-                headerCard.setAlpha(0f); // Reset alpha to 0 so we can animate it
-                headerCard.setVisibility(View.VISIBLE); // Make it visible immediately
+                headerCard.setAlpha(0f);
+                headerCard.setVisibility(View.VISIBLE);
             }
             headerCard.animate().alpha(1f).setDuration(duration).setListener(null).withEndAction(null).start();
 
-            // 2. Prepare Controls
             if (controlsLayout.getVisibility() != View.VISIBLE) {
                 controlsLayout.setAlpha(0f);
                 controlsLayout.setVisibility(View.VISIBLE);
             }
             controlsLayout.animate().alpha(1f).setDuration(duration).setListener(null).withEndAction(null).start();
 
-            // 3. Prepare Scrim
             if (controlsScrim.getVisibility() != View.VISIBLE) {
                 controlsScrim.setAlpha(0f);
                 controlsScrim.setVisibility(View.VISIBLE);
             }
             controlsScrim.animate().alpha(1f).setDuration(duration).setListener(null).withEndAction(null).start();
-            
-            // 4. Fade in Dimmer
-            immersiveBackgroundOverlay.animate()
-                    .alpha(1f)
-                    .setDuration(500)
-                    .start();
+
+            immersiveBackgroundOverlay.animate().alpha(1f).setDuration(500).start();
         }
     }
-    
+
     @Override
     public void onBackPressed() {
         if (isImmersiveMode) {
@@ -282,7 +250,10 @@ public class YoulyPlayerActivity extends AppCompatActivity {
             PlaybackState state = controller.getPlaybackState();
             if (state != null) {
                 int playbackState = state.getState();
-                if (playbackState == PlaybackState.STATE_PLAYING || playbackState == PlaybackState.STATE_PAUSED) return controller;
+                // FIX: Added STATE_BUFFERING to catch apps in "loading" state
+                if (playbackState == PlaybackState.STATE_PLAYING || 
+                    playbackState == PlaybackState.STATE_PAUSED || 
+                    playbackState == PlaybackState.STATE_BUFFERING) return controller;
             }
         }
         return null;
@@ -304,44 +275,62 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         updateMetadata(controller.getMetadata());
     }
 
+    // --- KEY FIX HERE ---
     private void updateMetadata(MediaMetadata metadata) {
         if (metadata == null) return;
         String newTitle = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
         String newArtist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
         String newAlbum = metadata.getString(MediaMetadata.METADATA_KEY_ALBUM);
         long duration = metadata.getLong(MediaMetadata.METADATA_KEY_DURATION);
+        
         if (newTitle == null) newTitle = "";
         if (newArtist == null) newArtist = "";
 
-        if (!newTitle.equals(currentTitle) || !newArtist.equals(currentArtist)) {
-            currentTitle = newTitle;
-            currentArtist = newArtist;
-            currentAlbum = newAlbum;
-            currentDuration = duration;
+        // Extract Artwork directly
+        Bitmap newArtwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
+        if (newArtwork == null) newArtwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
 
-            runOnUiThread(() -> {
-                songTitleText.setText(currentTitle);
-                songArtistText.setText(currentArtist);
-                if (duration > 0) progressSeekBar.setMax((int) duration);
-            });
+        // LOGIC FIX: Check for Text Change OR Artwork Presence
+        // (Apps often send title first, then artwork 500ms later with same title)
+        boolean textChanged = !newTitle.equals(currentTitle) || !newArtist.equals(currentArtist);
+        
+        // We update if text changed OR if we have artwork (regardless of whether it's 'new' or same, refreshing it is safer/cheaper than missing it)
+        if (textChanged || newArtwork != null) {
+            
+            // 1. Update Text Data (Only if changed)
+            if (textChanged) {
+                currentTitle = newTitle;
+                currentArtist = newArtist;
+                currentAlbum = newAlbum;
+                currentDuration = duration;
+                
+                runOnUiThread(() -> {
+                    songTitleText.setText(currentTitle);
+                    songArtistText.setText(currentArtist);
+                    if (duration > 0) progressSeekBar.setMax((int) duration);
+                });
+            }
 
-            Bitmap art = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
-            if (art == null) art = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
-            final Bitmap finalArt = art;
+            // 2. Always attempt to update artwork if we have it
+            final Bitmap finalArt = newArtwork;
             runOnUiThread(() -> updateArtwork(finalArt));
 
-            final String fTitle = newTitle;
-            final String fArtist = newArtist;
-            final String fAlbum = newAlbum;
-            webViewContainer.post(() -> {
-                if (lyricsWebViewFragment != null && lyricsWebViewFragment.isAdded()) {
-                    long durSeconds = duration / 1000;
-                    Toast.makeText(this, "Fetching: " + fTitle, Toast.LENGTH_SHORT).show();
-                    lyricsWebViewFragment.loadLyrics(fTitle, fArtist, fAlbum, durSeconds);
-                    lyricsWebViewFragment.displayLyrics();
-                    lyricsWebViewFragment.setPlaying(isPlaying);
-                }
-            });
+            // 3. Only reload Lyrics if the SONG (Text) actually changed
+            if (textChanged) {
+                final String fTitle = newTitle;
+                final String fArtist = newArtist;
+                final String fAlbum = newAlbum;
+                
+                webViewContainer.post(() -> {
+                    if (lyricsWebViewFragment != null && lyricsWebViewFragment.isAdded()) {
+                        long durSeconds = duration / 1000;
+                        // Toast.makeText(this, "Fetching: " + fTitle, Toast.LENGTH_SHORT).show();
+                        lyricsWebViewFragment.loadLyrics(fTitle, fArtist, fAlbum, durSeconds);
+                        lyricsWebViewFragment.displayLyrics();
+                        lyricsWebViewFragment.setPlaying(isPlaying);
+                    }
+                });
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout
-        xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -73,14 +73,45 @@
                                 app:strokeColor="#333333"
                                 app:strokeWidth="1dp">
 
-                                <ImageView
-                                    android:id="@+id/artworkImageView"
+                                <FrameLayout
                                     android:layout_width="match_parent"
-                                    android:layout_height="match_parent"
-                                    android:scaleType="centerCrop"
-                                    android:src="@drawable/ic_music_note" />
+                                    android:layout_height="match_parent">
+
+                                    <ImageView
+                                        android:id="@+id/artworkImageView"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="match_parent"
+                                        android:scaleType="centerCrop"
+                                        android:src="@drawable/ic_music_note" />
+
+                                    <LinearLayout
+                                        android:id="@+id/artworkDimensionsContainer"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_gravity="bottom|center_horizontal"
+                                        android:layout_marginBottom="8dp"
+                                        android:background="@drawable/bg_surface_panel"
+                                        android:clickable="true"
+                                        android:focusable="true"
+                                        android:gravity="center"
+                                        android:paddingHorizontal="8dp"
+                                        android:paddingVertical="4dp"
+                                        android:visibility="gone">
+
+                                        <TextView
+                                            android:id="@+id/artworkDimensionsText"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="600 x 600"
+                                            android:textColor="#FFFFFF"
+                                            android:textSize="10sp"
+                                            android:textStyle="bold" />
+                                    </LinearLayout>
+
+                                </FrameLayout>
 
                             </com.google.android.material.card.MaterialCardView>
+
 
                             <LinearLayout
                                 android:layout_width="match_parent"

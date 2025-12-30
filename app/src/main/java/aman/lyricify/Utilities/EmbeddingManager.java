@@ -179,7 +179,6 @@ public class EmbeddingManager {
                 TagLib tagLib = new TagLib();
                 HashMap<String, String> metadataMap = new HashMap<>();
                 metadataMap.put("LYRICS", lyrics);
-                metadataMap.put("UNSYNCEDLYRICS", lyrics);
                 boolean success = tagLib.setMetadata(tempFile.getAbsolutePath(), metadataMap);
                 
                 if (!success) {

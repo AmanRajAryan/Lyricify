@@ -25,15 +25,16 @@
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">
 
-        <activity
+                <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop">
-            <intent-filter>
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.App.Starting"> <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
 
         <activity android:name="LyricsActivity" />
 
@@ -43,10 +44,15 @@
 
         <activity android:name="TagEditorActivity" />
         <activity android:name="CrashActivity" />
-<activity
-    android:name=".YoulyPlayerActivity"
-    android:exported="false"
-    android:screenOrientation="portrait" />
+        <activity
+            android:name=".YoulyPlayerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+
+        <activity
+            android:name=".SettingsActivity"
+            android:theme="@style/AppTheme" />
 
 
         <service
@@ -60,8 +66,8 @@
         </service>
 
         <service
-                android:name=".FloatingLyricsService"
-                android:exported="false" />
+            android:name=".FloatingLyricsService"
+            android:exported="false" />
 
     </application>
 </manifest>

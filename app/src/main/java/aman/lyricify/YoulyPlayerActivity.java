@@ -94,13 +94,47 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         setupMediaSession();
 
         updateHandler = new Handler(Looper.getMainLooper());
+        
+        // Note: startPositionUpdates is called, but we also rely on onResume for the immediate fix
         startPositionUpdates();
+    }
+
+    // --- FIX PART 1: Force Sync on Resume ---
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // As soon as the app opens (or comes back from background), 
+        // Force-update the lyrics engine with the EXACT current time.
+        // This fixes both "Paused on Open" and "Stuck Time".
+        syncNow();
+    }
+
+    private void syncNow() {
+        if (mediaController != null) {
+            PlaybackState state = mediaController.getPlaybackState();
+            if (state != null) {
+                long pos = state.getPosition();
+                boolean playing = (state.getState() == PlaybackState.STATE_PLAYING);
+                
+                // 1. Force the UI to match
+                if (!isTracking) progressSeekBar.setProgress((int) pos);
+                positionText.setText(formatTime(pos));
+                
+                // 2. Force the Lyrics Engine to match immediately
+                if (lyricsWebViewFragment != null) {
+                    lyricsWebViewFragment.setPlaying(playing);
+                    lyricsWebViewFragment.updateTime(pos);
+                }
+            }
+        }
     }
 
     private void seekToPosition(long timeMs) {
         runOnUiThread(() -> {
             if (mediaController != null) {
                 mediaController.getTransportControls().seekTo(timeMs);
+                // Optional: Sync immediately after seek to feel responsive
+                if (lyricsWebViewFragment != null) lyricsWebViewFragment.updateTime(timeMs);
             }
         });
     }
@@ -167,12 +201,18 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         progressSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser && mediaController != null) mediaController.getTransportControls().seekTo(progress);
+                if (fromUser && mediaController != null) {
+                    // Send updates while dragging for live preview (optional, but smooth)
+                    if (lyricsWebViewFragment != null) lyricsWebViewFragment.updateTime(progress);
+                }
             }
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) { isTracking = true; }
             @Override
-            public void onStopTrackingTouch(SeekBar seekBar) { isTracking = false; }
+            public void onStopTrackingTouch(SeekBar seekBar) { 
+                isTracking = false; 
+                if (mediaController != null) mediaController.getTransportControls().seekTo(seekBar.getProgress());
+            }
         });
 
         immersiveButton.setOnClickListener(v -> toggleImmersiveMode());
@@ -192,15 +232,12 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         int duration = 300;
 
         if (isImmersiveMode) {
-            // --- ENTERING IMMERSIVE (HIDE UI) ---
             headerCard.animate().alpha(0f).setDuration(duration).withEndAction(() -> headerCard.setVisibility(View.GONE)).start();
             controlsLayout.animate().alpha(0f).setDuration(duration).withEndAction(() -> controlsLayout.setVisibility(View.GONE)).start();
             controlsScrim.animate().alpha(0f).setDuration(duration).withEndAction(() -> controlsScrim.setVisibility(View.GONE)).start();
             immersiveBackgroundOverlay.animate().alpha(0f).setDuration(500).start();
-
             Toast.makeText(this, "Immersive Mode On (Tap Back to Exit)", Toast.LENGTH_SHORT).show();
         } else {
-            // --- EXITING IMMERSIVE (SHOW UI) ---
             if (headerCard.getVisibility() != View.VISIBLE) {
                 headerCard.setAlpha(0f);
                 headerCard.setVisibility(View.VISIBLE);
@@ -250,7 +287,6 @@ public class YoulyPlayerActivity extends AppCompatActivity {
             PlaybackState state = controller.getPlaybackState();
             if (state != null) {
                 int playbackState = state.getState();
-                // FIX: Added STATE_BUFFERING to catch apps in "loading" state
                 if (playbackState == PlaybackState.STATE_PLAYING || 
                     playbackState == PlaybackState.STATE_PAUSED || 
                     playbackState == PlaybackState.STATE_BUFFERING) return controller;
@@ -271,11 +307,13 @@ public class YoulyPlayerActivity extends AppCompatActivity {
             public void onMetadataChanged(MediaMetadata metadata) { updateMetadata(metadata); }
         };
         controller.registerCallback(mediaControllerCallback);
+        
+        // Initial sync on attach
         updatePlaybackState(controller.getPlaybackState());
         updateMetadata(controller.getMetadata());
+        syncNow(); 
     }
 
-    // --- KEY FIX HERE ---
     private void updateMetadata(MediaMetadata metadata) {
         if (metadata == null) return;
         String newTitle = metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
@@ -286,18 +324,12 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         if (newTitle == null) newTitle = "";
         if (newArtist == null) newArtist = "";
 
-        // Extract Artwork directly
         Bitmap newArtwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
         if (newArtwork == null) newArtwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
 
-        // LOGIC FIX: Check for Text Change OR Artwork Presence
-        // (Apps often send title first, then artwork 500ms later with same title)
         boolean textChanged = !newTitle.equals(currentTitle) || !newArtist.equals(currentArtist);
         
-        // We update if text changed OR if we have artwork (regardless of whether it's 'new' or same, refreshing it is safer/cheaper than missing it)
         if (textChanged || newArtwork != null) {
-            
-            // 1. Update Text Data (Only if changed)
             if (textChanged) {
                 currentTitle = newTitle;
                 currentArtist = newArtist;
@@ -311,11 +343,9 @@ public class YoulyPlayerActivity extends AppCompatActivity {
                 });
             }
 
-            // 2. Always attempt to update artwork if we have it
             final Bitmap finalArt = newArtwork;
             runOnUiThread(() -> updateArtwork(finalArt));
 
-            // 3. Only reload Lyrics if the SONG (Text) actually changed
             if (textChanged) {
                 final String fTitle = newTitle;
                 final String fArtist = newArtist;
@@ -324,10 +354,12 @@ public class YoulyPlayerActivity extends AppCompatActivity {
                 webViewContainer.post(() -> {
                     if (lyricsWebViewFragment != null && lyricsWebViewFragment.isAdded()) {
                         long durSeconds = duration / 1000;
-                        // Toast.makeText(this, "Fetching: " + fTitle, Toast.LENGTH_SHORT).show();
                         lyricsWebViewFragment.loadLyrics(fTitle, fArtist, fAlbum, durSeconds);
                         lyricsWebViewFragment.displayLyrics();
+                        
+                        // FIX: Ensure playing state is synced after load
                         lyricsWebViewFragment.setPlaying(isPlaying);
+                        syncNow();
                     }
                 });
             }
@@ -355,7 +387,12 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         if (state == null) return;
         boolean isNowPlaying = (state.getState() == PlaybackState.STATE_PLAYING);
         isPlaying = isNowPlaying;
-        if (lyricsWebViewFragment != null) lyricsWebViewFragment.setPlaying(isPlaying);
+
+        if (lyricsWebViewFragment != null) {
+            lyricsWebViewFragment.setPlaying(isPlaying);
+            // Sync time on state change (Paused -> Playing or Playing -> Paused)
+            lyricsWebViewFragment.updateTime(state.getPosition());
+        }
 
         runOnUiThread(() -> {
             if (isNowPlaying != lastPlayingState) {
@@ -376,17 +413,35 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         view.animate().scaleX(0.8f).scaleY(0.8f).setDuration(100).withEndAction(() -> view.animate().scaleX(1f).scaleY(1f).setDuration(100).start()).start();
     }
 
+    // --- FIX PART 2: Throttled Loop for performance ---
     private void startPositionUpdates() {
         updateRunnable = new Runnable() {
+            private long lastSentPosition = -1;
+
             @Override
             public void run() {
                 if (mediaController != null) {
                     PlaybackState state = mediaController.getPlaybackState();
                     if (state != null) {
-                        long position = state.getPosition();
-                        if (lyricsWebViewFragment != null) lyricsWebViewFragment.updateTime(position);
-                        if (!isTracking) progressSeekBar.setProgress((int) position);
-                        positionText.setText(formatTime(position));
+                        long currentPosition = state.getPosition();
+                        
+                        // LOGIC: Calculate drift
+                        long delta = Math.abs(currentPosition - lastSentPosition);
+
+                        // Only send update to WebView if we drifted by >= 1 second
+                        // OR if we are forcing a sync via syncNow() (handled separately)
+                        if (delta >= 1000) {
+                            if (lyricsWebViewFragment != null) {
+                                lyricsWebViewFragment.updateTime(currentPosition);
+                            }
+                            lastSentPosition = currentPosition;
+                        }
+
+                        // Seekbar needs to be smooth (60fps is fine for local UI)
+                        if (!isTracking) {
+                            progressSeekBar.setProgress((int) currentPosition);
+                        }
+                        positionText.setText(formatTime(currentPosition));
                     }
                 }
                 updateHandler.postDelayed(this, 16);

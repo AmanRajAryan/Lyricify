@@ -1,0 +1,35 @@
+{
+  "allFiles": [
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsWebViewFragment.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsSharedEngine.java",
+      "selection": {
+        "end": {
+          "column": 30,
+          "index": 1683,
+          "line": 51
+        },
+        "start": {
+          "column": 30,
+          "index": 1683,
+          "line": 51
+        }
+      }
+    }
+  ],
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsSharedEngine.java"
+}

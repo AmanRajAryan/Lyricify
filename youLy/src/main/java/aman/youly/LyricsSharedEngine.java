@@ -5,17 +5,18 @@ import android.content.Context;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
-import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import androidx.webkit.WebViewAssetLoader;
+
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -31,9 +32,10 @@ public class LyricsSharedEngine {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final OkHttpClient okHttpClient;
 
-    // Buffering Logic
+    // --- BUFFERING STATE ---
     private boolean isJsReady = false;
     private PendingSong pendingSong = null;
+    private boolean cachedPlayingState = false;
 
     private static class PendingSong {
         String title, artist, album;
@@ -47,7 +49,6 @@ public class LyricsSharedEngine {
         if (instance == null) {
             instance = new LyricsSharedEngine(context.getApplicationContext());
         }
-        // Assuming Log.init is a custom logger you have
         // Log.init(context); 
         return instance;
     }
@@ -70,7 +71,6 @@ public class LyricsSharedEngine {
         settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(true);
 
-        // Add Bridge
         webView.addJavascriptInterface(new SharedBridge(), "AndroidBridge");
 
         final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
@@ -84,15 +84,8 @@ public class LyricsSharedEngine {
             }
         });
 
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onConsoleMessage(ConsoleMessage cm) {
-                // Use standard Android Log if custom Log class is missing
-                android.util.Log.d("YouLyJS", cm.message() + " -- (" + cm.lineNumber() + ")");
-                return true;
-            }
-        });
-
+        // REMOVED: WebChromeClient onConsoleMessage (Too noisy for production)
+        
         webView.loadUrl("https://appassets.androidplatform.net/assets/lyrics_engine/index.html");
     }
 
@@ -102,8 +95,12 @@ public class LyricsSharedEngine {
         this.activeListener = listener;
     }
 
-    // --- NEW: Centralized Load Method with Buffering ---
+    // --- API METHODS ---
+
     public void loadLyrics(String title, String artist, String album, long durationSeconds) {
+        // Keep this single log to track song changes
+        android.util.Log.d("YouLyEngine", "loadLyrics: " + title);
+        
         if (isJsReady) {
             String safeTitle = escape(title);
             String safeArtist = escape(artist);
@@ -113,10 +110,42 @@ public class LyricsSharedEngine {
                     safeTitle, safeArtist, safeAlbum, durationSeconds);
             runJs(js);
         } else {
-            android.util.Log.d("YouLyEngine", "JS not ready. Buffering song: " + title);
             pendingSong = new PendingSong(title, artist, album, durationSeconds);
         }
     }
+
+    public void setPlaying(boolean isPlaying) {
+        this.cachedPlayingState = isPlaying;
+        if (isJsReady) {
+            runJs("if(window.AndroidAPI) window.AndroidAPI.setPlaying(" + isPlaying + ")");
+        }
+    }
+
+    public void updateTime(long positionMs) {
+        if (isJsReady) {
+            runJs("if(window.AndroidAPI) window.AndroidAPI.updateTime(" + positionMs + ")");
+        }
+    }
+
+    public void searchLyrics(String title, String artist, String album, long durationSeconds) {
+        if (isJsReady) {
+            String safeTitle = escape(title);
+            String safeArtist = escape(artist);
+            String safeAlbum = escape(album);
+            String js = String.format(
+                    "if(window.AndroidAPI) window.AndroidAPI.searchSong('%s', '%s', '%s', %d);",
+                    safeTitle, safeArtist, safeAlbum, durationSeconds);
+            runJs(js);
+        }
+    }
+
+    public void displayLyrics() {
+        if (isJsReady) {
+            runJs("if(window.AndroidAPI) window.AndroidAPI.showSong();");
+        }
+    }
+
+    // --- INTERNAL ---
 
     private void runJs(String js) {
         mainHandler.post(() -> {
@@ -131,20 +160,16 @@ public class LyricsSharedEngine {
     // --- SHARED BRIDGE ---
     private class SharedBridge {
         
-        // 1. ENGINE READY SIGNAL
         @JavascriptInterface
         public void onEngineReady() {
-            android.util.Log.d("YouLyNative", "Engine Ready Signal Received!");
             isJsReady = true;
-            
-            // Flush Buffer
-            if (pendingSong != null) {
-                mainHandler.post(() -> {
-                    android.util.Log.d("YouLyNative", "Flushing buffered song: " + pendingSong.title);
+            mainHandler.post(() -> {
+                if (pendingSong != null) {
                     loadLyrics(pendingSong.title, pendingSong.artist, pendingSong.album, pendingSong.duration);
                     pendingSong = null;
-                });
-            }
+                }
+                setPlaying(cachedPlayingState);
+            });
         }
 
         @JavascriptInterface
@@ -152,40 +177,46 @@ public class LyricsSharedEngine {
             try {
                 long timeMs = Long.parseLong(timeMsStr);
                 mainHandler.post(() -> {
-                    if (activeListener != null) {
-                        activeListener.onSeekRequest(timeMs);
-                    }
+                    if (activeListener != null) activeListener.onSeekRequest(timeMs);
                 });
-            } catch (Exception e) {
-                android.util.Log.e("YouLyNative", "Failed to parse seek time: " + timeMsStr);
-            }
+            } catch (Exception e) { /* Ignore parsing errors */ }
         }
 
         @JavascriptInterface
         public void performNetworkRequest(String urlStr, String method, String body, String reqId) {
-            new Thread(() -> {
-                try {
-                    Request.Builder builder = new Request.Builder()
-                            .url(urlStr)
-                            .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
+            // REMOVED: Log.d("YouLyNet", "Start Req...");
 
-                    if ("POST".equalsIgnoreCase(method) && body != null) {
-                        builder.post(RequestBody.create(body, MediaType.parse("application/json; charset=utf-8")));
-                    } else {
-                        builder.get();
-                    }
+            Request.Builder builder = new Request.Builder()
+                    .url(urlStr)
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
 
-                    try (Response response = okHttpClient.newCall(builder.build()).execute()) {
-                        String responseBody = response.body() != null ? response.body().string() : "";
-                        String safeResponse = escapeForJs(responseBody);
-                        String callback = String.format("window.handleNativeResponse('%s', true, %d, '%s')", reqId, response.code(), safeResponse);
-                        runJs(callback);
-                    }
-                } catch (Exception e) {
+            if ("POST".equalsIgnoreCase(method) && body != null) {
+                builder.post(RequestBody.create(body, MediaType.parse("application/json; charset=utf-8")));
+            } else {
+                builder.get();
+            }
+
+            okHttpClient.newCall(builder.build()).enqueue(new Callback() {
+                @Override
+                public void onFailure(Call call, IOException e) {
+                    // KEEP: Errors are important
+                    android.util.Log.e("YouLyNet", "Req Failed: " + e.getMessage());
+                    
                     String callback = String.format("window.handleNativeResponse('%s', false, 0, '%s')", reqId, escapeForJs(e.getMessage()));
                     runJs(callback);
                 }
-            }).start();
+
+                @Override
+                public void onResponse(Call call, Response response) throws IOException {
+                    // REMOVED: Log.d("YouLyNet", "Success...");
+                    
+                    String responseBody = response.body() != null ? response.body().string() : "";
+                    String safeResponse = escapeForJs(responseBody);
+                    String callback = String.format("window.handleNativeResponse('%s', true, %d, '%s')", reqId, response.code(), safeResponse);
+                    runJs(callback);
+                    response.close();
+                }
+            });
         }
 
         private String escapeForJs(String data) {

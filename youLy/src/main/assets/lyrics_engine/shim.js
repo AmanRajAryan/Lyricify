@@ -10,11 +10,9 @@ const FONT_SIZE_BASE    = 40;
 const FONT_WEIGHT       = 900;
 // =========================================================
 
-// --- 1. MOCK ENVIRONMENT ---
 window.t = (key) => key; 
 window.DOMPurify = { sanitize: (html) => html }; 
 
-// --- 2. STICKY SMOOTH CLOCK ---
 const SmoothClock = {
     baseSysTime: 0,
     baseSongTime: 0,
@@ -58,11 +56,9 @@ const SmoothClock = {
     }
 };
 
-// --- HELPER: Hide Loader ---
 function hideBootLoader() {
     const loader = document.getElementById('boot-loader');
     if (loader) {
-        // Fade out and remove
         loader.style.transition = 'opacity 0.3s ease';
         loader.style.opacity = '0';
         setTimeout(() => {
@@ -71,7 +67,19 @@ function hideBootLoader() {
     }
 }
 
-// --- 3. STATE MANAGEMENT ---
+function cancelPendingNetworkRequests() {
+    const requestIds = Object.keys(window.pendingRequests || {});
+    if (requestIds.length > 0) {
+        requestIds.forEach(id => {
+            const req = window.pendingRequests[id];
+            if (req && req.reject) {
+                req.reject(new Error("Cancelled by Song Change"));
+            }
+        });
+        window.pendingRequests = {};
+    }
+}
+
 let rendererInstance = null;
 let cachedLyricsData = null;
 let currentActiveLyrics = null; 
@@ -80,7 +88,6 @@ let lastSongId = "";
 
 function initRenderer() {
     if (rendererInstance) return; 
-    console.log("[Shim] Initializing LyricsPlusRenderer...");
     try {
         rendererInstance = new LyricsPlusRenderer({
             patchParent: '#lyrics-parent', 
@@ -91,7 +98,6 @@ function initRenderer() {
         });
         window.renderer = rendererInstance;
 
-        // --- VISUAL BOOST PATCH ---
         const style = document.createElement('style');
         style.innerHTML = `
             @keyframes grow-dynamic {
@@ -119,11 +125,7 @@ function initRenderer() {
                 position: fixed !important; 
             }
             #lyrics-plus-translation-dropdown {
-                top: auto !important;       
-                bottom: 120% !important;    
-                left: auto !important;      
-                right: 0 !important;        
-                transform: none !important; 
+                bottom: 120% !important; right: 0 !important;
                 min-width: 160px;
                 background-color: rgba(20, 20, 20, 0.95) !important;
                 border: 1px solid rgba(255,255,255,0.2) !important;
@@ -131,7 +133,6 @@ function initRenderer() {
         `;
         document.head.appendChild(style);
 
-        // --- CLICK TO SEEK ---
         const parent = document.querySelector('#lyrics-parent');
         if (parent) {
             parent.addEventListener('click', (e) => {
@@ -166,33 +167,34 @@ function initRenderer() {
     }
 }
 
-// --- 4. API BRIDGE ---
+// --- API BRIDGE ---
 window.LyricsPlusAPI = {
     cleanupLyrics: () => { 
         if (rendererInstance) rendererInstance.cleanupLyrics();
         SmoothClock.isPaused = true;
         cachedLyricsData = null; 
         currentActiveLyrics = null;
-        lastSongId = "";
+        // Do NOT clear lastSongId here.
     },
 
     displayLyrics: (lyrics, songInfo, mode, settings) => { 
         if (!rendererInstance) initRenderer();
-        
-        if (isSearchOnlyMode) {
-            console.log("[Shim] Search finished. Caching data.");
-            cachedLyricsData = { lyrics, songInfo, mode, settings };
+
+        if (songInfo.id && songInfo.id !== lastSongId) {
+            // WARN: Keep this log, it's rare and indicates a logic bug
+            console.warn(`[Shim] BLOCKED Stale Lyrics. Incoming: "${songInfo.id}" != Expected: "${lastSongId}"`);
             return;
         }
 
+        if (isSearchOnlyMode) {
+            cachedLyricsData = { lyrics, songInfo, mode, settings };
+            return;
+        }
         renderInternal(lyrics, songInfo, mode, settings);
     },
-    displaySongNotFound: () => {
-        rendererInstance?.displaySongNotFound();
-    },
-    displaySongError: () => {
-        rendererInstance?.displaySongError();
-    },
+    
+    displaySongNotFound: () => rendererInstance?.displaySongNotFound(),
+    displaySongError: () => rendererInstance?.displaySongError(),
     t: window.t
 };
 
@@ -208,13 +210,9 @@ function renderInternal(lyrics, songInfo, mode, settings) {
     currentActiveLyrics = lyrics;
 
     rendererInstance.displayLyrics(
-        lyrics, 
-        songInfo, 
-        mode || 'none', 
-        settings, 
+        lyrics, songInfo, mode || 'none', settings, 
         window.fetchAndDisplayLyrics, 
         (newMode, songInfoArg) => {
-            console.log("[Shim] Mode switch requested: " + newMode);
             const targetInfo = songInfoArg || songInfo;
 
             if (newMode === 'translate') {
@@ -232,7 +230,6 @@ function renderInternal(lyrics, songInfo, mode, settings) {
             }
 
             if (window.fetchAndDisplayLyrics && targetInfo) {
-                console.log("[Shim] Refetching with new settings...");
                 window.fetchAndDisplayLyrics(targetInfo, true); 
             } else {
                 if (rendererInstance && currentActiveLyrics) {
@@ -240,16 +237,17 @@ function renderInternal(lyrics, songInfo, mode, settings) {
                 }
             }
         }, 
-        settings.largerTextMode || 'lyrics', 
-        0
+        settings.largerTextMode || 'lyrics', 0
     );
 }
 
-// --- 5. ANDROID INTERFACE ---
+// --- ANDROID INTERFACE ---
 window.AndroidAPI = {
     searchSong: (title, artist, album, duration) => {
         const uniqueId = title + artist;
         if (uniqueId === lastSongId) return;
+        
+        cancelPendingNetworkRequests(); 
         
         lastSongId = uniqueId;
         cachedLyricsData = null; 
@@ -258,68 +256,47 @@ window.AndroidAPI = {
         if (!rendererInstance) initRenderer();
         if (rendererInstance) rendererInstance.cleanupLyrics(); 
 
-        const safeAlbum = album || "";
-        const safeDuration = duration || 0;
-        const songInfo = { title, artist, album: safeAlbum, duration: safeDuration, id: uniqueId, source: "Android" };
-
+        const songInfo = { title, artist, album: album||"", duration: duration||0, id: uniqueId, source: "Android" };
         if (window.fetchAndDisplayLyrics) window.fetchAndDisplayLyrics(songInfo, true);
     },
 
     showSong: () => {
         isSearchOnlyMode = false;
         if (cachedLyricsData) {
-            console.log("[Shim] Cache hit! Rendering.");
-            renderInternal(
-                cachedLyricsData.lyrics, 
-                cachedLyricsData.songInfo, 
-                cachedLyricsData.mode, 
-                window.currentSettings
-            );
+            if (cachedLyricsData.songInfo.id === lastSongId) {
+                renderInternal(cachedLyricsData.lyrics, cachedLyricsData.songInfo, cachedLyricsData.mode, window.currentSettings);
+            }
             cachedLyricsData = null; 
-        } else {
-            console.log("[Shim] Cache miss. Waiting for search.");
         }
     },
 
     loadSong: (title, artist, album, duration) => {
-        isSearchOnlyMode = false;
         const uniqueId = title + artist;
-        lastSongId = uniqueId;
-        const safeAlbum = album || "";
-        const safeDuration = duration || 0;
-        const songInfo = { title, artist, album: safeAlbum, duration: safeDuration, id: uniqueId, source: "Android" };
+        cancelPendingNetworkRequests();
+
+        isSearchOnlyMode = false;
+        lastSongId = uniqueId; 
+        
+        const songInfo = { title, artist, album: album||"", duration: duration||0, id: uniqueId, source: "Android" };
         if (rendererInstance) rendererInstance.cleanupLyrics();
         if (window.fetchAndDisplayLyrics) window.fetchAndDisplayLyrics(songInfo, true);
     },
 
-    updateTime: (timeMs) => {
-        SmoothClock.sync(timeMs / 1000);
-    },
-
-    setPlaying: (isPlaying) => {
-        SmoothClock.setPlaying(isPlaying);
-    }
+    updateTime: (timeMs) => SmoothClock.sync(timeMs / 1000),
+    setPlaying: (isPlaying) => SmoothClock.setPlaying(isPlaying)
 };
 
-// --- 6. SETTINGS ---
+// --- SETTINGS ---
 window.pBrowser = {
     runtime: { sendMessage: (m) => new Promise(r => MessageHandler.handle(m, {}, r)) },
     getURL: (p) => p
 };
 
 window.currentSettings = {
-    isEnabled: true,
-    lyricsProvider: 'kpoe',
-    wordByWord: true, 
-    theme: 'dark',
-    translationEnabled: false, 
-    romanizationEnabled: false,
-    largerTextMode: 'lyrics',
-    useSponsorBlock: false,
-    lightweight: false, 
-    blurInactive: true, 
-    fontSize: FONT_SIZE_BASE, 
-    customCSS: ''
+    isEnabled: true, lyricsProvider: 'kpoe', wordByWord: true, theme: 'dark',
+    translationEnabled: false, romanizationEnabled: false, largerTextMode: 'lyrics',
+    useSponsorBlock: false, lightweight: false, blurInactive: true, 
+    fontSize: FONT_SIZE_BASE, customCSS: ''
 };
 
 window.pendingRequests = {};
@@ -340,15 +317,8 @@ window.handleNativeResponse = (reqId, isSuccess, status, content) => {
 };
 
 // --- BOOT SEQUENCE ---
-console.log(`Shim loaded.`);
-
-// 1. Initialize Renderer (Creates the 'Cloud' loader UI hiddenly)
 initRenderer();
-
-// 2. Hide our 'Boot Loader' immediately. The Engine's internal loader will now be visible if it needs to be.
 hideBootLoader();
-
-// 3. Notify Android we are ready for data
 if (window.AndroidBridge && window.AndroidBridge.onEngineReady) {
     window.AndroidBridge.onEngineReady();
 }

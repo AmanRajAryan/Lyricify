@@ -1,8 +1,6 @@
 package aman.youly;
 
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,7 +21,6 @@ public class LyricsWebViewFragment extends Fragment {
     private WebView webView;
     private LyricsListener lyricsListener;
     private FrameLayout rootContainer; 
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public void setLyricsListener(LyricsListener listener) {
         this.lyricsListener = listener;
@@ -89,52 +86,37 @@ public class LyricsWebViewFragment extends Fragment {
     }
 
     // =========================================================================
-    //  API CALLS
+    //  API CALLS (Delegated to Engine for Buffering/Safety)
     // =========================================================================
 
-    // 1. SEARCH (Background)
     public void searchLyrics(String title, String artist, String album, long durationSeconds) {
-        // Search usually doesn't need immediate rendering, but we could buffer it too if needed.
-        // For now, simple runJs is fine as search implies interaction which implies load is done.
-        String safeTitle = escape(title);
-        String safeArtist = escape(artist);
-        String safeAlbum = escape(album);
-        String js = String.format(
-                "if(window.AndroidAPI) window.AndroidAPI.searchSong('%s', '%s', '%s', %d);",
-                safeTitle, safeArtist, safeAlbum, durationSeconds);
-        runJs(js);
-    }
-
-    // 2. SHOW (Foreground)
-    public void displayLyrics() {
-        runJs("if(window.AndroidAPI) window.AndroidAPI.showSong();");
-    }
-
-    // 3. UPDATE TIME
-    public void updateTime(long positionMs) {
-        runJs("if(window.AndroidAPI) window.AndroidAPI.updateTime(" + positionMs + ")");
-    }
-
-    // 4. SET PLAYING
-    public void setPlaying(boolean isPlaying) {
-        runJs("if(window.AndroidAPI && window.AndroidAPI.setPlaying) window.AndroidAPI.setPlaying(" + isPlaying + ")");
-    }
-    
-    // 5. LOAD (The Critical Fix)
-    public void loadLyrics(String title, String artist, String album, long durationSeconds) {
         if (getContext() != null) {
-            // Delegate to Engine to handle Buffering/Race Conditions
-            LyricsSharedEngine.getInstance(requireContext()).loadLyrics(title, artist, album, durationSeconds);
+            LyricsSharedEngine.getInstance(requireContext()).searchLyrics(title, artist, album, durationSeconds);
         }
     }
 
-    private void runJs(String js) {
-        mainHandler.post(() -> {
-            if (webView != null) webView.evaluateJavascript(js, null);
-        });
+    public void displayLyrics() {
+        if (getContext() != null) {
+            LyricsSharedEngine.getInstance(requireContext()).displayLyrics();
+        }
     }
 
-    private String escape(String s) {
-        return s == null ? "" : s.replace("'", "\\'");
+    public void updateTime(long positionMs) {
+        if (getContext() != null) {
+            LyricsSharedEngine.getInstance(requireContext()).updateTime(positionMs);
+        }
+    }
+
+    public void setPlaying(boolean isPlaying) {
+        if (getContext() != null) {
+            // This now hits the buffered method in Engine
+            LyricsSharedEngine.getInstance(requireContext()).setPlaying(isPlaying);
+        }
+    }
+    
+    public void loadLyrics(String title, String artist, String album, long durationSeconds) {
+        if (getContext() != null) {
+            LyricsSharedEngine.getInstance(requireContext()).loadLyrics(title, artist, album, durationSeconds);
+        }
     }
 }

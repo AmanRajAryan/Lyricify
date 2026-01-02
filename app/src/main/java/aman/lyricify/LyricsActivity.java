@@ -258,6 +258,7 @@ public class LyricsActivity extends AppCompatActivity {
                 
     }
 
+        // Replace the existing updateFormatAvailability method with this:
     private void updateFormatAvailability(ApiClient.LyricsResponse response) {
         availableFormats.clear();
         availableFormats.add("Plain"); // Always available
@@ -274,26 +275,31 @@ public class LyricsActivity extends AppCompatActivity {
         boolean hasLrc = false;
         boolean hasElrc = false;
 
-        if (response.lrc != null && !response.lrc.isEmpty() && !response.lrc.equals("null")) {
+        // 1. Check Standard LRC
+        if (isValidFormat(response.lrc)) {
             availableFormats.add("LRC");
             hasLrc = true;
         }
 
-        if ((response.elrc != null && !response.elrc.isEmpty() && !response.elrc.equals("null"))
-                || (response.elrcMultiPerson != null
-                        && !response.elrcMultiPerson.isEmpty()
-                        && !response.elrcMultiPerson.equals("null"))) {
+        // 2. Check NEW LRC Multi-Person [ADDED]
+        if (isValidFormat(response.lrcMultiPerson)) {
+            availableFormats.add("LRC Multi-Person");
+            hasLrc = true;
+        }
 
-            if (response.elrc != null) availableFormats.add("ELRC");
-            if (response.elrcMultiPerson != null) availableFormats.add("ELRC Multi-Person");
+        // 3. Check ELRC formats
+        if (isValidFormat(response.elrc) || isValidFormat(response.elrcMultiPerson)) {
+            if (isValidFormat(response.elrc)) availableFormats.add("ELRC");
+            if (isValidFormat(response.elrcMultiPerson)) availableFormats.add("ELRC Multi-Person");
             hasElrc = true;
         }
 
-        // Add TTML if available
-        if (response.ttml != null && !response.ttml.isEmpty() && !response.ttml.equals("null")) {
+        // 4. Check TTML
+        if (isValidFormat(response.ttml)) {
             availableFormats.add("TTML");
         }
 
+        // Update Indicators
         if (hasElrc) {
             hasElrcIndicator.setText("ELRC");
             hasElrcIndicator.setTextColor(Color.WHITE);
@@ -313,6 +319,12 @@ public class LyricsActivity extends AppCompatActivity {
         updateSelectorState(true);
         updateSyncedLyricsButtonState();
     }
+
+    
+    private boolean isValidFormat(String text) {
+        return text != null && !text.isEmpty() && !text.equals("null");
+    }
+
 
     private void updateSelectorState(boolean enabled) {
         formatSelectorButton.setEnabled(enabled);

@@ -1,12 +1,27 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsWebViewFragment.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/build.gradle",
       "selection": {
         "end": {
-          "column": 0,
-          "index": 0,
-          "line": 0
+          "column": 24,
+          "index": 337,
+          "line": 15
+        },
+        "start": {
+          "column": 24,
+          "index": 337,
+          "line": 15
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore",
+      "selection": {
+        "end": {
+          "column": 28,
+          "index": 575,
+          "line": 63
         },
         "start": {
           "column": 0,
@@ -16,20 +31,35 @@
       }
     },
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsSharedEngine.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Networking/ApiClient.java",
       "selection": {
         "end": {
-          "column": 30,
-          "index": 1683,
-          "line": 51
+          "column": 38,
+          "index": 1154,
+          "line": 31
         },
         "start": {
-          "column": 30,
-          "index": 1683,
-          "line": 51
+          "column": 38,
+          "index": 1154,
+          "line": 31
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Networking/SearchRepository.java",
+      "selection": {
+        "end": {
+          "column": 29,
+          "index": 211,
+          "line": 9
+        },
+        "start": {
+          "column": 13,
+          "index": 195,
+          "line": 9
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/youLy/src/main/java/aman/youly/LyricsSharedEngine.java"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore"
 }

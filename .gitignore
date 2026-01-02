@@ -5,6 +5,10 @@
 *.dex
 *.class
 
+.gitignore
+
+**/*/SearchRepository.java
+
 # Gradle
 .gradle/
 build/

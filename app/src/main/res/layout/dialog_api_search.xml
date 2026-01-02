@@ -63,6 +63,8 @@
                             android:layout_height="0dp"
                             android:layout_weight="1"
                             android:hint="Title"
+                            app:boxCornerRadiusTopStart="12dp"
+                            app:boxCornerRadiusTopEnd="12dp"
                             app:boxBackgroundColor="#1E1E1E"
                             app:boxStrokeWidth="0dp"
                             app:hintTextColor="#AAAAAA">
@@ -74,6 +76,7 @@
                                 android:gravity="center_vertical|start"
                                 android:inputType="textCapWords"
                                 android:singleLine="true"
+                                
                                 android:textColor="#FFFFFF"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />

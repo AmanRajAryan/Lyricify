@@ -13,7 +13,7 @@ android {
         minSdk 29
         targetSdk 33
         versionCode 1
-        versionName "1.0"
+        versionName "0.7"
 
         vectorDrawables {
             useSupportLibrary true
@@ -69,9 +69,7 @@ android {
         jvmTarget = "11"
     }
     
-    composeOptions {
-        kotlinCompilerExtensionVersion = "2.1.0"
-    }
+    
 
     buildFeatures {
         viewBinding true
@@ -109,13 +107,21 @@ dependencies {
     implementation("jp.wasabeef:glide-transformations:4.3.0")
 
     implementation("com.mocharealm.accompanist:lyrics-core:0.4.2")
-    implementation("com.mocharealm.accompanist:lyrics-ui:1.0.10")
+    implementation("com.mocharealm.accompanist:lyrics-ui:1.0.12")
 
     implementation(files("libs/library-release.aar"))
     
     
     implementation "androidx.documentfile:documentfile:1.0.1"
     implementation 'androidx.core:core-splashscreen:1.0.1'
+    
+    
+    
+    
+    
+    implementation 'io.noties.markwon:core:4.6.2'
+
+
     
     
     

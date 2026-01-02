@@ -173,7 +173,6 @@ public class LyricsFetcher {
                 && !lyrics.startsWith("Error:");
     }
 
-    /** Update displayed lyrics format */
     public void displayFormat(String format) {
         if (currentLyricsResponse == null) {
             return;
@@ -187,6 +186,11 @@ public class LyricsFetcher {
             case "LRC":
                 lyricsToDisplay = currentLyricsResponse.lrc;
                 break;
+                // --- NEW CASE ADDED HERE ---
+            case "LRC Multi-Person":
+                lyricsToDisplay = currentLyricsResponse.lrcMultiPerson;
+                break;
+                // ---------------------------
             case "ELRC":
                 lyricsToDisplay = currentLyricsResponse.elrc;
                 break;

@@ -4,10 +4,17 @@ import org.json.JSONObject;
 
 public class Song {
     private String id, songName, artistName, albumName, artwork, releaseDate, duration, contentRating;
+    // New fields
+    private boolean hasLyrics;
+    private boolean hasTimeSyncedLyrics;
+    
     private int matchScore = 0;
-    private JSONObject fullTrackData; // Store complete track data from API
+    private JSONObject fullTrackData;
 
-    public Song(String id, String songName, String artistName, String albumName, String artwork, String releaseDate, String duration, String contentRating) {
+    // Updated Constructor
+    public Song(String id, String songName, String artistName, String albumName, String artwork, 
+                String releaseDate, String duration, String contentRating, 
+                boolean hasLyrics, boolean hasTimeSyncedLyrics) {
         this.id = id;
         this.songName = songName;
         this.artistName = artistName;
@@ -16,6 +23,8 @@ public class Song {
         this.releaseDate = releaseDate;
         this.duration = duration;
         this.contentRating = contentRating;
+        this.hasLyrics = hasLyrics;
+        this.hasTimeSyncedLyrics = hasTimeSyncedLyrics;
     }
 
     public String getId() { return id; }
@@ -28,6 +37,10 @@ public class Song {
     public String getContentRating() { return contentRating; }
     public int getMatchScore() { return matchScore; }
     public JSONObject getFullTrackData() { return fullTrackData; }
+    
+    // New Getters
+    public boolean hasLyrics() { return hasLyrics; }
+    public boolean hasTimeSyncedLyrics() { return hasTimeSyncedLyrics; }
 
     public void setMatchScore(int matchScore) {
         this.matchScore = Math.max(0, Math.min(100, matchScore));
@@ -129,7 +142,12 @@ public class Song {
     }
 
     private String formattedDuration() {
-        int durationMillis = Integer.parseInt(duration);
+        int durationMillis = 0;
+        try {
+            durationMillis = Integer.parseInt(duration);
+        } catch (NumberFormatException e) {
+            return "0:00";
+        }
         int totalSeconds = durationMillis / 1000;
 
         int hours = totalSeconds / 3600;

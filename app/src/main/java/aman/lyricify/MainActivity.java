@@ -27,6 +27,7 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.cardview.widget.CardView;
 import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.GravityCompat;
@@ -92,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        getDelegate().setLocalNightMode(AppCompatDelegate.MODE_NIGHT_YES);
         // 1. INSTALL SPLASH SCREEN
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
 
@@ -151,6 +153,8 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, YoulyPlayerActivity.class);
             startActivity(intent);
         });
+        
+        new UpdateManager(this).checkForUpdates();
     }
 
     @Override

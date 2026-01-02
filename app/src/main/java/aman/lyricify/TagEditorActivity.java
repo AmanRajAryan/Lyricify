@@ -18,6 +18,7 @@ import android.widget.*;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -112,6 +113,8 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getDelegate().setLocalNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+        
         setContentView(R.layout.activity_tag_editor);
         hideSystemUI();
 

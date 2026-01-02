@@ -2,6 +2,7 @@ package aman.lyricify;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,6 +31,9 @@ public class SongAdapter extends ArrayAdapter<Song> {
         ImageView arrowIcon = convertView.findViewById(R.id.arrowIcon);
         LinearLayout detailsLayout = convertView.findViewById(R.id.detailsLayout);
         TextView matchPercentageTextView = convertView.findViewById(R.id.matchPercentageTextView);
+        
+        // The Lyrics Status Badge
+        TextView lyricsStatusTextView = convertView.findViewById(R.id.lyricsStatusTextView);
 
         TextView albumNameTextView = convertView.findViewById(R.id.albumNameTextView);
         TextView releaseDateTextView = convertView.findViewById(R.id.releaseDateTextView);
@@ -50,6 +54,28 @@ public class SongAdapter extends ArrayAdapter<Song> {
             matchPercentageTextView.setText(matchScore + "%");
         } else {
             matchPercentageTextView.setVisibility(View.GONE);
+        }
+
+        // --- UPDATED LYRICS STATUS INDICATOR LOGIC ---
+        if (lyricsStatusTextView != null) {
+            lyricsStatusTextView.setVisibility(View.VISIBLE);
+
+            if (song.hasTimeSyncedLyrics()) {
+                // "SYNCED" - Confirms line sync, potentially word sync (ELRC)
+                lyricsStatusTextView.setText("SYNCED");
+                // Material Green 600 for high quality confidence
+                lyricsStatusTextView.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#43A047"))); 
+            } else if (song.hasLyrics()) {
+                // "LYRICS" - Confirms plain text only
+                lyricsStatusTextView.setText("LYRICS");
+                // Material Orange 800 for static content
+                lyricsStatusTextView.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EF6C00"))); 
+            } else {
+                // "NONE" - No lyrics data found
+                lyricsStatusTextView.setText("NONE");
+                // Material Red 700 for error/missing
+                lyricsStatusTextView.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#D32F2F"))); 
+            }
         }
 
         String artworkUrl = song.getArtwork().replace("{w}", "200").replace("{h}", "200").replace("{f}", "jpg");

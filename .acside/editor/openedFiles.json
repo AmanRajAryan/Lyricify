@@ -19,14 +19,14 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore",
       "selection": {
         "end": {
-          "column": 28,
-          "index": 575,
-          "line": 63
+          "column": 11,
+          "index": 97,
+          "line": 10
         },
         "start": {
-          "column": 0,
-          "index": 0,
-          "line": 0
+          "column": 11,
+          "index": 97,
+          "line": 10
         }
       }
     },
@@ -59,7 +59,37 @@
           "line": 9
         }
       }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Networking/LyricsRepository.java",
+      "selection": {
+        "end": {
+          "column": 28,
+          "index": 153,
+          "line": 6
+        },
+        "start": {
+          "column": 28,
+          "index": 153,
+          "line": 6
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/et --hard fc4640f",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/et --hard fc4640f"
 }

@@ -23,7 +23,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Sort Songs"
+                android:text="Sort &amp; Filter"
                 android:textColor="@color/text_primary"
                 android:textSize="20sp"
                 android:textStyle="bold"
@@ -110,6 +110,49 @@
                     android:textColor="@color/text_primary"
                     android:buttonTint="@color/primary_purple" />
             </RadioGroup>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#22FFFFFF"
+                android:layout_marginVertical="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Filter"
+                android:textColor="@color/primary_purple"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:paddingBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Hide songs with lyrics"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp" />
+
+                                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchHideLyricsFilter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textOn=""
+                    android:textOff=""
+                    app:showText="false"
+                    android:theme="@style/Theme.Material3.DayNight.NoActionBar"
+                    app:thumbTint="@color/switch_thumb_color"
+                    app:trackTint="@color/switch_track_color" />
+
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"

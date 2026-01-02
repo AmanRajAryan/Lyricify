@@ -36,6 +36,7 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.textfield.TextInputEditText;
 
@@ -46,6 +47,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.HashMap;
+
+import aman.taglib.TagLib; //
 
 public class MainActivity extends AppCompatActivity {
 
@@ -90,6 +94,10 @@ public class MainActivity extends AppCompatActivity {
     private static final String KEY_BLACKLIST = "blacklist_folders";
     private static final String KEY_SCAN_ALL = "scan_all_folders";
     private static final String KEY_BLACKLIST_ENABLED = "blacklist_enabled";
+    
+    // New Feature Keys
+    private static final String KEY_BOTTOM_UI = "bottom_ui_enabled";
+    private static final String KEY_HIDE_LYRICS = "hide_lyrics_enabled";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,43 +106,41 @@ public class MainActivity extends AppCompatActivity {
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
 
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        
+        // CHECK UI PREFERENCE
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean useBottomUi = prefs.getBoolean(KEY_BOTTOM_UI, false);
 
-        // 2. SETUP EXIT ANIMATION (With Crash Protection)
+        if (useBottomUi) {
+            setContentView(R.layout.activity_main_bottom);
+        } else {
+            setContentView(R.layout.activity_main);
+        }
+
+        // 2. SETUP EXIT ANIMATION
         splashScreen.setOnExitAnimationListener(splashScreenView -> {
             try {
-                // Use a local variable and check for null to prevent crashes
                 View iconView = splashScreenView.getIconView();
-                
-                // If icon is missing or null, just remove splash immediately
                 if (iconView == null) {
                     splashScreenView.remove();
                     return;
                 }
-
-                // Create a zoom out effect on the ICON
                 ObjectAnimator scaleX = ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 0f);
                 ObjectAnimator scaleY = ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 0f);
-                
-                // Fade out the entire splash VIEW (background)
                 ObjectAnimator alpha = ObjectAnimator.ofFloat(splashScreenView.getView(), View.ALPHA, 1f, 0f);
                 
-                // Combine animations
                 android.animation.AnimatorSet animatorSet = new android.animation.AnimatorSet();
                 animatorSet.playTogether(scaleX, scaleY, alpha);
                 animatorSet.setDuration(500); 
                 animatorSet.setInterpolator(new AnticipateInterpolator());
-                
                 animatorSet.addListener(new android.animation.AnimatorListenerAdapter() {
                     @Override
                     public void onAnimationEnd(android.animation.Animator animation) {
-                        splashScreenView.remove(); // Remove splash view when done
+                        splashScreenView.remove();
                     }
                 });
-                
                 animatorSet.start();
             } catch (Exception e) {
-                // Safely handle crash by removing splash
                 splashScreenView.remove();
             }
         });
@@ -161,13 +167,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         
-        // FIX: Always run checkPermissionAndOnboard() to handle Notification Permission
-        // even if Storage Permission is already granted.
         if (permissionManager.hasStoragePermission()) {
             loadLocalSongs();
         }
         
-        checkPermissionAndOnboard(); // <--- THIS WAS SKIPPED BEFORE, NOW IT'S CALLED.
+        checkPermissionAndOnboard(); 
 
         if (mediaSessionHandler.hasNotificationAccess()) {
             mediaSessionHandler.initialize();
@@ -268,23 +272,26 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void loadLocalSongs() {
+        private void loadLocalSongs() {
         if (!permissionManager.hasStoragePermission()) return;
         
+        // Only show loading if we don't have songs yet (prevents flickering on refresh)
         if (allLocalSongs.isEmpty()) songLoading.setVisibility(View.VISIBLE);
         
         new Thread(() -> {
+            // 1. FETCH ALL SONGS
             List<MediaStoreHelper.LocalSong> allDeviceSongs = MediaStoreHelper.getAllSongs(this);
             
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             boolean scanAll = prefs.getBoolean(KEY_SCAN_ALL, true);
             boolean blacklistEnabled = prefs.getBoolean(KEY_BLACKLIST_ENABLED, false);
+            boolean hideLyrics = prefs.getBoolean(KEY_HIDE_LYRICS, false);
             
             Set<String> whitelistPaths = prefs.getStringSet(KEY_FOLDERS, new HashSet<>());
             Set<String> blacklistPaths = prefs.getStringSet(KEY_BLACKLIST, new HashSet<>());
 
+            // 2. FILTER BY WHITELIST (Included Folders)
             List<MediaStoreHelper.LocalSong> pendingSongs = new ArrayList<>();
-
             if (scanAll) {
                 pendingSongs.addAll(allDeviceSongs);
             } else {
@@ -302,8 +309,8 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            List<MediaStoreHelper.LocalSong> finalFilteredList = new ArrayList<>();
-            
+            // 3. FILTER BY BLACKLIST (Excluded Folders)
+            List<MediaStoreHelper.LocalSong> folderFilteredList = new ArrayList<>();
             if (blacklistEnabled && !blacklistPaths.isEmpty()) {
                 for (MediaStoreHelper.LocalSong song : pendingSongs) {
                     boolean isBlacklisted = false;
@@ -316,13 +323,35 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                     if (!isBlacklisted) {
-                        finalFilteredList.add(song);
+                        folderFilteredList.add(song);
                     }
                 }
             } else {
-                finalFilteredList.addAll(pendingSongs);
+                folderFilteredList.addAll(pendingSongs);
             }
 
+            // 4. FILTER BY LYRICS (Cached Check)
+            List<MediaStoreHelper.LocalSong> finalFilteredList = new ArrayList<>();
+            if (hideLyrics) {
+                LyricsCacheManager cacheManager = LyricsCacheManager.getInstance(this);
+
+                for (MediaStoreHelper.LocalSong song : folderFilteredList) {
+                    // hasLyrics uses cache:
+                    // - If file date modified matches cache -> Returns instantly.
+                    // - If file changed -> Scans with TagLib and updates cache.
+                    if (!cacheManager.hasLyrics(song.filePath)) {
+                        finalFilteredList.add(song);
+                    }
+                }
+                
+                // Save the cache to disk so next run is fast
+                cacheManager.saveCache(this);
+                
+            } else {
+                finalFilteredList.addAll(folderFilteredList);
+            }
+
+            // 5. UPDATE UI
             runOnUiThread(() -> {
                 allLocalSongs.clear();
                 allLocalSongs.addAll(finalFilteredList);
@@ -332,6 +361,7 @@ public class MainActivity extends AppCompatActivity {
             });
         }).start();
     }
+
 
     private void filterLocalSongs(String query) {
         filteredLocalSongs.clear();
@@ -390,21 +420,54 @@ public class MainActivity extends AppCompatActivity {
             dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
 
+        // Views
         RadioGroup criteriaGroup = dialog.findViewById(R.id.sortCriteriaGroup);
         RadioGroup orderGroup = dialog.findViewById(R.id.sortOrderGroup);
+        MaterialSwitch switchHideLyrics = dialog.findViewById(R.id.switchHideLyricsFilter);
+        
         MaterialButton btnApply = dialog.findViewById(R.id.btnApplySort);
         MaterialButton btnCancel = dialog.findViewById(R.id.btnCancelSort);
 
+        // Load Defaults
         criteriaGroup.check(currentSortCriteria);
         orderGroup.check(currentSortOrder);
 
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean currentHideState = prefs.getBoolean(KEY_HIDE_LYRICS, false);
+        switchHideLyrics.setChecked(currentHideState);
+
         btnCancel.setOnClickListener(v -> dialog.dismiss());
         btnApply.setOnClickListener(v -> {
-            currentSortCriteria = criteriaGroup.getCheckedRadioButtonId();
-            currentSortOrder = orderGroup.getCheckedRadioButtonId();
+            // Get new Values
+            int newCriteria = criteriaGroup.getCheckedRadioButtonId();
+            int newOrder = orderGroup.getCheckedRadioButtonId();
+            boolean newHideState = switchHideLyrics.isChecked();
+
+            // Save Preferences
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putBoolean(KEY_HIDE_LYRICS, newHideState);
+            editor.apply(); // Key Hide Lyrics saved
+
+            // Update local vars
+            currentSortCriteria = newCriteria;
+            currentSortOrder = newOrder;
             saveSortPreferences();
-            applyCurrentSort();
-            filterLocalSongs(searchEditText.getText().toString());
+
+            // Logic: If filter changed, we MUST re-scan (loadLocalSongs). 
+            // If only sort changed, we just re-sort (applyCurrentSort).
+            if (newHideState != currentHideState) {
+                // Filter Changed -> Full Refresh
+                allLocalSongs.clear();
+                filteredLocalSongs.clear();
+                localAdapter.notifyDataSetChanged();
+                songLoading.setVisibility(View.VISIBLE);
+                loadLocalSongs();
+            } else {
+                // Only Sort Changed
+                applyCurrentSort();
+                filterLocalSongs(searchEditText.getText().toString());
+            }
+            
             dialog.dismiss();
         });
         dialog.show();

@@ -40,9 +40,12 @@ public class SettingsActivity extends AppCompatActivity {
     private static final String KEY_BLACKLIST = "blacklist_folders";
     private static final String KEY_SCAN_ALL = "scan_all_folders";
     private static final String KEY_BLACKLIST_ENABLED = "blacklist_enabled";
+    // New Keys
+    private static final String KEY_BOTTOM_UI = "bottom_ui_enabled";
+    private static final String KEY_HIDE_LYRICS = "hide_lyrics_enabled";
 
     private LinearLayout whitelistContainer, blacklistContainer;
-    private MaterialSwitch switchScanAll, switchBlacklist;
+    private MaterialSwitch switchScanAll, switchBlacklist, switchBottomUi, switchHideLyrics;
     
     private FolderAdapter whitelistAdapter, blacklistAdapter;
     private List<String> whitelistFolders, blacklistFolders;
@@ -65,6 +68,8 @@ public class SettingsActivity extends AppCompatActivity {
         
         switchScanAll = findViewById(R.id.switchScanAll);
         switchBlacklist = findViewById(R.id.switchBlacklist);
+        switchBottomUi = findViewById(R.id.switchBottomUi);
+        switchHideLyrics = findViewById(R.id.switchHideLyrics);
 
         RecyclerView whitelistRecycler = findViewById(R.id.whitelistRecyclerView);
         RecyclerView blacklistRecycler = findViewById(R.id.blacklistRecyclerView);
@@ -88,27 +93,37 @@ public class SettingsActivity extends AppCompatActivity {
         whitelistFolders = new ArrayList<>(prefs.getStringSet(KEY_WHITELIST, new HashSet<>()));
         blacklistFolders = new ArrayList<>(prefs.getStringSet(KEY_BLACKLIST, new HashSet<>()));
 
-        // Scan All defaults to TRUE
         boolean isScanAll = prefs.getBoolean(KEY_SCAN_ALL, true);
         boolean isBlacklist = prefs.getBoolean(KEY_BLACKLIST_ENABLED, false);
+        boolean isBottomUi = prefs.getBoolean(KEY_BOTTOM_UI, false);
+        boolean isHideLyrics = prefs.getBoolean(KEY_HIDE_LYRICS, false);
 
         Log.d(TAG, "loadSettings: ScanAll=" + isScanAll + ", BlacklistEnabled=" + isBlacklist);
 
         switchScanAll.setChecked(isScanAll);
         switchBlacklist.setChecked(isBlacklist);
+        switchBottomUi.setChecked(isBottomUi);
+        switchHideLyrics.setChecked(isHideLyrics);
     }
 
     private void setupListeners() {
         switchScanAll.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            Log.d(TAG, "ScanAll Switch Changed: " + isChecked);
             prefs.edit().putBoolean(KEY_SCAN_ALL, isChecked).apply();
             updateUiVisibility();
         });
 
         switchBlacklist.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            Log.d(TAG, "Blacklist Switch Changed: " + isChecked);
             prefs.edit().putBoolean(KEY_BLACKLIST_ENABLED, isChecked).apply();
             updateUiVisibility();
+        });
+
+        switchBottomUi.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            prefs.edit().putBoolean(KEY_BOTTOM_UI, isChecked).apply();
+            Toast.makeText(this, "Restart app to apply layout changes", Toast.LENGTH_SHORT).show();
+        });
+
+        switchHideLyrics.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            prefs.edit().putBoolean(KEY_HIDE_LYRICS, isChecked).apply();
         });
 
         findViewById(R.id.btnAddWhitelist).setOnClickListener(v -> openDirectoryPicker(REQUEST_CODE_WHITELIST));

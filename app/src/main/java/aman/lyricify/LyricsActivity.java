@@ -11,7 +11,6 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -510,17 +509,35 @@ public class LyricsActivity extends AppCompatActivity {
         }
 
         String fileName = embeddingManager.extractFileName(filePath);
-        String lrcFileName = fileName.substring(0, fileName.lastIndexOf('.')) + ".lrc";
+        String baseFileName = fileName.substring(0, fileName.lastIndexOf('.'));
+        
+        // Determine file extension based on current format
+        String extension;
+        switch (currentFormat) {
+            case "TTML":
+                extension = ".ttml";
+                break;
+            case "Plain":
+            case "LRC":
+            case "LRC Multi-Person":
+            case "ELRC":
+            case "ELRC Multi-Person":
+            default:
+                extension = ".lrc";
+                break;
+        }
+        
+        String outputFileName = baseFileName + extension;
 
         new AlertDialog.Builder(this)
-                .setTitle("Save LRC")
-                .setMessage("Save as: " + lrcFileName)
+                .setTitle("Save Lyrics")
+                .setMessage("Save as: " + outputFileName + "\nFormat: " + currentFormat)
                 .setPositiveButton(
                         "Save",
                         (d, w) -> {
                             showProgressDialog("Saving...", "Processing");
-                            embeddingManager.saveLrcFile(
-                                    filePath, lyricsFetcher.getCurrentLyrics());
+                            embeddingManager.saveLyricsFile(
+                                    filePath, lyricsFetcher.getCurrentLyrics(), extension);
                         })
                 .setNegativeButton("Cancel", null)
                 .show();

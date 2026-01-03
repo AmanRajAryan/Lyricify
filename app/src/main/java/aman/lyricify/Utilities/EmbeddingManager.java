@@ -50,7 +50,7 @@ public class EmbeddingManager {
             
             @Override
             public void onSuccess(String filePath) {
-                notifySuccess("LRC file saved: " + extractFileName(filePath));
+                notifySuccess("Lyrics file saved: " + extractFileName(filePath));
             }
             
             @Override
@@ -68,7 +68,7 @@ public class EmbeddingManager {
     }
     
     /**
-     * Save lyrics as .lrc file
+     * Save lyrics as .lrc file (backward compatibility)
      */
     public void saveLrcFile(String audioFilePath, String lyrics) {
         Context context = contextRef.get();
@@ -85,6 +85,26 @@ public class EmbeddingManager {
         }
         
         lrcSaver.saveLrcFile(audioFilePath, lyrics);
+    }
+    
+    /**
+     * Save lyrics file with specified extension (.lrc or .ttml)
+     */
+    public void saveLyricsFile(String audioFilePath, String lyrics, String extension) {
+        Context context = contextRef.get();
+        if (context == null) return;
+        
+        if (audioFilePath == null || audioFilePath.isEmpty()) {
+            Toast.makeText(context, "No audio file path available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        if (lyrics == null || lyrics.isEmpty()) {
+            Toast.makeText(context, "No lyrics to save", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        lrcSaver.saveLyricsFile(audioFilePath, lyrics, extension);
     }
     
     /**
@@ -202,7 +222,7 @@ public class EmbeddingManager {
     }
     
     /**
-     * Embed artwork into audio file
+     * Embed artwork into audio file (with Bitmap - converts to JPEG)
      */
     public void embedArtwork(String filePath, Bitmap artwork) {
         Context context = contextRef.get();
@@ -270,6 +290,122 @@ public class EmbeddingManager {
                 notifyError(e.getClass().getSimpleName() + ": " + e.getMessage());
             }
         }).start();
+    }
+    
+    /**
+     * Embed artwork with raw image data and automatic MIME type detection
+     * This preserves the original image format (JPEG, PNG, WebP, GIF, etc.)
+     */
+    public void embedArtworkWithBytes(String filePath, byte[] imageData, String imageUrl) {
+        Context context = contextRef.get();
+        if (context == null) return;
+        
+        if (!canEmbed(filePath)) return;
+        
+        if (imageData == null || imageData.length == 0) {
+            Toast.makeText(context, "No artwork data available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        new Thread(() -> {
+            File tempFile = null;
+            try {
+                File originalFile = new File(filePath);
+                
+                if (!originalFile.exists()) {
+                    notifyError("File not found");
+                    return;
+                }
+                long sourceSize = originalFile.length();
+                
+                // Detect MIME type from image data or URL
+                String mimeType = detectMimeType(imageData, imageUrl);
+                notifyProgress("Detected format: " + mimeType);
+                
+                notifyProgress("Copying to cache...");
+                tempFile = new File(
+                    context.getCacheDir(),
+                    "temp_" + System.currentTimeMillis() + "_" + originalFile.getName()
+                );
+                copyFile(originalFile, tempFile);
+                
+                // Validate Copy
+                if (tempFile.length() != sourceSize) {
+                    notifyError("Copy failed. Source: " + sourceSize + "b, Temp: " + tempFile.length() + "b");
+                    if(tempFile.exists()) tempFile.delete();
+                    return;
+                }
+
+                notifyProgress("Embedding artwork...");
+                TagLib tagLib = new TagLib();
+                boolean success = tagLib.setArtwork(
+                    tempFile.getAbsolutePath(),
+                    imageData,
+                    mimeType,
+                    "Cover (front)"
+                );
+                
+                if (!success) {
+                    if (tempFile.exists()) tempFile.delete();
+                    notifyError("TagLib failed to set artwork.");
+                    return;
+                }
+                
+                final File finalTempFile = tempFile;
+                saveFile(filePath, finalTempFile, "Artwork embedded successfully!");
+                
+            } catch (Exception e) {
+                if (tempFile != null && tempFile.exists()) {
+                    tempFile.delete();
+                }
+                notifyError(e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+        }).start();
+    }
+    
+    /**
+     * Detects MIME type from image bytes or URL
+     * Similar to TagLibTester logic
+     */
+    private String detectMimeType(byte[] imageData, String imageUrl) {
+        // First, try to detect from magic bytes (file signature)
+        if (imageData != null && imageData.length >= 12) {
+            // JPEG: FF D8 FF
+            if (imageData[0] == (byte) 0xFF && imageData[1] == (byte) 0xD8 && imageData[2] == (byte) 0xFF) {
+                return "image/jpeg";
+            }
+            // PNG: 89 50 4E 47
+            if (imageData[0] == (byte) 0x89 && imageData[1] == 0x50 && imageData[2] == 0x4E && imageData[3] == 0x47) {
+                return "image/png";
+            }
+            // GIF: 47 49 46
+            if (imageData[0] == 0x47 && imageData[1] == 0x49 && imageData[2] == 0x46) {
+                return "image/gif";
+            }
+            // WebP: RIFF....WEBP
+            if (imageData[0] == 0x52 && imageData[1] == 0x49 && imageData[2] == 0x46 && imageData[3] == 0x46 &&
+                imageData[8] == 0x57 && imageData[9] == 0x45 && imageData[10] == 0x42 && imageData[11] == 0x50) {
+                return "image/webp";
+            }
+        }
+        
+        // Fallback: detect from URL extension
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            String lowerUrl = imageUrl.toLowerCase();
+            if (lowerUrl.endsWith(".png") || lowerUrl.contains(".png?")) {
+                return "image/png";
+            } else if (lowerUrl.endsWith(".gif") || lowerUrl.contains(".gif?")) {
+                return "image/gif";
+            } else if (lowerUrl.endsWith(".webp") || lowerUrl.contains(".webp?")) {
+                return "image/webp";
+            } else if (lowerUrl.endsWith(".jpg") || lowerUrl.endsWith(".jpeg") || 
+                       lowerUrl.contains(".jpg?") || lowerUrl.contains(".jpeg?")) {
+                return "image/jpeg";
+            }
+        }
+        
+        // Default fallback
+        return "image/jpeg";
     }
     
     private void saveFile(String originalPath, File tempFile, String successMessage) {

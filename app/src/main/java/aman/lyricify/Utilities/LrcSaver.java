@@ -12,7 +12,7 @@ import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 
 /**
- * Handles saving lyrics as .lrc files - OPTIMIZED VERSION
+ * Handles saving lyrics as .lrc or .ttml files - OPTIMIZED VERSION
  */
 public class LrcSaver {
     
@@ -36,9 +36,19 @@ public class LrcSaver {
     }
     
     /**
-     * Save lyrics as .lrc file in the same folder as the audio file
+     * Save lyrics as .lrc file in the same folder as the audio file (backward compatibility)
      */
     public void saveLrcFile(String audioFilePath, String lyrics) {
+        saveLyricsFile(audioFilePath, lyrics, ".lrc");
+    }
+    
+    /**
+     * Save lyrics with specified extension in the same folder as the audio file
+     * @param audioFilePath Path to the audio file
+     * @param lyrics Lyrics content to save
+     * @param extension File extension (.lrc or .ttml)
+     */
+    public void saveLyricsFile(String audioFilePath, String lyrics, String extension) {
         Context context = contextRef.get();
         if (context == null) return;
         
@@ -60,16 +70,16 @@ public class LrcSaver {
                     return;
                 }
                 
-                // Generate .lrc filename
-                String lrcFileName = generateLrcFileName(audioFile.getName());
-                String lrcFilePath = audioFile.getParent() + "/" + lrcFileName;
+                // Generate filename with provided extension
+                String outputFileName = generateLyricsFileName(audioFile.getName(), extension);
+                String outputFilePath = audioFile.getParent() + "/" + outputFileName;
                 
-                notifyProgress("Creating .lrc file...");
+                notifyProgress("Creating " + extension + " file...");
                 
                 // Try to save using SAF
-                Uri lrcUri = getOrCreateLrcFileUri(lrcFilePath);
+                Uri outputUri = getOrCreateLyricsFileUri(outputFilePath, extension);
                 
-                if (lrcUri == null) {
+                if (outputUri == null) {
                     // Need permission
                     String folderPath = audioFile.getParent();
                     notifyNeedPermission(folderPath);
@@ -78,11 +88,11 @@ public class LrcSaver {
                 
                 // Write lyrics to file
                 notifyProgress("Writing lyrics...");
-                try (OutputStream os = context.getContentResolver().openOutputStream(lrcUri, "wt")) {
+                try (OutputStream os = context.getContentResolver().openOutputStream(outputUri, "wt")) {
                     if (os != null) {
                         os.write(lyrics.getBytes("UTF-8"));
                         os.flush();
-                        notifySuccess(lrcFilePath);
+                        notifySuccess(outputFilePath);
                     } else {
                         notifyError("Cannot open file for writing");
                     }
@@ -99,41 +109,43 @@ public class LrcSaver {
     }
     
     /**
-     * Generate .lrc filename from audio filename
-     * Example: song.mp3 -> song.lrc
+     * Generate lyrics filename from audio filename with specified extension
+     * Example: song.mp3 + ".lrc" -> song.lrc
+     * Example: song.mp3 + ".ttml" -> song.ttml
      */
-    private String generateLrcFileName(String audioFileName) {
+    private String generateLyricsFileName(String audioFileName, String extension) {
         int lastDot = audioFileName.lastIndexOf('.');
         if (lastDot > 0) {
-            return audioFileName.substring(0, lastDot) + ".lrc";
+            return audioFileName.substring(0, lastDot) + extension;
         }
-        return audioFileName + ".lrc";
+        return audioFileName + extension;
     }
     
     /**
-     * Get or create .lrc file URI using SAF - OPTIMIZED VERSION
+     * Get or create lyrics file URI using SAF - OPTIMIZED VERSION
+     * Tries direct URI construction first (fast), falls back to DocumentFile only if needed
      */
-    private Uri getOrCreateLrcFileUri(String lrcFilePath) {
+    private Uri getOrCreateLyricsFileUri(String lyricsFilePath, String extension) {
         Context context = contextRef.get();
         if (context == null) return null;
         
         try {
-            File lrcFile = new File(lrcFilePath);
-            String fileName = lrcFile.getName();
-            String folderPath = lrcFile.getParent();
+            File lyricsFile = new File(lyricsFilePath);
+            String fileName = lyricsFile.getName();
+            String folderPath = lyricsFile.getParent();
             
             if (folderPath == null) {
-                Log.e(TAG, "No parent folder for: " + lrcFilePath);
+                Log.e(TAG, "No parent folder for: " + lyricsFilePath);
                 return null;
             }
             
             Log.d(TAG, "========================================");
-            Log.d(TAG, "Creating LRC file: " + lrcFilePath);
+            Log.d(TAG, "Creating lyrics file: " + lyricsFilePath);
             
             // Determine storage ID
-            String storageId = extractStorageId(lrcFilePath);
+            String storageId = extractStorageId(lyricsFilePath);
             if (storageId == null) {
-                Log.e(TAG, "Cannot determine storage ID for: " + lrcFilePath);
+                Log.e(TAG, "Cannot determine storage ID for: " + lyricsFilePath);
                 return null;
             }
             Log.d(TAG, "Storage ID: " + storageId);
@@ -147,10 +159,17 @@ public class LrcSaver {
             
             Log.d(TAG, "Found " + permissions.size() + " persisted permissions");
             
+            // Determine mime type based on extension
+            String mimeType;
+            if (extension.equals(".ttml")) {
+                mimeType = "application/ttml+xml";
+            } else {
+                mimeType = "text/lrc";
+            }
+            
             // Find matching permission
             for (var permission : permissions) {
                 if (!permission.isWritePermission()) {
-                    Log.d(TAG, "Skipping read-only permission");
                     continue;
                 }
                 
@@ -165,9 +184,6 @@ public class LrcSaver {
                     continue;
                 }
                 
-                Log.d(TAG, "Tree storage ID: " + treeInfo.storageId);
-                Log.d(TAG, "Tree folder: " + treeInfo.folder);
-                
                 if (!treeInfo.storageId.equals(storageId)) {
                     Log.d(TAG, "Wrong storage, skipping");
                     continue;
@@ -180,27 +196,37 @@ public class LrcSaver {
                 
                 Log.d(TAG, "✓ Permission matches!");
                 
-                // OPTIMIZATION 1: Try direct URI construction first (works if file exists)
+                // STEP 1: Try direct URI construction (works if file exists)
                 Log.d(TAG, "Attempting direct URI construction...");
-                Uri documentUri = buildDocumentUri(treeUri, lrcFilePath, treeInfo, storageId);
-                if (documentUri != null) {
-                    Log.d(TAG, "Built document URI: " + documentUri);
+                Uri directUri = buildDocumentUri(treeUri, lyricsFilePath, treeInfo, storageId);
+                if (directUri != null) {
+                    Log.d(TAG, "Built direct URI: " + directUri);
                     try {
-                        // Try to open for writing - if it works, file exists
-                        OutputStream test = context.getContentResolver().openOutputStream(documentUri);
+                        OutputStream test = context.getContentResolver().openOutputStream(directUri, "w");
                         if (test != null) {
                             test.close();
-                            Log.d(TAG, "✓✓✓ Direct URI works! File exists, returning URI");
+                            Log.d(TAG, "✓✓✓ Direct URI works! Returning it");
                             Log.d(TAG, "========================================");
-                            return documentUri;
+                            return directUri;
                         }
                     } catch (Exception e) {
-                        Log.d(TAG, "File doesn't exist yet: " + e.getMessage());
+                        Log.d(TAG, "Direct URI failed (file doesn't exist): " + e.getMessage());
                     }
                 }
                 
-                // OPTIMIZATION 2: Use DocumentFile navigation only for creating new files
-                Log.d(TAG, "Using DocumentFile to create new file...");
+                // STEP 2: File doesn't exist, need to create it
+                // Use createDocument API directly (faster than DocumentFile)
+                Log.d(TAG, "Creating new file using createDocument...");
+                Uri createdUri = createDocumentDirect(context, treeUri, folderPath, fileName, mimeType, treeInfo, storageId);
+                if (createdUri != null) {
+                    Log.d(TAG, "✓✓✓ File created successfully!");
+                    Log.d(TAG, "========================================");
+                    return createdUri;
+                }
+                
+                Log.d(TAG, "createDocument failed, falling back to DocumentFile...");
+                
+                // STEP 3: Last resort - use DocumentFile (slow but reliable)
                 DocumentFile tree = DocumentFile.fromTreeUri(context, treeUri);
                 if (tree == null) {
                     Log.d(TAG, "Failed to get tree DocumentFile");
@@ -213,25 +239,20 @@ public class LrcSaver {
                     continue;
                 }
                 
-                Log.d(TAG, "Navigated to folder successfully");
-                
-                // Check if file already exists (one findFile call)
-                DocumentFile existingLrc = folder.findFile(fileName);
-                if (existingLrc != null) {
-                    Log.d(TAG, "✓✓✓ File already exists via findFile");
+                // Check if file exists
+                DocumentFile existingFile = folder.findFile(fileName);
+                if (existingFile != null) {
+                    Log.d(TAG, "✓✓✓ File found via DocumentFile");
                     Log.d(TAG, "========================================");
-                    return existingLrc.getUri();
+                    return existingFile.getUri();
                 }
                 
                 // Create new file
-                Log.d(TAG, "Creating new .lrc file...");
-                DocumentFile newLrc = folder.createFile("text/lrc", fileName);
-                if (newLrc != null) {
-                    Log.d(TAG, "✓✓✓ Successfully created new .lrc file!");
+                DocumentFile newFile = folder.createFile(mimeType, fileName);
+                if (newFile != null) {
+                    Log.d(TAG, "✓✓✓ File created via DocumentFile");
                     Log.d(TAG, "========================================");
-                    return newLrc.getUri();
-                } else {
-                    Log.d(TAG, "Failed to create file");
+                    return newFile.getUri();
                 }
             }
             
@@ -239,13 +260,65 @@ public class LrcSaver {
             Log.d(TAG, "========================================");
             
         } catch (Exception e) {
-            Log.e(TAG, "Error in getOrCreateLrcFileUri", e);
+            Log.e(TAG, "Error in getOrCreateLyricsFileUri", e);
         }
         return null;
     }
     
     /**
-     * Build document URI directly (fast path for existing files)
+     * Create document directly using DocumentsContract (faster than DocumentFile)
+     */
+    private Uri createDocumentDirect(Context context, Uri treeUri, String folderPath, 
+                                     String fileName, String mimeType, TreeInfo treeInfo, String storageId) {
+        try {
+            // Build parent folder document ID
+            String treeDocId = DocumentsContract.getTreeDocumentId(treeUri);
+            String storagePath = storageId.equals("primary") ? 
+                    "/storage/emulated/0/" : 
+                    "/storage/" + storageId + "/";
+            
+            String treeFolderAbsolute;
+            if (treeInfo.folder.isEmpty()) {
+                treeFolderAbsolute = storagePath.substring(0, storagePath.length() - 1);
+            } else {
+                treeFolderAbsolute = storagePath + treeInfo.folder;
+            }
+            
+            String parentDocumentId;
+            if (folderPath.equals(treeFolderAbsolute)) {
+                parentDocumentId = treeDocId;
+            } else if (folderPath.startsWith(treeFolderAbsolute + "/")) {
+                String relativePath = folderPath.substring((treeFolderAbsolute + "/").length());
+                if (treeDocId.endsWith(":")) {
+                    parentDocumentId = treeDocId + relativePath;
+                } else {
+                    parentDocumentId = treeDocId + "/" + relativePath;
+                }
+            } else {
+                return null;
+            }
+            
+            Log.d(TAG, "Parent document ID: " + parentDocumentId);
+            Uri parentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, parentDocumentId);
+            
+            // Try to create document directly
+            Uri createdUri = DocumentsContract.createDocument(
+                context.getContentResolver(),
+                parentUri,
+                mimeType,
+                fileName
+            );
+            
+            return createdUri;
+            
+        } catch (Exception e) {
+            Log.d(TAG, "createDocument exception: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Build document URI directly (for existing files)
      */
     private Uri buildDocumentUri(Uri treeUri, String filePath, TreeInfo treeInfo, String storageId) {
         try {
@@ -254,7 +327,6 @@ public class LrcSaver {
             String fileParentPath = file.getParent();
             
             String treeDocId = DocumentsContract.getTreeDocumentId(treeUri);
-            Log.d(TAG, "Tree document ID: " + treeDocId);
             
             String storagePath = storageId.equals("primary") ? 
                     "/storage/emulated/0/" : 
@@ -267,24 +339,16 @@ public class LrcSaver {
                 treeFolderAbsolute = storagePath + treeInfo.folder;
             }
             
-            Log.d(TAG, "Tree folder absolute: " + treeFolderAbsolute);
-            Log.d(TAG, "File parent path: " + fileParentPath);
-            
             String relativePath = "";
             
             if (fileParentPath.equals(treeFolderAbsolute)) {
                 relativePath = fileName;
-                Log.d(TAG, "File is in granted folder directly");
             } else if (fileParentPath.startsWith(treeFolderAbsolute + "/")) {
                 String subPath = fileParentPath.substring((treeFolderAbsolute + "/").length());
                 relativePath = subPath + "/" + fileName;
-                Log.d(TAG, "File is in subfolder: " + subPath);
             } else {
-                Log.d(TAG, "File path doesn't match tree structure");
                 return null;
             }
-            
-            Log.d(TAG, "Relative path: " + relativePath);
             
             String documentId;
             if (treeDocId.endsWith(":") && !relativePath.isEmpty()) {
@@ -295,8 +359,6 @@ public class LrcSaver {
                 documentId = treeDocId + "/" + relativePath;
             }
             
-            Log.d(TAG, "Final document ID: " + documentId);
-            
             return DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId);
             
         } catch (Exception e) {
@@ -306,7 +368,7 @@ public class LrcSaver {
     }
     
     /**
-     * Navigate to folder within tree (folder must already exist)
+     * Navigate to folder within tree (only used as last resort)
      */
     private DocumentFile navigateToFolder(DocumentFile tree, String targetPath, 
                                          TreeInfo treeInfo, String storageId) {
@@ -320,12 +382,10 @@ public class LrcSaver {
             treeFolderAbsolute = storagePath + treeInfo.folder;
         }
         
-        // If target is the tree folder, return tree
         if (targetPath.equals(treeFolderAbsolute)) {
             return tree;
         }
         
-        // Navigate to subfolder (must already exist since song file is there)
         if (targetPath.startsWith(treeFolderAbsolute + "/")) {
             String relativePath = targetPath.substring((treeFolderAbsolute + "/").length());
             String[] parts = relativePath.split("/");
@@ -334,8 +394,6 @@ public class LrcSaver {
             for (String part : parts) {
                 DocumentFile next = current.findFile(part);
                 if (next == null || !next.isDirectory()) {
-                    // Folder doesn't exist - this shouldn't happen since song file is there
-                    Log.e(TAG, "Folder doesn't exist: " + part);
                     return null;
                 }
                 current = next;

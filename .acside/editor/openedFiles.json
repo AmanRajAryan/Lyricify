@@ -1,0 +1,95 @@
+{
+  "allFiles": [
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/LyricsActivity.java",
+      "selection": {
+        "end": {
+          "column": 59,
+          "index": 21292,
+          "line": 538
+        },
+        "start": {
+          "column": 45,
+          "index": 21278,
+          "line": 538
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Utilities/LrcSaver.java",
+      "selection": {
+        "end": {
+          "column": 1,
+          "index": 18739,
+          "line": 491
+        },
+        "start": {
+          "column": 1,
+          "index": 18739,
+          "line": 491
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Utilities/EmbeddingManager.java",
+      "selection": {
+        "end": {
+          "column": 1,
+          "index": 17286,
+          "line": 477
+        },
+        "start": {
+          "column": 1,
+          "index": 17286,
+          "line": 477
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/TagEditorActivity.java",
+      "selection": {
+        "end": {
+          "column": 1,
+          "index": 55675,
+          "line": 1333
+        },
+        "start": {
+          "column": 1,
+          "index": 55675,
+          "line": 1333
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/TagEditorUtils/TagEditorDataManager.java",
+      "selection": {
+        "end": {
+          "column": 1,
+          "index": 31538,
+          "line": 614
+        },
+        "start": {
+          "column": 1,
+          "index": 31538,
+          "line": 614
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Utilities/MetadataManager.java",
+      "selection": {
+        "end": {
+          "column": 1,
+          "index": 8936,
+          "line": 232
+        },
+        "start": {
+          "column": 1,
+          "index": 8936,
+          "line": 232
+        }
+      }
+    }
+  ],
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/TagEditorUtils/TagEditorDataManager.java"
+}

@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,6 +24,10 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -30,6 +35,7 @@ import com.google.android.material.floatingactionbutton.ExtendedFloatingActionBu
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import aman.taglib.TagLib;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -44,8 +50,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     private LinearLayout artworkDimensionsContainer;
     private TextView artworkDimensionsText;
 
-    // future aman : Use a flag to prevent infinite loops when updating width/height
-    // programmatically
     private boolean isAutoUpdating = false;
 
     private TextView fileNameText;
@@ -56,13 +60,11 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     private TextInputEditText composerEditText, songwriterEditText;
     private TextInputEditText commentEditText;
 
-    // Lyrics Fields
     private TextInputEditText unsyncedLyricsEditText,
             lrcEditText,
             elrcEditText,
             lyricsMultiEditText;
 
-    // SWAPPER UI
     private LinearLayout formatSwapperContainer;
     private TextView labelElrc, labelTtml;
     private LinearLayout lyricsHeader, lyricsContainer;
@@ -85,17 +87,23 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     // Logic & Data vars
     private String filePath;
     private TagLib tagLib;
+    
+    // NEW: Store both Bitmap and raw bytes for animated images
     private Bitmap selectedArtwork;
+    private byte[] selectedArtworkBytes; // For GIF/WebP preservation
+    private String selectedArtworkMimeType; // Track the actual format
+    
     private Bitmap originalArtwork;
+    private byte[] originalArtworkBytes;
+    private String originalArtworkMimeType;
+    
     private boolean artworkChanged = false;
     private HashMap<String, String> originalMetadata;
 
-    // Intent Data
     private String intentTitle, intentArtist, intentAlbum, intentArtworkUrl, intentSongId;
     private ApiClient.LyricsResponse cachedMetadata;
     private static final String WAITING_MESSAGE = "No cached metadata available, waiting!";
 
-    // --- NEW: State Flag ---
     private boolean hasAppliedMetadata = false;
 
     private List<CustomField> customFields = new ArrayList<>();
@@ -131,7 +139,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         loadCurrentTags();
         setupListeners();
 
-        // Register for cache only if we have an ID (Lyrics Mode)
         if (intentSongId != null || cachedMetadata != null) {
             ApiClient.registerCacheListener(this);
         }
@@ -151,16 +158,15 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
     @Override
     public void onCacheUpdated(ApiClient.LyricsResponse response) {
-        runOnUiThread(
-                () -> {
-                    this.cachedMetadata = response;
-                    if (loadingOverlay.getVisibility() == View.VISIBLE
-                            && loadingText.getText().toString().equals(WAITING_MESSAGE)) {
-                        populateFieldsFromCachedData();
-                        if (intentArtworkUrl == null) hideLoading();
-                        Toast.makeText(this, "Metadata received!", Toast.LENGTH_SHORT).show();
-                    }
-                });
+        runOnUiThread(() -> {
+            this.cachedMetadata = response;
+            if (loadingOverlay.getVisibility() == View.VISIBLE
+                    && loadingText.getText().toString().equals(WAITING_MESSAGE)) {
+                populateFieldsFromCachedData();
+                if (intentArtworkUrl == null) hideLoading();
+                Toast.makeText(this, "Metadata received!", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void initializeViews() {
@@ -221,50 +227,42 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
             getSupportActionBar().setDisplayShowHomeEnabled(true);
         }
         toolbar.setNavigationOnClickListener(v -> onBackPressed());
-        toolbar.setOnMenuItemClickListener(
-                item -> {
-                    if (item.getItemId() == R.id.action_save) {
-                        saveTags();
-                        return true;
-                    }
-                    return false;
-                });
+        toolbar.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.id.action_save) {
+                saveTags();
+                return true;
+            }
+            return false;
+        });
     }
 
     private void setupImagePickerLauncher() {
-        imagePickerLauncher =
-                registerForActivityResult(
-                        new ActivityResultContracts.StartActivityForResult(),
-                        result -> {
-                            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                                Uri imageUri = result.getData().getData();
-                                if (imageUri != null) loadArtworkFromUri(imageUri);
-                            }
-                        });
+        imagePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        Uri imageUri = result.getData().getData();
+                        if (imageUri != null) loadArtworkFromUri(imageUri);
+                    }
+                });
     }
 
     private void setupDirectoryPickerLauncher() {
-        directoryPickerLauncher =
-                registerForActivityResult(
-                        new ActivityResultContracts.StartActivityForResult(),
-                        result -> {
-                            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
-                                Uri treeUri = result.getData().getData();
-                                if (treeUri != null) {
-                                    getContentResolver()
-                                            .takePersistableUriPermission(
-                                                    treeUri,
-                                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                                            | Intent
-                                                                    .FLAG_GRANT_WRITE_URI_PERMISSION);
-                                    Toast.makeText(
-                                                    this,
-                                                    "✓ Access granted! Try saving again.",
-                                                    Toast.LENGTH_LONG)
-                                            .show();
-                                }
-                            }
-                        });
+        directoryPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        Uri treeUri = result.getData().getData();
+                        if (treeUri != null) {
+                            getContentResolver().takePersistableUriPermission(
+                                    treeUri,
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                            | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                            Toast.makeText(this, "✓ Access granted! Try saving again.", 
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
     }
 
     public void openDirectoryPicker(String folderPath) {
@@ -282,8 +280,8 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         intentArtworkUrl = getIntent().getStringExtra("ARTWORK_URL");
         intentSongId = getIntent().getStringExtra("SONG_ID");
         if (getIntent().hasExtra("CACHED_METADATA")) {
-            cachedMetadata =
-                    (ApiClient.LyricsResponse) getIntent().getSerializableExtra("CACHED_METADATA");
+            cachedMetadata = (ApiClient.LyricsResponse) 
+                    getIntent().getSerializableExtra("CACHED_METADATA");
         }
         if (filePath != null) fileNameText.setText(new File(filePath).getName());
     }
@@ -298,6 +296,15 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                 (metadata, artwork) -> {
                     this.originalMetadata = metadata;
                     this.originalArtwork = artwork;
+                    
+                    // NEW: Store original artwork as bytes with MIME type
+                    if (artwork != null) {
+                        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                        artwork.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                        this.originalArtworkBytes = stream.toByteArray();
+                        this.originalArtworkMimeType = detectMimeTypeFromBitmap(artwork);
+                    }
+                    
                     updateArtworkDimensionsBadge();
 
                     Map<String, String> normalized = new HashMap<>();
@@ -328,52 +335,39 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         changeArtworkButton.setOnClickListener(v -> selectArtwork());
         resetArtworkButton.setOnClickListener(v -> resetArtwork());
 
-        // --- UPDATED LOGIC: First time apply directly, then show conflict dialog ---
-        fetchFromApiButton.setOnClickListener(
-                v -> {
-                    if (cachedMetadata != null) {
-                        if (!hasAppliedMetadata) {
-                            // First time? Just apply it!
-                            populateFieldsFromCachedData();
-                            Toast.makeText(this, "Cached metadata applied!", Toast.LENGTH_SHORT)
-                                    .show();
-                        } else {
-                            // Already applied? Ask user what to do.
-                            showMetadataConflictDialog();
-                        }
-                    } else if (intentSongId != null) {
-                        // Waiting for data (Lyrics Mode)
-                        showLoading(WAITING_MESSAGE);
-                        Toast.makeText(this, WAITING_MESSAGE, Toast.LENGTH_LONG).show();
-                    } else {
-                        // No data, No ID (Manual Mode) -> Search
-                        showIdentifySongDialog();
-                    }
-                });
+        fetchFromApiButton.setOnClickListener(v -> {
+            if (cachedMetadata != null) {
+                if (!hasAppliedMetadata) {
+                    populateFieldsFromCachedData();
+                    Toast.makeText(this, "Cached metadata applied!", Toast.LENGTH_SHORT).show();
+                } else {
+                    showMetadataConflictDialog();
+                }
+            } else if (intentSongId != null) {
+                showLoading(WAITING_MESSAGE);
+                Toast.makeText(this, WAITING_MESSAGE, Toast.LENGTH_LONG).show();
+            } else {
+                showIdentifySongDialog();
+            }
+        });
 
         restoreTagsButton.setOnClickListener(v -> showRestoreConfirmation());
-        addFieldButton.setOnClickListener(
-                v ->
-                        uiManager.showAddCustomFieldDialog(
-                                customFields, this::updateRestoreButtonState));
+        addFieldButton.setOnClickListener(v -> 
+                uiManager.showAddCustomFieldDialog(customFields, this::updateRestoreButtonState));
         extendedTagsHeader.setOnClickListener(v -> toggleExtendedTags());
         lyricsHeader.setOnClickListener(v -> toggleLyrics());
         formatSwapperContainer.setOnClickListener(v -> toggleLyricsMode());
 
-        TextWatcher changeWatcher =
-                new TextWatcher() {
-                    @Override
-                    public void beforeTextChanged(
-                            CharSequence s, int start, int count, int after) {}
-
-                    @Override
-                    public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
-                    @Override
-                    public void afterTextChanged(Editable s) {
-                        updateRestoreButtonState();
-                    }
-                };
+        TextWatcher changeWatcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override
+            public void afterTextChanged(Editable s) {
+                updateRestoreButtonState();
+            }
+        };
 
         artworkDimensionsContainer.setOnClickListener(v -> showArtworkOptionsDialog());
 
@@ -398,14 +392,12 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     }
 
     private void updateArtworkDimensionsBadge() {
-        if (selectedArtwork != null) {
+        Bitmap displayBitmap = selectedArtwork != null ? selectedArtwork : 
+                (!artworkChanged ? originalArtwork : null);
+        
+        if (displayBitmap != null) {
             artworkDimensionsContainer.setVisibility(View.VISIBLE);
-            String dimen = selectedArtwork.getWidth() + " x " + selectedArtwork.getHeight();
-            artworkDimensionsText.setText(dimen);
-        } else if (originalArtwork != null && !artworkChanged) {
-            // Fallback to original if not changed
-            artworkDimensionsContainer.setVisibility(View.VISIBLE);
-            String dimen = originalArtwork.getWidth() + " x " + originalArtwork.getHeight();
+            String dimen = displayBitmap.getWidth() + " x " + displayBitmap.getHeight();
             artworkDimensionsText.setText(dimen);
         } else {
             artworkDimensionsContainer.setVisibility(View.GONE);
@@ -416,18 +408,13 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Metadata Available")
                 .setMessage("Cached metadata is available. What would you like to do?")
-                .setPositiveButton(
-                        "Apply Cached Data",
-                        (dialog, which) -> {
-                            populateFieldsFromCachedData();
-                            Toast.makeText(this, "Cached metadata applied!", Toast.LENGTH_SHORT)
-                                    .show();
-                        })
-                .setNegativeButton(
-                        "Search Again",
-                        (dialog, which) -> {
-                            showIdentifySongDialog();
-                        })
+                .setPositiveButton("Apply Cached Data", (dialog, which) -> {
+                    populateFieldsFromCachedData();
+                    Toast.makeText(this, "Cached metadata applied!", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Search Again", (dialog, which) -> {
+                    showIdentifySongDialog();
+                })
                 .setNeutralButton("Dismiss", (dialog, which) -> dialog.dismiss())
                 .show();
     }
@@ -436,16 +423,14 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         String currentTitle = titleEditText.getText().toString();
         String currentArtist = artistEditText.getText().toString();
 
-        MediaStoreHelper.LocalSong tempSong =
-                new MediaStoreHelper.LocalSong(
-                        null, filePath, currentTitle, currentArtist, "", -1, 0, 0);
+        MediaStoreHelper.LocalSong tempSong = new MediaStoreHelper.LocalSong(
+                null, filePath, currentTitle, currentArtist, "", -1, 0, 0);
 
         IdentifySongDialog dialog = new IdentifySongDialog(this, tempSong, originalArtwork);
         dialog.setHideManualButton(true);
-        dialog.setOnSongSelectedListener(
-                song -> {
-                    fetchFullMetadataForSong(song);
-                });
+        dialog.setOnSongSelectedListener(song -> {
+            fetchFullMetadataForSong(song);
+        });
         dialog.show();
     }
 
@@ -458,29 +443,24 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         this.intentArtworkUrl = song.getArtwork();
         this.intentSongId = song.getId();
 
-        ApiClient.getLyrics(
-                song.getId(),
-                new ApiClient.LyricsCallback() {
-                    @Override
-                    public void onSuccess(ApiClient.LyricsResponse lyricsResponse) {
-                        cachedMetadata = lyricsResponse;
-                        runOnUiThread(
-                                () -> {
-                                    populateFieldsFromCachedData();
-                                    hideLoading();
-                                });
-                    }
-
-                    @Override
-                    public void onFailure(String error) {
-                        runOnUiThread(
-                                () -> {
-                                    hideLoading();
-                                    showErrorDialog(
-                                            "Fetch Error", "Could not get details: " + error);
-                                });
-                    }
+        ApiClient.getLyrics(song.getId(), new ApiClient.LyricsCallback() {
+            @Override
+            public void onSuccess(ApiClient.LyricsResponse lyricsResponse) {
+                cachedMetadata = lyricsResponse;
+                runOnUiThread(() -> {
+                    populateFieldsFromCachedData();
+                    hideLoading();
                 });
+            }
+
+            @Override
+            public void onFailure(String error) {
+                runOnUiThread(() -> {
+                    hideLoading();
+                    showErrorDialog("Fetch Error", "Could not get details: " + error);
+                });
+            }
+        });
     }
 
     private void toggleLyricsMode() {
@@ -492,7 +472,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         }
 
         isTtmlMode = !isTtmlMode;
-
         updateSwapperUI();
     }
 
@@ -537,33 +516,15 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         }
 
         String currentVisibleText = lyricsMultiEditText.getText().toString();
-        // Check for changes in Lyrics
         boolean lyricsChanged = !currentVisibleText.equals(originalLyricsTagContent);
 
-        // Check for changes in Standard Fields
-        boolean otherFieldsChanged =
-                dataManager.hasUnsavedChanges(
-                        originalMetadata,
-                        artworkChanged,
-                        customFields,
-                        titleEditText,
-                        artistEditText,
-                        albumEditText,
-                        albumArtistEditText,
-                        genreEditText,
-                        yearEditText,
-                        trackNumberEditText,
-                        discNumberEditText,
-                        composerEditText,
-                        songwriterEditText,
-                        commentEditText,
-                        releaseDateEditText,
-                        audioLocaleEditText,
-                        languageEditText,
-                        unsyncedLyricsEditText,
-                        lrcEditText,
-                        elrcEditText,
-                        lyricsMultiEditText);
+        boolean otherFieldsChanged = dataManager.hasUnsavedChanges(
+                originalMetadata, artworkChanged, customFields,
+                titleEditText, artistEditText, albumEditText, albumArtistEditText,
+                genreEditText, yearEditText, trackNumberEditText, discNumberEditText,
+                composerEditText, songwriterEditText, commentEditText,
+                releaseDateEditText, audioLocaleEditText, languageEditText,
+                unsyncedLyricsEditText, lrcEditText, elrcEditText, lyricsMultiEditText);
 
         restoreTagsButton.setEnabled(lyricsChanged || otherFieldsChanged);
     }
@@ -578,39 +539,22 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     }
 
     public void showErrorDialog(String title, String message) {
-        runOnUiThread(
-                () ->
-                        new MaterialAlertDialogBuilder(this)
-                                .setTitle(title)
-                                .setMessage(message)
-                                .setPositiveButton("OK", null)
-                                .show());
+        runOnUiThread(() ->
+                new MaterialAlertDialogBuilder(this)
+                        .setTitle(title)
+                        .setMessage(message)
+                        .setPositiveButton("OK", null)
+                        .show());
     }
 
     private void restoreOriginalTags() {
         dataManager.restoreOriginalTags(
-                originalMetadata,
-                customFields,
-                extendedTagsContainer,
-                tagFieldsContainer,
-                titleEditText,
-                artistEditText,
-                albumEditText,
-                albumArtistEditText,
-                genreEditText,
-                yearEditText,
-                trackNumberEditText,
-                discNumberEditText,
-                composerEditText,
-                songwriterEditText,
-                commentEditText,
-                releaseDateEditText,
-                audioLocaleEditText,
-                languageEditText,
-                unsyncedLyricsEditText,
-                lrcEditText,
-                elrcEditText,
-                lyricsMultiEditText);
+                originalMetadata, customFields, extendedTagsContainer, tagFieldsContainer,
+                titleEditText, artistEditText, albumEditText, albumArtistEditText,
+                genreEditText, yearEditText, trackNumberEditText, discNumberEditText,
+                composerEditText, songwriterEditText, commentEditText,
+                releaseDateEditText, audioLocaleEditText, languageEditText,
+                unsyncedLyricsEditText, lrcEditText, elrcEditText, lyricsMultiEditText);
 
         if (originalLyricsTagContent.trim().startsWith("<")) {
             isTtmlMode = true;
@@ -623,7 +567,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         }
 
         updateSwapperUI();
-
         resetArtwork();
         restoreTagsButton.setEnabled(false);
         Toast.makeText(this, "Restored to original", Toast.LENGTH_SHORT).show();
@@ -631,151 +574,280 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
     private void populateFieldsFromCachedData() {
         showLoading("Applying cached metadata...");
-        runOnUiThread(
-                () -> {
-                    // --- NEW: Mark as applied ---
-                    hasAppliedMetadata = true;
+        runOnUiThread(() -> {
+            hasAppliedMetadata = true;
 
-                    if (titleEditText.getText().toString().isEmpty())
-                        titleEditText.setText(intentTitle);
-                    if (artistEditText.getText().toString().isEmpty())
-                        artistEditText.setText(intentArtist);
-                    if (albumEditText.getText().toString().isEmpty() && intentAlbum != null)
-                        albumEditText.setText(intentAlbum);
+            if (titleEditText.getText().toString().isEmpty())
+                titleEditText.setText(intentTitle);
+            if (artistEditText.getText().toString().isEmpty())
+                artistEditText.setText(intentArtist);
+            if (albumEditText.getText().toString().isEmpty() && intentAlbum != null)
+                albumEditText.setText(intentAlbum);
 
-                    if (cachedMetadata != null) {
-                        if (cachedMetadata.genreNames != null
-                                && !cachedMetadata.genreNames.isEmpty())
-                            genreEditText.setText(String.join(", ", cachedMetadata.genreNames));
-                        else if (cachedMetadata.genre != null)
-                            genreEditText.setText(cachedMetadata.genre);
+            if (cachedMetadata != null) {
+                if (cachedMetadata.genreNames != null && !cachedMetadata.genreNames.isEmpty())
+                    genreEditText.setText(String.join(", ", cachedMetadata.genreNames));
+                else if (cachedMetadata.genre != null)
+                    genreEditText.setText(cachedMetadata.genre);
 
-                        if (cachedMetadata.audioLocale != null)
-                            audioLocaleEditText.setText(cachedMetadata.audioLocale);
-                        if (cachedMetadata.releaseDate != null)
-                            releaseDateEditText.setText(cachedMetadata.releaseDate);
-                        if (cachedMetadata.trackNumber != null)
-                            trackNumberEditText.setText(cachedMetadata.trackNumber);
-                        if (cachedMetadata.discNumber != null)
-                            discNumberEditText.setText(cachedMetadata.discNumber);
-                        if (cachedMetadata.composerName != null)
-                            composerEditText.setText(cachedMetadata.composerName);
-                        if (cachedMetadata.songwriters != null)
-                            songwriterEditText.setText(
-                                    String.join(", ", cachedMetadata.songwriters));
+                if (cachedMetadata.audioLocale != null)
+                    audioLocaleEditText.setText(cachedMetadata.audioLocale);
+                if (cachedMetadata.releaseDate != null)
+                    releaseDateEditText.setText(cachedMetadata.releaseDate);
+                if (cachedMetadata.trackNumber != null)
+                    trackNumberEditText.setText(cachedMetadata.trackNumber);
+                if (cachedMetadata.discNumber != null)
+                    discNumberEditText.setText(cachedMetadata.discNumber);
+                if (cachedMetadata.composerName != null)
+                    composerEditText.setText(cachedMetadata.composerName);
+                if (cachedMetadata.songwriters != null)
+                    songwriterEditText.setText(String.join(", ", cachedMetadata.songwriters));
 
-                        if (cachedMetadata.contentRating != null)
-                            uiManager.addOrUpdateCustomField(
-                                    "CONTENTRATING",
-                                    cachedMetadata.contentRating,
-                                    customFields,
-                                    extendedTagsContainer,
-                                    this::updateRestoreButtonState);
-                        if (cachedMetadata.isrc != null)
-                            uiManager.addOrUpdateCustomField(
-                                    "ISRC",
-                                    cachedMetadata.isrc,
-                                    customFields,
-                                    extendedTagsContainer,
-                                    this::updateRestoreButtonState);
+                if (cachedMetadata.contentRating != null)
+                    uiManager.addOrUpdateCustomField("CONTENTRATING", 
+                            cachedMetadata.contentRating, customFields, 
+                            extendedTagsContainer, this::updateRestoreButtonState);
+                if (cachedMetadata.isrc != null)
+                    uiManager.addOrUpdateCustomField("ISRC", cachedMetadata.isrc, 
+                            customFields, extendedTagsContainer, 
+                            this::updateRestoreButtonState);
 
-                        if (cachedMetadata.plain != null)
-                            unsyncedLyricsEditText.setText(cachedMetadata.plain);
-                        if (cachedMetadata.lrc != null) lrcEditText.setText(cachedMetadata.lrc);
-                        if (cachedMetadata.elrc != null) elrcEditText.setText(cachedMetadata.elrc);
+                if (cachedMetadata.plain != null)
+                    unsyncedLyricsEditText.setText(cachedMetadata.plain);
+                if (cachedMetadata.lrc != null) lrcEditText.setText(cachedMetadata.lrc);
+                if (cachedMetadata.elrc != null) elrcEditText.setText(cachedMetadata.elrc);
 
-                        if (cachedMetadata.elrcMultiPerson != null)
-                            currentElrcContent = cachedMetadata.elrcMultiPerson;
-                        if (cachedMetadata.ttml != null) currentTtmlContent = cachedMetadata.ttml;
+                if (cachedMetadata.elrcMultiPerson != null)
+                    currentElrcContent = cachedMetadata.elrcMultiPerson;
+                if (cachedMetadata.ttml != null) currentTtmlContent = cachedMetadata.ttml;
 
-                        updateSwapperUI();
-                    }
+                updateSwapperUI();
+            }
 
-                    if (intentArtworkUrl != null) {
-                        String artworkUrl =
-                                intentArtworkUrl
-                                        .replace("{w}", "600")
-                                        .replace("{h}", "600")
-                                        .replace("{f}", "jpg");
-                        loadArtworkWithGlide(artworkUrl);
-                    } else {
-                        hideLoading();
-                        Toast.makeText(this, "Metadata applied!", Toast.LENGTH_SHORT).show();
-                    }
-                });
+            if (intentArtworkUrl != null) {
+                String artworkUrl = intentArtworkUrl
+                        .replace("{w}", "600")
+                        .replace("{h}", "600")
+                        .replace("{f}", "jpg");
+                loadArtworkWithGlide(artworkUrl);
+            } else {
+                hideLoading();
+                Toast.makeText(this, "Metadata applied!", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
+    /**
+     * NEW: Load artwork with Glide, preserving GIF/WebP animation and storing raw bytes
+     */
     private void loadArtworkWithGlide(String url) {
+        // Load as Drawable to preserve animation
+        Glide.with(this)
+                .asDrawable()
+                .load(url)
+                .listener(new RequestListener<Drawable>() {
+                    @Override
+                    public boolean onLoadFailed(GlideException e, Object model, 
+                            Target<Drawable> target, boolean isFirstResource) {
+                        hideLoading();
+                        return false;
+                    }
+
+                    @Override
+                    public boolean onResourceReady(Drawable resource, Object model, 
+                            Target<Drawable> target, DataSource dataSource, 
+                            boolean isFirstResource) {
+                        // Display the drawable (animated if GIF/WebP)
+                        artworkImageView.setImageDrawable(resource);
+                        
+                        // Also load as bytes for saving
+                        loadArtworkBytes(url);
+                        
+                        artworkChanged = true;
+                        resetArtworkButton.setEnabled(true);
+                        updateRestoreButtonState();
+                        hideLoading();
+                        Toast.makeText(TagEditorActivity.this, 
+                                "Metadata fetched!", Toast.LENGTH_SHORT).show();
+                        
+                        return false;
+                    }
+                })
+                .into(artworkImageView);
+    }
+    
+    /**
+     * NEW: Load raw bytes for embedding with proper MIME type
+     */
+    private void loadArtworkBytes(String url) {
         Glide.with(this)
                 .asBitmap()
                 .load(url)
-                .into(
-                        new com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
-                            @Override
-                            public void onResourceReady(
-                                    Bitmap resource,
-                                    com.bumptech.glide.request.transition.Transition<? super Bitmap>
-                                            t) {
-                                selectedArtwork = resource;
-                                artworkImageView.setImageBitmap(resource);
-                                artworkChanged = true;
-                                resetArtworkButton.setEnabled(true);
-                                updateRestoreButtonState();
-                                hideLoading();
-                                Toast.makeText(
-                                                TagEditorActivity.this,
-                                                "Metadata fetched!",
-                                                Toast.LENGTH_SHORT)
-                                        .show();
-
-                                updateArtworkDimensionsBadge();
+                .into(new com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
+                    @Override
+                    public void onResourceReady(Bitmap resource, 
+                            com.bumptech.glide.request.transition.Transition<? super Bitmap> t) {
+                        selectedArtwork = resource;
+                        
+                        // Download raw bytes
+                        new Thread(() -> {
+                            try {
+                                java.net.URLConnection conn = new java.net.URL(url).openConnection();
+                                InputStream is = conn.getInputStream();
+                                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                                byte[] buffer = new byte[8192];
+                                int read;
+                                while ((read = is.read(buffer)) != -1) {
+                                    baos.write(buffer, 0, read);
+                                }
+                                is.close();
+                                
+                                selectedArtworkBytes = baos.toByteArray();
+                                selectedArtworkMimeType = detectMimeType(selectedArtworkBytes, url);
+                                
+                                runOnUiThread(() -> updateArtworkDimensionsBadge());
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
+                        }).start();
+                    }
 
-                            @Override
-                            public void onLoadCleared(android.graphics.drawable.Drawable p) {
-                                hideLoading();
-                            }
-                        });
+                    @Override
+                    public void onLoadCleared(android.graphics.drawable.Drawable p) {}
+                });
+    }
+
+    /**
+     * NEW: Detect MIME type from image bytes or URL
+     */
+    private String detectMimeType(byte[] imageData, String imageUrl) {
+        if (imageData != null && imageData.length >= 12) {
+            // JPEG: FF D8 FF
+            if (imageData[0] == (byte) 0xFF && imageData[1] == (byte) 0xD8 && 
+                    imageData[2] == (byte) 0xFF) {
+                return "image/jpeg";
+            }
+            // PNG: 89 50 4E 47
+            if (imageData[0] == (byte) 0x89 && imageData[1] == 0x50 && 
+                    imageData[2] == 0x4E && imageData[3] == 0x47) {
+                return "image/png";
+            }
+            // GIF: 47 49 46
+            if (imageData[0] == 0x47 && imageData[1] == 0x49 && imageData[2] == 0x46) {
+                return "image/gif";
+            }
+            // WebP: RIFF....WEBP
+            if (imageData[0] == 0x52 && imageData[1] == 0x49 && 
+                    imageData[2] == 0x46 && imageData[3] == 0x46 &&
+                    imageData[8] == 0x57 && imageData[9] == 0x45 && 
+                    imageData[10] == 0x42 && imageData[11] == 0x50) {
+                return "image/webp";
+            }
+        }
+        
+        // Fallback: detect from URL
+        if (imageUrl != null) {
+            String lower = imageUrl.toLowerCase();
+            if (lower.endsWith(".png") || lower.contains(".png?")) return "image/png";
+            if (lower.endsWith(".gif") || lower.contains(".gif?")) return "image/gif";
+            if (lower.endsWith(".webp") || lower.contains(".webp?")) return "image/webp";
+        }
+        
+        return "image/jpeg"; // Default
+    }
+    
+    /**
+     * NEW: Helper to detect MIME from Bitmap (fallback)
+     */
+    private String detectMimeTypeFromBitmap(Bitmap bitmap) {
+        // Since we only have a bitmap, assume PNG for lossless quality
+        return "image/png";
     }
 
     private void selectArtwork() {
         imagePickerLauncher.launch(new Intent(Intent.ACTION_PICK).setType("image/*"));
     }
 
+    /**
+     * NEW: Load artwork from URI, preserving GIF/WebP animation
+     */
     private void loadArtworkFromUri(Uri uri) {
         try {
+            // First, load as drawable for display (preserves animation)
+            Glide.with(this)
+                    .asDrawable()
+                    .load(uri)
+                    .into(artworkImageView);
+            
+            // Load as bitmap for dimensions
+            Glide.with(this)
+                    .asBitmap()
+                    .load(uri)
+                    .into(new com.bumptech.glide.request.target.CustomTarget<Bitmap>() {
+                        @Override
+                        public void onResourceReady(Bitmap resource,
+                                com.bumptech.glide.request.transition.Transition<? super Bitmap> t) {
+                            selectedArtwork = resource;
+                            updateArtworkDimensionsBadge();
+                        }
+
+                        @Override
+                        public void onLoadCleared(android.graphics.drawable.Drawable p) {}
+                    });
+            
+            // Load raw bytes with MIME detection
             InputStream is = getContentResolver().openInputStream(uri);
-            selectedArtwork = BitmapFactory.decodeStream(is);
-            artworkImageView.setImageBitmap(selectedArtwork);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                baos.write(buffer, 0, read);
+            }
+            is.close();
+            
+            selectedArtworkBytes = baos.toByteArray();
+            selectedArtworkMimeType = detectMimeType(selectedArtworkBytes, uri.toString());
+            
             artworkChanged = true;
             resetArtworkButton.setEnabled(true);
             updateRestoreButtonState();
-            is.close();
-            updateArtworkDimensionsBadge();
         } catch (Exception e) {
+            Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
         }
     }
 
     private void resetArtwork() {
-        if (originalArtwork != null) artworkImageView.setImageBitmap(originalArtwork);
-        else artworkImageView.setImageResource(R.drawable.ic_music_note);
+        if (originalArtwork != null) {
+            artworkImageView.setImageBitmap(originalArtwork);
+        } else {
+            artworkImageView.setImageResource(R.drawable.ic_music_note);
+        }
         selectedArtwork = null;
+        selectedArtworkBytes = null;
+        selectedArtworkMimeType = null;
         artworkChanged = false;
         resetArtworkButton.setEnabled(false);
         updateArtworkDimensionsBadge();
         updateRestoreButtonState();
     }
 
+    /**
+     * NEW: Modified saveTags to use bytes when available
+     */
     private void saveTags() {
         String visible = lyricsMultiEditText.getText().toString();
         if (isTtmlMode) currentTtmlContent = visible;
         else currentElrcContent = visible;
 
-        dataManager.saveTags(
+        // NEW: Pass artwork bytes and MIME type to data manager
+        dataManager.saveTagsWithArtworkBytes(
                 filePath,
                 customFields,
                 artworkChanged,
                 selectedArtwork,
+                selectedArtworkBytes,
+                selectedArtworkMimeType,
                 originalMetadata,
                 this::showLoading,
                 this::hideLoading,
@@ -800,11 +872,10 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     }
 
     void showLoading(String m) {
-        runOnUiThread(
-                () -> {
-                    loadingText.setText(m);
-                    loadingOverlay.setVisibility(View.VISIBLE);
-                });
+        runOnUiThread(() -> {
+            loadingText.setText(m);
+            loadingOverlay.setVisibility(View.VISIBLE);
+        });
     }
 
     void hideLoading() {
@@ -989,7 +1060,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         androidx.appcompat.app.AlertDialog dialog = builder.create();
 
         // --- VALIDATION HELPER ---
-                // --- VALIDATION HELPER ---
         Runnable checkValidation = () -> {
             String w = widthInput.getText().toString().trim();
             String h = heightInput.getText().toString().trim();
@@ -1001,7 +1071,7 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                 
                 Button applyBtn = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
                 if (applyBtn != null) {
-                    applyBtn.setEnabled(false); // Cannot resize N/A
+                    applyBtn.setEnabled(false);
                     applyBtn.setAlpha(0.5f);
                 }
                 return;
@@ -1013,7 +1083,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
             
             if (!isInvalid) {
                 try {
-                    // Safe parsing
                     if (Integer.parseInt(w) == 0 || Integer.parseInt(h) == 0) {
                         isInvalid = true;
                     }
@@ -1034,7 +1103,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
             }
         };
 
-
         // --- TEXT WATCHERS ---
         if (canResize) {
             widthInput.setText(String.valueOf(currentW));
@@ -1053,7 +1121,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
                         @Override
                         public void afterTextChanged(Editable s) {
-                            // 1. Run validation visual check
                             checkValidation.run();
 
                             if (isAutoUpdating) return;
@@ -1072,7 +1139,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                                 heightInput.setText(String.valueOf(h));
                                 isAutoUpdating = false;
 
-                                // Re-run validation after auto-update
                                 checkValidation.run();
                             } catch (NumberFormatException e) {
                             }
@@ -1122,7 +1188,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                     String wStr = widthInput.getText().toString();
                     String hStr = heightInput.getText().toString();
 
-                    // Double check safety
                     if (wStr.isEmpty() || hStr.isEmpty() || wStr.equals("0") || hStr.equals("0"))
                         return;
 
@@ -1143,26 +1208,19 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                     }
                 });
 
-        // Show dialog first...
         dialog.show();
-
-        // ...then trigger initial validation state (e.g. if image loaded is valid/invalid)
         checkValidation.run();
     }
 
-    // ACTION 1: Apply (Fetch & Update UI only)
     private void downloadResizedArtwork(String w, String h) {
         if (intentArtworkUrl == null) return;
 
         showLoading("Downloading " + w + "x" + h + "...");
 
         String newUrl = intentArtworkUrl.replace("{w}", w).replace("{h}", h).replace("{f}", "jpg");
-
-        // loadArtworkWithGlide updates the UI and 'selectedArtwork'
         loadArtworkWithGlide(newUrl);
     }
 
-    // ACTION 2: Save with Changes (Fetch -> Save -> Update UI)
     private void fetchAndSaveArtwork(int w, int h, androidx.appcompat.app.AlertDialog dialog) {
         if (intentArtworkUrl == null) return;
 
@@ -1185,10 +1243,8 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                                     Bitmap resource,
                                     com.bumptech.glide.request.transition.Transition<? super Bitmap>
                                             t) {
-                                // 1. Save
                                 saveBitmapToStorage(resource);
 
-                                // 2. Update UI
                                 selectedArtwork = resource;
                                 artworkImageView.setImageBitmap(resource);
                                 artworkChanged = true;
@@ -1217,7 +1273,6 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                         });
     }
 
-    // ACTION 3: Simple Save
     private void saveBitmapToStorage(Bitmap bitmapToSave) {
         if (bitmapToSave == null) return;
 

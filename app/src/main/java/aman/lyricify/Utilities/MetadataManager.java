@@ -7,9 +7,11 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
+import android.util.Log;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -27,6 +29,7 @@ import aman.taglib.TagLib;
  */
 public class MetadataManager {
 
+    private static final String TAG = "MetadataManager";
     private final WeakReference<Context> contextRef;
 
     public MetadataManager(Context context) {
@@ -65,8 +68,6 @@ public class MetadataManager {
             layout.addView(noArtText);
         }
 
-        // --- UPDATED SECTION STARTS HERE ---
-
         // Create HorizontalScrollView to handle long lines without wrapping
         HorizontalScrollView hScrollView = new HorizontalScrollView(context);
 
@@ -96,8 +97,6 @@ public class MetadataManager {
         // Add HorizontalScrollView to the main Vertical Layout
         layout.addView(hScrollView);
 
-        // --- UPDATED SECTION ENDS HERE ---
-
         ScrollView scrollView = new ScrollView(context);
         scrollView.addView(layout);
 
@@ -109,36 +108,106 @@ public class MetadataManager {
     }
 
     /**
-     * Add artwork images to layout
+     * Add artwork images to layout with animated image support (GIF/WebP)
      */
     private void addArtworkToLayout(Context context, LinearLayout layout, TagLib.Artwork[] artworks) {
         for (int i = 0; i < artworks.length; i++) {
-            Bitmap bitmap = BitmapFactory.decodeByteArray(
-                    artworks[i].data, 0, artworks[i].data.length
+            ImageView imageView = new ImageView(context);
+            imageView.setAdjustViewBounds(true);
+
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, 400
             );
+            params.setMargins(0, 0, 0, 10);
+            imageView.setLayoutParams(params);
+            imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
-            if (bitmap != null) {
-                ImageView imageView = new ImageView(context);
-                imageView.setImageBitmap(bitmap);
-                imageView.setAdjustViewBounds(true);
-
-                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT, 400
-                );
-                params.setMargins(0, 0, 0, 10);
-                imageView.setLayoutParams(params);
-                imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            // Load image with animation support
+            boolean imageLoaded = loadAnimatedImage(imageView, artworks[i].data);
+            
+            if (imageLoaded) {
                 layout.addView(imageView);
 
+                // Get dimensions for info text
+                String dimensions = getDimensions(artworks[i].data);
                 TextView infoText = new TextView(context);
                 infoText.setText(
                         "Artwork " + (i + 1) + ": " +
-                                bitmap.getWidth() + "x" + bitmap.getHeight() +
+                                dimensions +
                                 " - " + artworks[i].mimeType
                 );
                 infoText.setPadding(0, 0, 0, 20);
                 layout.addView(infoText);
             }
+        }
+    }
+
+    /**
+     * Load image with animation support for GIF/WebP
+     * Returns true if image was loaded successfully
+     */
+    private boolean loadAnimatedImage(ImageView imageView, byte[] imageData) {
+        if (imageData == null || imageData.length == 0) {
+            return false;
+        }
+
+        try {
+            // For Android 9+ (API 28+), use ImageDecoder to support animated images
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                android.graphics.ImageDecoder.Source source = 
+                    android.graphics.ImageDecoder.createSource(java.nio.ByteBuffer.wrap(imageData));
+                Drawable drawable = android.graphics.ImageDecoder.decodeDrawable(source);
+                imageView.setImageDrawable(drawable);
+                
+                // Start animation if it's an AnimatedImageDrawable (GIF/WebP)
+                if (drawable instanceof android.graphics.drawable.AnimatedImageDrawable) {
+                    ((android.graphics.drawable.AnimatedImageDrawable) drawable).start();
+                    Log.d(TAG, "Started animated image playback");
+                }
+                return true;
+            } else {
+                // Fallback for older Android versions - shows first frame only
+                Bitmap bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.length);
+                if (bitmap != null) {
+                    imageView.setImageBitmap(bitmap);
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading animated image, trying fallback: " + e.getMessage());
+            // Fallback to static image on error
+            try {
+                Bitmap bitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.length);
+                if (bitmap != null) {
+                    imageView.setImageBitmap(bitmap);
+                    return true;
+                }
+            } catch (Exception fallbackError) {
+                Log.e(TAG, "Fallback also failed: " + fallbackError.getMessage());
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get image dimensions as a string
+     */
+    private String getDimensions(byte[] imageData) {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                android.graphics.ImageDecoder.Source source = 
+                    android.graphics.ImageDecoder.createSource(java.nio.ByteBuffer.wrap(imageData));
+                Bitmap bitmap = android.graphics.ImageDecoder.decodeBitmap(source);
+                return bitmap.getWidth() + "x" + bitmap.getHeight();
+            } else {
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inJustDecodeBounds = true;
+                BitmapFactory.decodeByteArray(imageData, 0, imageData.length, options);
+                return options.outWidth + "x" + options.outHeight;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting dimensions: " + e.getMessage());
+            return "unknown";
         }
     }
 

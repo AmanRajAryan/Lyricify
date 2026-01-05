@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import android.view.animation.*;
 import android.widget.*;
 import com.bumptech.glide.Glide;
+import com.google.android.material.card.MaterialCardView; // Import added
 import java.util.ArrayList;
 
 public class SongAdapter extends ArrayAdapter<Song> {
@@ -30,10 +31,11 @@ public class SongAdapter extends ArrayAdapter<Song> {
         TextView artistNameTextView = convertView.findViewById(R.id.artistNameTextView);
         ImageView arrowIcon = convertView.findViewById(R.id.arrowIcon);
         LinearLayout detailsLayout = convertView.findViewById(R.id.detailsLayout);
-        TextView matchPercentageTextView = convertView.findViewById(R.id.matchPercentageTextView);
         
-        // The Lyrics Status Badge
+        TextView matchPercentageTextView = convertView.findViewById(R.id.matchPercentageTextView);
         TextView lyricsStatusTextView = convertView.findViewById(R.id.lyricsStatusTextView);
+        // New: Container for the colored badge
+        MaterialCardView statusBadgeCard = convertView.findViewById(R.id.statusBadgeCard); 
 
         TextView albumNameTextView = convertView.findViewById(R.id.albumNameTextView);
         TextView releaseDateTextView = convertView.findViewById(R.id.releaseDateTextView);
@@ -47,34 +49,35 @@ public class SongAdapter extends ArrayAdapter<Song> {
         durationTextView.setText("Duration: " + song.getDuration());
         contentRatingTextView.setText("Rating: " + song.getContentRating());
 
-        // Display match percentage
+        // Display match percentage (Neutral styling)
         int matchScore = song.getMatchScore();
         if (matchScore > 0) {
             matchPercentageTextView.setVisibility(View.VISIBLE);
-            matchPercentageTextView.setText(matchScore + "%");
+            matchPercentageTextView.setText(matchScore + "% Match");
         } else {
             matchPercentageTextView.setVisibility(View.GONE);
         }
 
         // --- UPDATED LYRICS STATUS INDICATOR LOGIC ---
-        if (lyricsStatusTextView != null) {
-            lyricsStatusTextView.setVisibility(View.VISIBLE);
+        // Colors the CardView instead of the Text background
+        if (statusBadgeCard != null && lyricsStatusTextView != null) {
+            statusBadgeCard.setVisibility(View.VISIBLE);
 
             if (song.hasTimeSyncedLyrics()) {
-                // "SYNCED" - Confirms line sync, potentially word sync (ELRC)
+                // "SYNCED" - Confirms line sync
                 lyricsStatusTextView.setText("SYNCED");
-                // Material Green 600 for high quality confidence
-                lyricsStatusTextView.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#43A047"))); 
+                // Material Green 600
+                statusBadgeCard.setCardBackgroundColor(Color.parseColor("#43A047")); 
             } else if (song.hasLyrics()) {
                 // "LYRICS" - Confirms plain text only
                 lyricsStatusTextView.setText("LYRICS");
-                // Material Orange 800 for static content
-                lyricsStatusTextView.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#EF6C00"))); 
+                // Material Orange 800
+                statusBadgeCard.setCardBackgroundColor(Color.parseColor("#EF6C00")); 
             } else {
                 // "NONE" - No lyrics data found
                 lyricsStatusTextView.setText("NONE");
-                // Material Red 700 for error/missing
-                lyricsStatusTextView.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.parseColor("#D32F2F"))); 
+                // Material Red 700
+                statusBadgeCard.setCardBackgroundColor(Color.parseColor("#D32F2F")); 
             }
         }
 

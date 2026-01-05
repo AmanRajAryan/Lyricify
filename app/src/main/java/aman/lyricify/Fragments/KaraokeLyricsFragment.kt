@@ -14,6 +14,7 @@ import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.padding // Added Import
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -33,6 +34,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toIntSize
 import androidx.fragment.app.Fragment
@@ -214,9 +216,12 @@ class KaraokeLyricsFragment : Fragment() {
                         fontWeight = FontWeight.Bold,
                         color = Color.White.copy(alpha = 0.6f)
                     ),
-                    modifier = Modifier.graphicsLayer {
-                        compositingStrategy = CompositingStrategy.Offscreen
-                    }
+                    // Applied padding to modifier since contentPadding parameter is unavailable
+                    modifier = Modifier
+                        .padding(vertical = 100.dp) 
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }
                 )
             }
         }

@@ -5,16 +5,29 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Animatable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
+
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
+
+import java.io.File;
 import java.lang.ref.WeakReference;
+
+import aman.lyricify.glide.AudioFileCover;
 
 /**
  * Manages the "Now Playing" card display and updates
@@ -97,9 +110,6 @@ public class NowPlayingManager {
         this.callback = callback;
     }
     
-    /**
-     * Register broadcast receiver
-     */
     public void register() {
         Context context = contextRef.get();
         if (context != null) {
@@ -108,9 +118,6 @@ public class NowPlayingManager {
         }
     }
     
-    /**
-     * Unregister broadcast receiver
-     */
     public void unregister() {
         Context context = contextRef.get();
         if (context != null) {
@@ -120,9 +127,6 @@ public class NowPlayingManager {
         }
     }
     
-    /**
-     * Prepare a new song update with delay
-     */
     public void prepareUpdate(String title, String artist, Bitmap artwork) {
         cancelPendingUpdate();
         
@@ -136,9 +140,6 @@ public class NowPlayingManager {
         uiHandler.postDelayed(pendingUpdateRunnable, UPDATE_DELAY_MS);
     }
     
-    /**
-     * Cancel any pending update
-     */
     public void cancelPendingUpdate() {
         if (pendingUpdateRunnable != null) {
             uiHandler.removeCallbacks(pendingUpdateRunnable);
@@ -149,9 +150,6 @@ public class NowPlayingManager {
         pendingArtwork = null;
     }
     
-    /**
-     * Commit the pending update to UI
-     */
     private void commitPendingUpdate() {
         if (pendingTitle == null) return;
         
@@ -172,6 +170,7 @@ public class NowPlayingManager {
             nowPlayingFilePath.setText("Searching file...");
             nowPlayingFilePath.setVisibility(View.VISIBLE);
             
+            // Initial load (Static Bitmap) - will be replaced if local file is found
             if (MediaSessionHandler.isValidBitmap(finalArtwork)) {
                 nowPlayingArtwork.setImageBitmap(finalArtwork);
                 currentArtwork = finalArtwork;
@@ -191,7 +190,7 @@ public class NowPlayingManager {
             });
         });
         
-        // Search for local file
+        // Search for local file to enable animation
         Context context = contextRef.get();
         if (context != null) {
             searchForLocalFile(context, finalTitle, finalArtist);
@@ -203,9 +202,6 @@ public class NowPlayingManager {
         pendingUpdateRunnable = null;
     }
     
-    /**
-     * Search for local file matching the song
-     */
     private void searchForLocalFile(Context context, String title, String artist) {
         MediaStoreHelper.searchLocalSong(context, title, artist, 
             new MediaStoreHelper.SearchCallback() {
@@ -213,10 +209,18 @@ public class NowPlayingManager {
                 public void onFound(MediaStoreHelper.LocalSong song) {
                     currentFilePath = song.filePath;
                     currentFileUri = song.fileUri;
+                    
                     uiHandler.post(() -> {
                         String fileName = extractFileName(song.filePath);
                         nowPlayingFilePath.setText(fileName);
                         nowPlayingFilePath.setVisibility(View.VISIBLE);
+                        
+                        // NEW: Load animated artwork immediately
+                        loadAnimatedArtwork(song.filePath);
+                        
+                        // Stop looking for notification artwork since we found the file
+                        stopArtworkMonitoring();
+                        isWaitingForArtwork = false;
                     });
                     
                     if (callback != null) {
@@ -252,8 +256,43 @@ public class NowPlayingManager {
     }
     
     /**
-     * Update from notification artwork
+     * NEW: Load artwork using Glide and AudioFileCover to support GIF/WebP animation
      */
+    private void loadAnimatedArtwork(String filePath) {
+        Context context = contextRef.get();
+        if (context == null || filePath == null) return;
+        
+        long lastModified = 0;
+        try {
+            lastModified = new File(filePath).lastModified();
+        } catch (Exception ignored) {}
+        
+        // Create model with timestamp signature
+        AudioFileCover coverModel = new AudioFileCover(filePath, lastModified);
+        
+        Glide.with(context)
+             .load(coverModel)
+             .diskCacheStrategy(DiskCacheStrategy.DATA) // Cache raw bytes
+             .placeholder(R.drawable.ic_music_note)
+             .error(R.drawable.ic_music_note)
+             .optionalCenterCrop() // Crop static, leave animated alone
+             .listener(new RequestListener<Drawable>() {
+                 @Override
+                 public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                     return false;
+                 }
+
+                 @Override
+                 public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                     if (resource instanceof Animatable) {
+                         ((Animatable) resource).start();
+                     }
+                     return false;
+                 }
+             })
+             .into(nowPlayingArtwork);
+    }
+    
     private void updateFromNotification(String title, String artist, Bitmap artwork) {
         if (!hasActiveMedia && pendingTitle == null) return;
         if (title == null || title.trim().isEmpty()) return;
@@ -270,6 +309,18 @@ public class NowPlayingManager {
         
         // Update current if matches
         if (title.equals(currentTitle) && artist.equals(currentArtist)) {
+            // FIX: If we found a local file (currentFilePath != null), it means we are likely
+            // displaying a high-quality GIF/WebP. Do NOT overwrite it with a static bitmap
+            // from the notification.
+            if (currentFilePath != null) {
+                 // We can update the backing field for fallback, but don't touch UI
+                 if (MediaSessionHandler.isValidBitmap(artwork)) {
+                     currentArtwork = artwork;
+                 }
+                 return;
+            }
+
+            // Normal behavior: Update static bitmap
             if (MediaSessionHandler.isValidBitmap(artwork)) {
                 final Bitmap finalArtwork = artwork;
                 uiHandler.post(() -> {
@@ -282,9 +333,6 @@ public class NowPlayingManager {
         }
     }
     
-    /**
-     * Hide the now playing card
-     */
     public void hide() {
         cancelPendingUpdate();
         stopArtworkMonitoring();
@@ -302,9 +350,6 @@ public class NowPlayingManager {
         });
     }
     
-    /**
-     * Start monitoring for artwork updates
-     */
     private void startArtworkMonitoring() {
         stopArtworkMonitoring();
         artworkCheckAttempts = 0;
@@ -326,9 +371,6 @@ public class NowPlayingManager {
         uiHandler.postDelayed(artworkMonitoringRunnable, 500);
     }
     
-    /**
-     * Stop artwork monitoring
-     */
     private void stopArtworkMonitoring() {
         if (artworkMonitoringRunnable != null) {
             uiHandler.removeCallbacks(artworkMonitoringRunnable);
@@ -336,9 +378,6 @@ public class NowPlayingManager {
         }
     }
     
-    /**
-     * Request notification service to check existing notifications
-     */
     private void requestExistingNotificationCheck() {
         Context context = contextRef.get();
         if (context != null) {
@@ -346,9 +385,6 @@ public class NowPlayingManager {
         }
     }
     
-    /**
-     * Extract file name from path
-     */
     private String extractFileName(String filePath) {
         if (filePath == null) return "Unknown";
         int lastSlash = filePath.lastIndexOf('/');
@@ -358,7 +394,6 @@ public class NowPlayingManager {
         return filePath;
     }
     
-    // Getters
     public String getCurrentTitle() { return currentTitle; }
     public String getCurrentArtist() { return currentArtist; }
     public String getCurrentFilePath() { return currentFilePath; }

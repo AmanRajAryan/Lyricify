@@ -6,7 +6,9 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.drawable.Animatable;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -15,15 +17,24 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+
+import aman.lyricify.glide.AudioFileCover;
 
 public class IdentifySongDialog {
 
@@ -191,6 +202,48 @@ public class IdentifySongDialog {
     }
 
     private void loadArtwork(ImageView artworkView) {
+        // 1. UPDATED: Prioritize File Path with Custom Loader (Supports Animation)
+        if (localSong.filePath != null) {
+            long lastModified = 0;
+            try {
+                lastModified = new File(localSong.filePath).lastModified();
+            } catch (Exception ignored) {}
+
+            AudioFileCover coverModel = new AudioFileCover(localSong.filePath, lastModified);
+
+            Glide.with(context)
+                    .load(coverModel)
+                    // DATA strategy caches the raw bytes, preventing "Encoder" crash on GIFs
+                    .diskCacheStrategy(DiskCacheStrategy.DATA)
+                    .placeholder(R.drawable.ic_music_note)
+                    .error(R.drawable.ic_music_note)
+                    // optionalCenterCrop allows the ImageView to crop static images
+                    // while leaving animated drawables intact to play correctly
+                    .optionalCenterCrop()
+                    .listener(new RequestListener<Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                            // If file loading fails, try fallback to overrides
+                            if (overrideBitmap != null) {
+                                artworkView.post(() -> artworkView.setImageBitmap(overrideBitmap));
+                            }
+                            return false; 
+                        }
+
+                        @Override
+                        public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                            // Automatically start animation if it's a GIF/WebP
+                            if (resource instanceof Animatable) {
+                                ((Animatable) resource).start();
+                            }
+                            return false;
+                        }
+                    })
+                    .into(artworkView);
+            return;
+        }
+
+        // 2. FALLBACK: Original logic for non-file based songs
         if (overrideBitmap != null) {
             Glide.with(context).load(overrideBitmap).placeholder(R.drawable.ic_music_note).centerCrop().into(artworkView);
         } else if (localSong.albumId > 0) {

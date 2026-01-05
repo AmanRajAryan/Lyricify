@@ -4,7 +4,7 @@ import android.app.AlertDialog;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.Drawable;
-import android.util.Log;
+
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.Toast;
@@ -28,25 +28,10 @@ public class TagEditorDataManager {
     private static final Set<String> KNOWN_TAGS =
             new HashSet<>(
                     Arrays.asList(
-                            "TITLE",
-                            "ARTIST",
-                            "ALBUM",
-                            "ALBUMARTIST",
-                            "GENRE",
-                            "DATE",
-                            "TRACKNUMBER",
-                            "DISCNUMBER",
-                            "COMPOSER",
-                            "LYRICIST",
-                            "WRITER",
-                            "COMMENT",
-                            "RELEASEDATE",
-                            "LOCALE",
-                            "LANGUAGE",
-                            "UNSYNCEDLYRICS",
-                            "LRC",
-                            "ELRC",
-                            "LYRICS"));
+                            "TITLE", "ARTIST", "ALBUM", "ALBUMARTIST", "GENRE", "DATE",
+                            "TRACKNUMBER", "DISCNUMBER", "COMPOSER", "LYRICIST", "WRITER",
+                            "COMMENT", "RELEASEDATE", "LOCALE", "LANGUAGE", "UNSYNCEDLYRICS",
+                            "LRC", "ELRC", "LYRICS"));
 
     public TagEditorDataManager(TagEditorActivity activity, TagLib tagLib) {
         this.activity = activity;
@@ -71,76 +56,61 @@ public class TagEditorDataManager {
 
         showLoading.accept("Loading tags...");
 
-        new Thread(
-                        () -> {
-                            try {
-                                HashMap<String, String> originalMetadata =
-                                        tagLib.getMetadata(filePath);
+        new Thread(() -> {
+            try {
+                HashMap<String, String> originalMetadata = tagLib.getMetadata(filePath);
 
-                                HashMap<String, String> uiMetadata = new HashMap<>();
-                                if (originalMetadata != null) {
-                                    for (Map.Entry<String, String> entry :
-                                            originalMetadata.entrySet()) {
-                                        uiMetadata.put(
-                                                entry.getKey().toUpperCase(), entry.getValue());
-                                    }
-                                }
+                HashMap<String, String> uiMetadata = new HashMap<>();
+                if (originalMetadata != null) {
+                    for (Map.Entry<String, String> entry : originalMetadata.entrySet()) {
+                        uiMetadata.put(entry.getKey().toUpperCase(), entry.getValue());
+                    }
+                }
 
-                                if (!uiMetadata.isEmpty()) {
-                                    activity.runOnUiThread(
-                                            () -> populateUIFromMetadata(uiMetadata));
-                                }
+                if (!uiMetadata.isEmpty()) {
+                    activity.runOnUiThread(() -> populateUIFromMetadata(uiMetadata));
+                }
 
-                                Bitmap artwork = null;
-                                TagLib.Artwork[] artworks = tagLib.getArtwork(filePath);
+                Bitmap artwork = null;
+                TagLib.Artwork[] artworks = tagLib.getArtwork(filePath);
+                
+                if (artworks != null && artworks.length > 0) {
+                    byte[] artworkData = artworks[0].data;
+                    
+                    // NEW: Load animated image with support for GIF/WebP
+                    activity.runOnUiThread(() -> {
+                        loadAnimatedArtwork(artworkData, artworks[0].mimeType);
+                    });
+                    
+                    // Still create Bitmap for dimensions/fallback
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(artworkData, 0, artworkData.length);
+                    if (bitmap != null) {
+                        artwork = bitmap;
+                    }
+                } else if (intentArtworkUrl != null && !intentArtworkUrl.isEmpty()) {
+                    activity.runOnUiThread(() -> loadArtworkFromUrl(intentArtworkUrl));
+                }
 
-                                if (artworks != null && artworks.length > 0) {
-                                    byte[] artworkData = artworks[0].data;
+                Bitmap finalArtwork = artwork;
+                activity.runOnUiThread(() -> {
+                    hideLoading.run();
+                    updateRestoreButton.run();
+                    callback.onLoaded(originalMetadata, finalArtwork);
+                });
 
-                                    // NEW: Load animated image with support for GIF/WebP
-                                    activity.runOnUiThread(
-                                            () -> {
-                                                loadAnimatedArtwork(
-                                                        artworkData, artworks[0].mimeType);
-                                            });
-
-                                    // Still create Bitmap for dimensions/fallback
-                                    Bitmap bitmap =
-                                            BitmapFactory.decodeByteArray(
-                                                    artworkData, 0, artworkData.length);
-                                    if (bitmap != null) {
-                                        artwork = bitmap;
-                                    }
-                                } else if (intentArtworkUrl != null
-                                        && !intentArtworkUrl.isEmpty()) {
-                                    activity.runOnUiThread(
-                                            () -> loadArtworkFromUrl(intentArtworkUrl));
-                                }
-
-                                Bitmap finalArtwork = artwork;
-                                activity.runOnUiThread(
-                                        () -> {
-                                            hideLoading.run();
-                                            updateRestoreButton.run();
-                                            callback.onLoaded(originalMetadata, finalArtwork);
-                                        });
-
-                            } catch (Exception e) {
-                                activity.runOnUiThread(
-                                        () -> {
-                                            hideLoading.run();
-                                            String err =
-                                                    e.getClass().getSimpleName()
-                                                            + ": "
-                                                            + e.getMessage();
-                                            activity.showErrorDialog("Read Error", err);
-                                        });
-                            }
-                        })
-                .start();
+            } catch (Exception e) {
+                activity.runOnUiThread(() -> {
+                    hideLoading.run();
+                    String err = e.getClass().getSimpleName() + ": " + e.getMessage();
+                    activity.showErrorDialog("Read Error", err);
+                });
+            }
+        }).start();
     }
 
-    /** NEW: Load artwork with animation support for GIF/WebP */
+    /**
+     * NEW: Load artwork with animation support for GIF/WebP
+     */
     private void loadAnimatedArtwork(byte[] imageData, String mimeType) {
         if (imageData == null || imageData.length == 0) {
             return;
@@ -149,12 +119,11 @@ public class TagEditorDataManager {
         try {
             // For Android 9+ (API 28+), use ImageDecoder to support animated images
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                android.graphics.ImageDecoder.Source source =
-                        android.graphics.ImageDecoder.createSource(
-                                java.nio.ByteBuffer.wrap(imageData));
+                android.graphics.ImageDecoder.Source source = 
+                    android.graphics.ImageDecoder.createSource(java.nio.ByteBuffer.wrap(imageData));
                 Drawable drawable = android.graphics.ImageDecoder.decodeDrawable(source);
                 activity.getArtworkImageView().setImageDrawable(drawable);
-
+                
                 // Start animation if it's an AnimatedImageDrawable (GIF/WebP)
                 if (drawable instanceof android.graphics.drawable.AnimatedImageDrawable) {
                     ((android.graphics.drawable.AnimatedImageDrawable) drawable).start();
@@ -196,8 +165,7 @@ public class TagEditorDataManager {
         TextInputEditText releaseDateEditText = activity.findViewById(R.id.releaseDateEditText);
         TextInputEditText audioLocaleEditText = activity.findViewById(R.id.audioLocaleEditText);
         TextInputEditText languageEditText = activity.findViewById(R.id.languageEditText);
-        TextInputEditText unsyncedLyricsEditText =
-                activity.findViewById(R.id.unsyncedLyricsEditText);
+        TextInputEditText unsyncedLyricsEditText = activity.findViewById(R.id.unsyncedLyricsEditText);
         TextInputEditText lrcEditText = activity.findViewById(R.id.lrcEditText);
         TextInputEditText elrcEditText = activity.findViewById(R.id.elrcEditText);
         TextInputEditText lyricsMultiEditText = activity.findViewById(R.id.lyricsMultiEditText);
@@ -250,7 +218,7 @@ public class TagEditorDataManager {
             LinearLayout extendedTagsContainer,
             LinearLayout tagFieldsContainer,
             TextInputEditText... views) {
-
+        
         if (originalMetadata != null) {
             HashMap<String, String> uiMetadata = new HashMap<>();
             for (Map.Entry<String, String> entry : originalMetadata.entrySet()) {
@@ -258,13 +226,15 @@ public class TagEditorDataManager {
             }
             populateUIFromMetadata(uiMetadata);
         } else {
-            for (TextInputEditText v : views) v.setText("");
+            for(TextInputEditText v : views) v.setText("");
             extendedTagsContainer.removeAllViews();
             customFields.clear();
         }
     }
 
-    /** NEW: Save tags with raw artwork bytes and MIME type preservation */
+    /**
+     * NEW: Save tags with raw artwork bytes and MIME type preservation
+     */
     public void saveTagsWithArtworkBytes(
             String filePath,
             List<TagEditorActivity.CustomField> customFields,
@@ -293,7 +263,7 @@ public class TagEditorDataManager {
             TextInputEditText lrcEditText,
             TextInputEditText elrcEditText,
             TextInputEditText lyricsMultiEditText) {
-
+        
         if (filePath == null || filePath.isEmpty()) return;
 
         // READ UI VALUES
@@ -323,170 +293,122 @@ public class TagEditorDataManager {
 
         showLoading.accept("Saving tags...");
 
-        new Thread(
-                        () -> {
-                            try {
-                                HashMap<String, String> newMetadataMap = new HashMap<>();
-                                newMetadataMap.put("TITLE", sTitle);
-                                newMetadataMap.put("ARTIST", sArtist);
-                                newMetadataMap.put("ALBUM", sAlbum);
-                                newMetadataMap.put("ALBUMARTIST", sAlbumArtist);
-                                newMetadataMap.put("GENRE", sGenre);
-                                newMetadataMap.put("DATE", sDate);
-                                newMetadataMap.put("TRACKNUMBER", sTrack);
-                                newMetadataMap.put("DISCNUMBER", sDisc);
-                                newMetadataMap.put("COMPOSER", sComposer);
-                                newMetadataMap.put("LYRICIST", sWriter);
-                                newMetadataMap.put("COMMENT", sComment);
-                                newMetadataMap.put("RELEASEDATE", sRelease);
-                                newMetadataMap.put("LOCALE", sLocale);
-                                newMetadataMap.put("LANGUAGE", sLang);
-                                newMetadataMap.put("UNSYNCEDLYRICS", sUnsynced);
-                                newMetadataMap.put("LRC", sLrc);
-                                newMetadataMap.put("ELRC", sElrc);
+        new Thread(() -> {
+            try {
+                HashMap<String, String> newMetadataMap = new HashMap<>();
+                newMetadataMap.put("TITLE", sTitle);
+                newMetadataMap.put("ARTIST", sArtist);
+                newMetadataMap.put("ALBUM", sAlbum);
+                newMetadataMap.put("ALBUMARTIST", sAlbumArtist);
+                newMetadataMap.put("GENRE", sGenre);
+                newMetadataMap.put("DATE", sDate);
+                newMetadataMap.put("TRACKNUMBER", sTrack);
+                newMetadataMap.put("DISCNUMBER", sDisc);
+                newMetadataMap.put("COMPOSER", sComposer);
+                newMetadataMap.put("LYRICIST", sWriter);
+                newMetadataMap.put("COMMENT", sComment);
+                newMetadataMap.put("RELEASEDATE", sRelease);
+                newMetadataMap.put("LOCALE", sLocale);
+                newMetadataMap.put("LANGUAGE", sLang);
+                newMetadataMap.put("UNSYNCEDLYRICS", sUnsynced);
+                newMetadataMap.put("LRC", sLrc);
+                newMetadataMap.put("ELRC", sElrc);
 
-                                String bestLyrics = "";
-                                if (isValidLyrics(sMulti)) bestLyrics = sMulti;
-                                else if (isValidLyrics(sElrc)) bestLyrics = sElrc;
-                                else if (isValidLyrics(sLrc)) bestLyrics = sLrc;
-                                else if (isValidLyrics(sUnsynced)) bestLyrics = sUnsynced;
+                String bestLyrics = "";
+                if (isValidLyrics(sMulti)) bestLyrics = sMulti;
+                else if (isValidLyrics(sElrc)) bestLyrics = sElrc;
+                else if (isValidLyrics(sLrc)) bestLyrics = sLrc;
+                else if (isValidLyrics(sUnsynced)) bestLyrics = sUnsynced;
 
-                                newMetadataMap.put("LYRICS", bestLyrics);
-                                newMetadataMap.putAll(customTagsMap);
+                newMetadataMap.put("LYRICS", bestLyrics);
+                newMetadataMap.putAll(customTagsMap);
 
-                                File originalFile = new File(filePath);
-                                if (!originalFile.exists()) throw new Exception("File not found");
-                                if (!originalFile.canRead())
-                                    throw new Exception("Cannot read file");
-                                if (originalFile.length() == 0)
-                                    throw new Exception("File is empty");
+                File originalFile = new File(filePath);
+                if (!originalFile.exists()) throw new Exception("File not found");
+                if (!originalFile.canRead()) throw new Exception("Cannot read file");
+                if (originalFile.length() == 0) throw new Exception("File is empty");
 
-                                File tempFile =
-                                        new File(
-                                                activity.getCacheDir(),
-                                                "temp_"
-                                                        + System.currentTimeMillis()
-                                                        + "_"
-                                                        + originalFile.getName());
+                File tempFile = new File(activity.getCacheDir(),
+                        "temp_" + System.currentTimeMillis() + "_" + originalFile.getName());
 
-                                activity.runOnUiThread(
-                                        () -> activity.getLoadingText().setText("Copying file..."));
-                                copyFile(originalFile, tempFile);
+                activity.runOnUiThread(() -> activity.getLoadingText().setText("Copying file..."));
+                copyFile(originalFile, tempFile);
 
-                                if (originalMetadata != null) {
-                                    activity.runOnUiThread(
-                                            () ->
-                                                    activity.getLoadingText()
-                                                            .setText("Cleaning old tags..."));
-                                    HashMap<String, String> deleteMap = new HashMap<>();
-                                    for (String key : originalMetadata.keySet())
-                                        deleteMap.put(key, "");
-                                    for (String key : newMetadataMap.keySet())
-                                        deleteMap.put(key, "");
-                                    tagLib.setMetadata(tempFile.getAbsolutePath(), deleteMap);
-                                }
+                if (originalMetadata != null) {
+                    activity.runOnUiThread(() -> 
+                            activity.getLoadingText().setText("Cleaning old tags..."));
+                    HashMap<String, String> deleteMap = new HashMap<>();
+                    for (String key : originalMetadata.keySet()) deleteMap.put(key, "");
+                    for (String key : newMetadataMap.keySet()) deleteMap.put(key, "");
+                    tagLib.setMetadata(tempFile.getAbsolutePath(), deleteMap);
+                }
 
-                                activity.runOnUiThread(
-                                        () ->
-                                                activity.getLoadingText()
-                                                        .setText("Writing new tags..."));
-                                boolean success =
-                                        tagLib.setMetadata(
-                                                tempFile.getAbsolutePath(), newMetadataMap);
-                                if (!success) throw new Exception("TagLib write failed");
+                activity.runOnUiThread(() -> 
+                        activity.getLoadingText().setText("Writing new tags..."));
+                boolean success = tagLib.setMetadata(tempFile.getAbsolutePath(), newMetadataMap);
+                if (!success) throw new Exception("TagLib write failed");
 
-                                // NEW: Use raw bytes with MIME type if available
-                                if (artworkChanged) {
-                                    activity.runOnUiThread(
-                                            () ->
-                                                    activity.getLoadingText()
-                                                            .setText("Saving artwork..."));
+                // NEW: Use raw bytes with MIME type if available
+                if (artworkChanged) {
+                    activity.runOnUiThread(() -> 
+                            activity.getLoadingText().setText("Saving artwork..."));
+                    
+                    if (selectedArtworkBytes != null && selectedArtworkMimeType != null) {
+                        tagLib.setArtwork(tempFile.getAbsolutePath(),
+                                selectedArtworkBytes, selectedArtworkMimeType, "Cover (front)");
+                    } else if (selectedArtwork != null) {
+                        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                        selectedArtwork.compress(Bitmap.CompressFormat.JPEG, 90, stream);
+                        tagLib.setArtwork(tempFile.getAbsolutePath(),
+                                stream.toByteArray(), "image/jpeg", "Cover (front)");
+                    }
+                }
 
-                                    if (selectedArtworkBytes != null
-                                            && selectedArtworkMimeType != null) {
-                                        tagLib.setArtwork(
-                                                tempFile.getAbsolutePath(),
-                                                selectedArtworkBytes,
-                                                selectedArtworkMimeType,
-                                                "Cover (front)");
-                                    } else if (selectedArtwork != null) {
-                                        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                                        selectedArtwork.compress(
-                                                Bitmap.CompressFormat.JPEG, 90, stream);
-                                        tagLib.setArtwork(
-                                                tempFile.getAbsolutePath(),
-                                                stream.toByteArray(),
-                                                "image/jpeg",
-                                                "Cover (front)");
-                                    }
-                                }
+                activity.runOnUiThread(() -> 
+                        activity.getLoadingText().setText("Writing to storage..."));
+                FileSaver fileSaver = new FileSaver(activity);
+                fileSaver.saveFile(filePath, tempFile, new FileSaver.SaveCallback() {
+                    @Override
+                    public void onProgress(String message) {
+                        activity.runOnUiThread(() -> activity.getLoadingText().setText(message));
+                    }
 
-                                activity.runOnUiThread(
-                                        () ->
-                                                activity.getLoadingText()
-                                                        .setText("Writing to storage..."));
-                                FileSaver fileSaver = new FileSaver(activity);
-                                fileSaver.saveFile(
-                                        filePath,
-                                        tempFile,
-                                        new FileSaver.SaveCallback() {
-                                            @Override
-                                            public void onProgress(String message) {
-                                                activity.runOnUiThread(
-                                                        () ->
-                                                                activity.getLoadingText()
-                                                                        .setText(message));
-                                            }
+                    @Override
+                    public void onSuccess() {
+                        activity.runOnUiThread(() -> {
+                            hideLoading.run();
+                            Toast.makeText(activity, "Saved!", Toast.LENGTH_SHORT).show();
+                            activity.setResult(activity.RESULT_OK);
+                            activity.finish();
+                        });
+                    }
 
-                                            @Override
-                                            public void onSuccess() {
-                                                activity.runOnUiThread(
-                                                        () -> {
-                                                            hideLoading.run();
-                                                            Toast.makeText(
-                                                                            activity,
-                                                                            "Saved!",
-                                                                            Toast.LENGTH_SHORT)
-                                                                    .show();
-                                                            activity.setResult(activity.RESULT_OK);
-                                                            activity.finish();
-                                                        });
-                                            }
+                    @Override
+                    public void onError(String e) {
+                        activity.runOnUiThread(() -> {
+                            hideLoading.run();
+                            activity.showErrorDialog("Storage Write Error", e);
+                        });
+                    }
 
-                                            @Override
-                                            public void onError(String e) {
-                                                activity.runOnUiThread(
-                                                        () -> {
-                                                            hideLoading.run();
-                                                            activity.showErrorDialog(
-                                                                    "Storage Write Error", e);
-                                                        });
-                                            }
+                    @Override
+                    public void onNeedPermission(String path) {
+                        activity.runOnUiThread(() -> {
+                            hideLoading.run();
+                            showPermissionDialog(path, tempFile);
+                        });
+                    }
+                });
 
-                                            @Override
-                                            public void onNeedPermission(String path) {
-                                                activity.runOnUiThread(
-                                                        () -> {
-                                                            hideLoading.run();
-                                                            showPermissionDialog(path, tempFile);
-                                                        });
-                                            }
-                                        });
-
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                                activity.runOnUiThread(
-                                        () -> {
-                                            hideLoading.run();
-                                            activity.showErrorDialog(
-                                                    "Save Error",
-                                                    e.getClass().getSimpleName()
-                                                            + ": "
-                                                            + e.getMessage());
-                                        });
-                            }
-                        })
-                .start();
+            } catch (Exception e) {
+                e.printStackTrace();
+                activity.runOnUiThread(() -> {
+                    hideLoading.run();
+                    activity.showErrorDialog("Save Error", 
+                            e.getClass().getSimpleName() + ": " + e.getMessage());
+                });
+            }
+        }).start();
     }
 
     private void copyFile(File source, File dest) throws Exception {
@@ -505,11 +427,7 @@ public class TagEditorDataManager {
                 .setTitle("Permission")
                 .setMessage("Grant access to: " + p)
                 .setPositiveButton("Grant", (d, w) -> activity.openDirectoryPicker(p))
-                .setNegativeButton(
-                        "Cancel",
-                        (d, w) -> {
-                            if (t.exists()) t.delete();
-                        })
+                .setNegativeButton("Cancel", (d, w) -> { if (t.exists()) t.delete(); })
                 .show();
     }
 
@@ -551,8 +469,7 @@ public class TagEditorDataManager {
         if (!equals(genreEditText.getText().toString(), norm.get("GENRE"))) return true;
         if (!equals(yearEditText.getText().toString(), norm.get("DATE"))) return true;
         if (!equals(trackNumberEditText.getText().toString(), norm.get("TRACKNUMBER"))) return true;
-        if (!equals(discNumberEditText.getText().toString(), norm.getOrDefault("DISCNUMBER", "")))
-            return true;
+        if (!equals(discNumberEditText.getText().toString(), norm.getOrDefault("DISCNUMBER", ""))) return true;
         if (!equals(composerEditText.getText().toString(), norm.get("COMPOSER"))) return true;
 
         String origWriter = norm.get("LYRICIST");
@@ -560,19 +477,13 @@ public class TagEditorDataManager {
         if (!equals(songwriterEditText.getText().toString(), origWriter)) return true;
 
         if (!equals(commentEditText.getText().toString(), norm.get("COMMENT"))) return true;
-        if (!equals(releaseDateEditText.getText().toString(), norm.getOrDefault("RELEASEDATE", "")))
-            return true;
-        if (!equals(audioLocaleEditText.getText().toString(), norm.getOrDefault("LOCALE", "")))
-            return true;
-        if (!equals(languageEditText.getText().toString(), norm.getOrDefault("LANGUAGE", "")))
-            return true;
-        if (!equals(
-                unsyncedLyricsEditText.getText().toString(),
-                norm.getOrDefault("UNSYNCEDLYRICS", ""))) return true;
+        if (!equals(releaseDateEditText.getText().toString(), norm.getOrDefault("RELEASEDATE", ""))) return true;
+        if (!equals(audioLocaleEditText.getText().toString(), norm.getOrDefault("LOCALE", ""))) return true;
+        if (!equals(languageEditText.getText().toString(), norm.getOrDefault("LANGUAGE", ""))) return true;
+        if (!equals(unsyncedLyricsEditText.getText().toString(), norm.getOrDefault("UNSYNCEDLYRICS", ""))) return true;
         if (!equals(lrcEditText.getText().toString(), norm.getOrDefault("LRC", ""))) return true;
         if (!equals(elrcEditText.getText().toString(), norm.getOrDefault("ELRC", ""))) return true;
-        if (!equals(lyricsMultiEditText.getText().toString(), norm.getOrDefault("LYRICS", "")))
-            return true;
+        if (!equals(lyricsMultiEditText.getText().toString(), norm.getOrDefault("LYRICS", ""))) return true;
 
         Map<String, String> currentExt = new HashMap<>();
         for (TagEditorActivity.CustomField f : customFields) {

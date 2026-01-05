@@ -205,17 +205,28 @@
                 android:indeterminateTint="@color/primary_purple"
                 android:visibility="gone" />
 
-            <ListView
-                android:id="@+id/songListView"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="1"
-                android:divider="@null"
-                android:dividerHeight="0dp"
-                android:clipToPadding="false"
-                android:paddingBottom="88dp"
-                android:scrollbars="vertical"
-                android:fastScrollEnabled="true" />
+                android:layout_weight="1">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/songRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:divider="@null"
+                    android:dividerHeight="0dp"
+                    android:clipToPadding="false"
+                    android:paddingBottom="88dp"
+                    android:scrollbars="none" />
+                <aman.lyricify.FastScroller
+                    android:id="@+id/fastScroller"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+            </FrameLayout>
+
+
         </LinearLayout>
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton

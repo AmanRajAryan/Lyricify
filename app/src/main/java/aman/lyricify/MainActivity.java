@@ -26,6 +26,7 @@ import android.widget.ProgressBar;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.cardview.widget.CardView;
@@ -33,6 +34,8 @@ import androidx.core.splashscreen.SplashScreen;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 
+import androidx.recyclerview.widget.RecyclerView;
+import com.bumptech.glide.Glide;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -57,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
 
     // UI Components
     private TextInputEditText searchEditText;
-    private ListView songListView;
+    private RecyclerView songReclyclerView;
     private ProgressBar songLoading;
     private CardView nowPlayingCard;
     private ImageView nowPlayingArtwork;
@@ -88,13 +91,13 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "LyricifyPrefs";
     private static final String KEY_SORT_CRITERIA = "sort_criteria";
     private static final String KEY_SORT_ORDER = "sort_order";
-    
+
     // Folder Filtering Keys
     private static final String KEY_FOLDERS = "music_folders";
     private static final String KEY_BLACKLIST = "blacklist_folders";
     private static final String KEY_SCAN_ALL = "scan_all_folders";
     private static final String KEY_BLACKLIST_ENABLED = "blacklist_enabled";
-    
+
     // New Feature Keys
     private static final String KEY_BOTTOM_UI = "bottom_ui_enabled";
     private static final String KEY_HIDE_LYRICS = "hide_lyrics_enabled";
@@ -106,7 +109,7 @@ public class MainActivity extends AppCompatActivity {
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
 
         super.onCreate(savedInstanceState);
-        
+
         // CHECK UI PREFERENCE
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         boolean useBottomUi = prefs.getBoolean(KEY_BOTTOM_UI, false);
@@ -118,32 +121,40 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // 2. SETUP EXIT ANIMATION
-        splashScreen.setOnExitAnimationListener(splashScreenView -> {
-            try {
-                View iconView = splashScreenView.getIconView();
-                if (iconView == null) {
-                    splashScreenView.remove();
-                    return;
-                }
-                ObjectAnimator scaleX = ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 0f);
-                ObjectAnimator scaleY = ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 0f);
-                ObjectAnimator alpha = ObjectAnimator.ofFloat(splashScreenView.getView(), View.ALPHA, 1f, 0f);
-                
-                android.animation.AnimatorSet animatorSet = new android.animation.AnimatorSet();
-                animatorSet.playTogether(scaleX, scaleY, alpha);
-                animatorSet.setDuration(500); 
-                animatorSet.setInterpolator(new AnticipateInterpolator());
-                animatorSet.addListener(new android.animation.AnimatorListenerAdapter() {
-                    @Override
-                    public void onAnimationEnd(android.animation.Animator animation) {
+        splashScreen.setOnExitAnimationListener(
+                splashScreenView -> {
+                    try {
+                        View iconView = splashScreenView.getIconView();
+                        if (iconView == null) {
+                            splashScreenView.remove();
+                            return;
+                        }
+                        ObjectAnimator scaleX =
+                                ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 0f);
+                        ObjectAnimator scaleY =
+                                ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 0f);
+                        ObjectAnimator alpha =
+                                ObjectAnimator.ofFloat(
+                                        splashScreenView.getView(), View.ALPHA, 1f, 0f);
+
+                        android.animation.AnimatorSet animatorSet =
+                                new android.animation.AnimatorSet();
+                        animatorSet.playTogether(scaleX, scaleY, alpha);
+                        animatorSet.setDuration(500);
+                        animatorSet.setInterpolator(new AnticipateInterpolator());
+                        animatorSet.addListener(
+                                new android.animation.AnimatorListenerAdapter() {
+                                    @Override
+                                    public void onAnimationEnd(
+                                            android.animation.Animator animation) {
+                                        splashScreenView.remove();
+                                    }
+                                });
+                        animatorSet.start();
+                    } catch (Exception e) {
                         splashScreenView.remove();
                     }
                 });
-                animatorSet.start();
-            } catch (Exception e) {
-                splashScreenView.remove();
-            }
-        });
 
         loadSortPreferences();
 
@@ -155,23 +166,24 @@ public class MainActivity extends AppCompatActivity {
         nowPlayingManager.register();
 
         youlyPlayerFab = findViewById(R.id.youlyPlayerFab);
-        youlyPlayerFab.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, YoulyPlayerActivity.class);
-            startActivity(intent);
-        });
-        
+        youlyPlayerFab.setOnClickListener(
+                v -> {
+                    Intent intent = new Intent(MainActivity.this, YoulyPlayerActivity.class);
+                    startActivity(intent);
+                });
+
         new UpdateManager(this).checkForUpdates();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        
+
         if (permissionManager.hasStoragePermission()) {
             loadLocalSongs();
         }
-        
-        checkPermissionAndOnboard(); 
+
+        checkPermissionAndOnboard();
 
         if (mediaSessionHandler.hasNotificationAccess()) {
             mediaSessionHandler.initialize();
@@ -179,7 +191,7 @@ public class MainActivity extends AppCompatActivity {
                 nowPlayingCard.postDelayed(() -> mediaSessionHandler.checkActiveSessions(), 200);
             }
         }
-        
+
         if (navigationView != null) {
             navigationView.setCheckedItem(R.id.nav_library);
         }
@@ -189,7 +201,9 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         currentSortCriteria = prefs.getInt(KEY_SORT_CRITERIA, R.id.rbTitle);
         currentSortOrder = prefs.getInt(KEY_SORT_ORDER, R.id.rbAscending);
-        if (currentSortCriteria != R.id.rbTitle && currentSortCriteria != R.id.rbArtist && currentSortCriteria != R.id.rbDateAdded) {
+        if (currentSortCriteria != R.id.rbTitle
+                && currentSortCriteria != R.id.rbArtist
+                && currentSortCriteria != R.id.rbDateAdded) {
             currentSortCriteria = R.id.rbTitle;
         }
     }
@@ -204,7 +218,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void initializeViews() {
         searchEditText = findViewById(R.id.searchEditText);
-        songListView = findViewById(R.id.songListView);
+        songReclyclerView = findViewById(R.id.songRecyclerView);
+        songReclyclerView.setLayoutManager(
+                new androidx.recyclerview.widget.LinearLayoutManager(this));
+
         songLoading = findViewById(R.id.songLoading);
 
         nowPlayingCard = findViewById(R.id.nowPlayingCard);
@@ -212,156 +229,221 @@ public class MainActivity extends AppCompatActivity {
         nowPlayingTitle = findViewById(R.id.nowPlayingTitle);
         nowPlayingArtist = findViewById(R.id.nowPlayingArtist);
         nowPlayingFilePath = findViewById(R.id.nowPlayingFilePath);
-        
+
         drawerLayout = findViewById(R.id.drawer_layout);
         navigationView = findViewById(R.id.navigation_view);
         menuButton = findViewById(R.id.menuButtonCard);
 
+        // 1. Setup Adapter
         localAdapter = new LocalSongAdapter(this, filteredLocalSongs);
-        songListView.setAdapter(localAdapter);
+        songReclyclerView.setAdapter(localAdapter);
+        FastScroller fastScroller = findViewById(R.id.fastScroller);
+        fastScroller.attachToRecyclerView(songReclyclerView);
+
+        // 2. OPTIMIZATION: Smart Scroll Listener [ADDED]
+        // This toggles between "Fast Mode" (Cached) and "Truth Mode" (Live File Check)
+        // 2. OPTIMIZATION: Smart Scroll Listener
+        // Remove the old addOnScrollListener block and replace with this:
+
+        songReclyclerView.addOnScrollListener(
+                new RecyclerView.OnScrollListener() {
+                    @Override
+                    public void onScrollStateChanged(
+                            @NonNull RecyclerView recyclerView, int newState) {
+                        if (newState == RecyclerView.SCROLL_STATE_SETTLING) {
+                            // Flinging: Tell adapter to only load cached images
+                            localAdapter.setFlinging(true);
+                        } else {
+                            // Idle (Stopped) or Dragging (Finger on screen): Load everything
+                            if (localAdapter != null) {
+                                localAdapter.setFlinging(false);
+
+                                // CRITICAL: Force the visible rows to reload now that we've
+                                // stopped.
+                                // This replaces any placeholders shown during the fling.
+                                localAdapter.notifyDataSetChanged();
+                            }
+                        }
+                    }
+                });
     }
-    
+
     private void setupDrawer() {
         if (menuButton != null) {
             menuButton.setOnClickListener(v -> drawerLayout.openDrawer(GravityCompat.START));
         }
 
         if (navigationView != null) {
-            navigationView.setNavigationItemSelectedListener(item -> {
-                int id = item.getItemId();
-                if (id == R.id.nav_settings) {
-                    Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
-                    startActivity(intent);
-                }
-                drawerLayout.closeDrawer(GravityCompat.START);
-                return true;
-            });
+            navigationView.setNavigationItemSelectedListener(
+                    item -> {
+                        int id = item.getItemId();
+                        if (id == R.id.nav_settings) {
+                            Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
+                            startActivity(intent);
+                        }
+                        drawerLayout.closeDrawer(GravityCompat.START);
+                        return true;
+                    });
         }
     }
 
     private void initializeManagers() {
         mediaSessionHandler = new MediaSessionHandler(this);
-        mediaSessionHandler.setCallback(new MediaSessionHandler.MediaSessionCallback() {
-            @Override
-            public void onMediaFound(String title, String artist, android.graphics.Bitmap artwork) {
-                nowPlayingManager.cancelPendingUpdate();
-                nowPlayingManager.prepareUpdate(title, artist, artwork);
-            }
-            @Override public void onMediaLost() { nowPlayingManager.hide(); }
-            @Override public void onMetadataChanged() {}
-        });
+        mediaSessionHandler.setCallback(
+                new MediaSessionHandler.MediaSessionCallback() {
+                    @Override
+                    public void onMediaFound(
+                            String title, String artist, android.graphics.Bitmap artwork) {
+                        nowPlayingManager.cancelPendingUpdate();
+                        nowPlayingManager.prepareUpdate(title, artist, artwork);
+                    }
 
-        nowPlayingManager = new NowPlayingManager(this, nowPlayingCard, nowPlayingArtwork, nowPlayingTitle, nowPlayingArtist, nowPlayingFilePath);
-        nowPlayingManager.setCallback(new NowPlayingManager.NowPlayingCallback() {
-            @Override
-            public void onCardClicked(String title, String artist) {
-                Uri uri = nowPlayingManager.getCurrentFileUri();
-                String path = nowPlayingManager.getCurrentFilePath();
-                Bitmap currentArt = nowPlayingManager.getCurrentArtwork();
-                MediaStoreHelper.LocalSong tempSong = new MediaStoreHelper.LocalSong(uri, path, title, artist, "", -1, 0, 0);
-                
-                new IdentifySongDialog(MainActivity.this, tempSong, currentArt).show();
-            }
-            @Override public void onFileFound(String filePath, Uri fileUri) {}
-        });
+                    @Override
+                    public void onMediaLost() {
+                        nowPlayingManager.hide();
+                    }
+
+                    @Override
+                    public void onMetadataChanged() {}
+                });
+
+        nowPlayingManager =
+                new NowPlayingManager(
+                        this,
+                        nowPlayingCard,
+                        nowPlayingArtwork,
+                        nowPlayingTitle,
+                        nowPlayingArtist,
+                        nowPlayingFilePath);
+        nowPlayingManager.setCallback(
+                new NowPlayingManager.NowPlayingCallback() {
+                    @Override
+                    public void onCardClicked(String title, String artist) {
+                        Uri uri = nowPlayingManager.getCurrentFileUri();
+                        String path = nowPlayingManager.getCurrentFilePath();
+                        Bitmap currentArt = nowPlayingManager.getCurrentArtwork();
+                        MediaStoreHelper.LocalSong tempSong =
+                                new MediaStoreHelper.LocalSong(
+                                        uri, path, title, artist, "", -1, 0, 0);
+
+                        new IdentifySongDialog(MainActivity.this, tempSong, currentArt).show();
+                    }
+
+                    @Override
+                    public void onFileFound(String filePath, Uri fileUri) {}
+                });
 
         permissionManager = new PermissionManager(this);
-        permissionManager.setCallback(new PermissionManager.PermissionCallback() {
-            @Override public void onStoragePermissionGranted() { loadLocalSongs(); }
-            @Override public void onStoragePermissionDenied() {}
-        });
+        permissionManager.setCallback(
+                new PermissionManager.PermissionCallback() {
+                    @Override
+                    public void onStoragePermissionGranted() {
+                        loadLocalSongs();
+                    }
+
+                    @Override
+                    public void onStoragePermissionDenied() {}
+                });
     }
 
-        private void loadLocalSongs() {
+    private void loadLocalSongs() {
         if (!permissionManager.hasStoragePermission()) return;
-        
+
         // Only show loading if we don't have songs yet (prevents flickering on refresh)
         if (allLocalSongs.isEmpty()) songLoading.setVisibility(View.VISIBLE);
-        
-        new Thread(() -> {
-            // 1. FETCH ALL SONGS
-            List<MediaStoreHelper.LocalSong> allDeviceSongs = MediaStoreHelper.getAllSongs(this);
-            
-            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            boolean scanAll = prefs.getBoolean(KEY_SCAN_ALL, true);
-            boolean blacklistEnabled = prefs.getBoolean(KEY_BLACKLIST_ENABLED, false);
-            boolean hideLyrics = prefs.getBoolean(KEY_HIDE_LYRICS, false);
-            
-            Set<String> whitelistPaths = prefs.getStringSet(KEY_FOLDERS, new HashSet<>());
-            Set<String> blacklistPaths = prefs.getStringSet(KEY_BLACKLIST, new HashSet<>());
 
-            // 2. FILTER BY WHITELIST (Included Folders)
-            List<MediaStoreHelper.LocalSong> pendingSongs = new ArrayList<>();
-            if (scanAll) {
-                pendingSongs.addAll(allDeviceSongs);
-            } else {
-                if (!whitelistPaths.isEmpty()) {
-                    for (MediaStoreHelper.LocalSong song : allDeviceSongs) {
-                        if (song.filePath != null) {
-                            for (String includePath : whitelistPaths) {
-                                if (song.filePath.startsWith(includePath)) {
-                                    pendingSongs.add(song);
-                                    break; 
+        new Thread(
+                        () -> {
+                            // 1. FETCH ALL SONGS
+                            List<MediaStoreHelper.LocalSong> allDeviceSongs =
+                                    MediaStoreHelper.getAllSongs(this);
+
+                            SharedPreferences prefs =
+                                    getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                            boolean scanAll = prefs.getBoolean(KEY_SCAN_ALL, true);
+                            boolean blacklistEnabled =
+                                    prefs.getBoolean(KEY_BLACKLIST_ENABLED, false);
+                            boolean hideLyrics = prefs.getBoolean(KEY_HIDE_LYRICS, false);
+
+                            Set<String> whitelistPaths =
+                                    prefs.getStringSet(KEY_FOLDERS, new HashSet<>());
+                            Set<String> blacklistPaths =
+                                    prefs.getStringSet(KEY_BLACKLIST, new HashSet<>());
+
+                            // 2. FILTER BY WHITELIST (Included Folders)
+                            List<MediaStoreHelper.LocalSong> pendingSongs = new ArrayList<>();
+                            if (scanAll) {
+                                pendingSongs.addAll(allDeviceSongs);
+                            } else {
+                                if (!whitelistPaths.isEmpty()) {
+                                    for (MediaStoreHelper.LocalSong song : allDeviceSongs) {
+                                        if (song.filePath != null) {
+                                            for (String includePath : whitelistPaths) {
+                                                if (song.filePath.startsWith(includePath)) {
+                                                    pendingSongs.add(song);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    }
-                }
-            }
 
-            // 3. FILTER BY BLACKLIST (Excluded Folders)
-            List<MediaStoreHelper.LocalSong> folderFilteredList = new ArrayList<>();
-            if (blacklistEnabled && !blacklistPaths.isEmpty()) {
-                for (MediaStoreHelper.LocalSong song : pendingSongs) {
-                    boolean isBlacklisted = false;
-                    if (song.filePath != null) {
-                        for (String blockPath : blacklistPaths) {
-                            if (song.filePath.startsWith(blockPath)) {
-                                isBlacklisted = true;
-                                break;
+                            // 3. FILTER BY BLACKLIST (Excluded Folders)
+                            List<MediaStoreHelper.LocalSong> folderFilteredList = new ArrayList<>();
+                            if (blacklistEnabled && !blacklistPaths.isEmpty()) {
+                                for (MediaStoreHelper.LocalSong song : pendingSongs) {
+                                    boolean isBlacklisted = false;
+                                    if (song.filePath != null) {
+                                        for (String blockPath : blacklistPaths) {
+                                            if (song.filePath.startsWith(blockPath)) {
+                                                isBlacklisted = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (!isBlacklisted) {
+                                        folderFilteredList.add(song);
+                                    }
+                                }
+                            } else {
+                                folderFilteredList.addAll(pendingSongs);
                             }
-                        }
-                    }
-                    if (!isBlacklisted) {
-                        folderFilteredList.add(song);
-                    }
-                }
-            } else {
-                folderFilteredList.addAll(pendingSongs);
-            }
 
-            // 4. FILTER BY LYRICS (Cached Check)
-            List<MediaStoreHelper.LocalSong> finalFilteredList = new ArrayList<>();
-            if (hideLyrics) {
-                LyricsCacheManager cacheManager = LyricsCacheManager.getInstance(this);
+                            // 4. FILTER BY LYRICS (Cached Check)
+                            List<MediaStoreHelper.LocalSong> finalFilteredList = new ArrayList<>();
+                            if (hideLyrics) {
+                                LyricsCacheManager cacheManager =
+                                        LyricsCacheManager.getInstance(this);
 
-                for (MediaStoreHelper.LocalSong song : folderFilteredList) {
-                    // hasLyrics uses cache:
-                    // - If file date modified matches cache -> Returns instantly.
-                    // - If file changed -> Scans with TagLib and updates cache.
-                    if (!cacheManager.hasLyrics(song.filePath)) {
-                        finalFilteredList.add(song);
-                    }
-                }
-                
-                // Save the cache to disk so next run is fast
-                cacheManager.saveCache(this);
-                
-            } else {
-                finalFilteredList.addAll(folderFilteredList);
-            }
+                                for (MediaStoreHelper.LocalSong song : folderFilteredList) {
+                                    // hasLyrics uses cache:
+                                    // - If file date modified matches cache -> Returns instantly.
+                                    // - If file changed -> Scans with TagLib and updates cache.
+                                    if (!cacheManager.hasLyrics(song.filePath)) {
+                                        finalFilteredList.add(song);
+                                    }
+                                }
 
-            // 5. UPDATE UI
-            runOnUiThread(() -> {
-                allLocalSongs.clear();
-                allLocalSongs.addAll(finalFilteredList);
-                applyCurrentSort();
-                filterLocalSongs(searchEditText.getText().toString());
-                songLoading.setVisibility(View.GONE);
-            });
-        }).start();
+                                // Save the cache to disk so next run is fast
+                                cacheManager.saveCache(this);
+
+                            } else {
+                                finalFilteredList.addAll(folderFilteredList);
+                            }
+
+                            // 5. UPDATE UI
+                            runOnUiThread(
+                                    () -> {
+                                        allLocalSongs.clear();
+                                        allLocalSongs.addAll(finalFilteredList);
+                                        applyCurrentSort();
+                                        filterLocalSongs(searchEditText.getText().toString());
+                                        songLoading.setVisibility(View.GONE);
+                                    });
+                        })
+                .start();
     }
-
 
     private void filterLocalSongs(String query) {
         filteredLocalSongs.clear();
@@ -370,42 +452,66 @@ public class MainActivity extends AppCompatActivity {
         } else {
             String lowerQuery = query.toLowerCase(Locale.getDefault());
             for (MediaStoreHelper.LocalSong song : allLocalSongs) {
-                if ((song.title != null && song.title.toLowerCase().contains(lowerQuery)) ||
-                    (song.artist != null && song.artist.toLowerCase().contains(lowerQuery))) {
+                if ((song.title != null && song.title.toLowerCase().contains(lowerQuery))
+                        || (song.artist != null
+                                && song.artist.toLowerCase().contains(lowerQuery))) {
                     filteredLocalSongs.add(song);
                 }
             }
         }
-        localAdapter.notifyDataSetChanged();
+
+        // FIX: Use updateData() instead of notifyDataSetChanged()
+        // This forces the adapter to Recalculate Sections based on the new, correct order.
+        if (localAdapter != null) {
+            localAdapter.updateData(filteredLocalSongs);
+        }
     }
 
     private void setupListeners() {
-        searchEditText.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { filterLocalSongs(s.toString()); }
-            @Override public void afterTextChanged(Editable s) {}
-        });
+        searchEditText.addTextChangedListener(
+                new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(
+                            CharSequence s, int start, int count, int after) {}
 
-        songListView.setOnItemClickListener((parent, view, position, id) -> {
-            MediaStoreHelper.LocalSong selectedSong = filteredLocalSongs.get(position);
-            Bitmap extractedBitmap = null;
-            try {
-                ImageView artView = view.findViewById(R.id.localArtwork);
-                extractedBitmap = getBitmapFromImageView(artView);
-            } catch (Exception ignored) {}
-            
-            new IdentifySongDialog(MainActivity.this, selectedSong, extractedBitmap).show();
-        });
+                    @Override
+                    public void onTextChanged(CharSequence s, int start, int before, int count) {
+                        filterLocalSongs(s.toString());
+                    }
 
-        songListView.setOnItemLongClickListener((parent, view, position, id) -> {
-            MediaStoreHelper.LocalSong selectedSong = filteredLocalSongs.get(position);
-            Intent intent = new Intent(MainActivity.this, TagEditorActivity.class);
-            intent.putExtra("FILE_PATH", selectedSong.filePath);
-            intent.putExtra("SONG_TITLE", selectedSong.title);
-            intent.putExtra("SONG_ARTIST", selectedSong.artist);
-            startActivity(intent);
-            return true;
-        });
+                    @Override
+                    public void afterTextChanged(Editable s) {}
+                });
+
+        // FIX: Call setOnItemClickListener on the ADAPTER, not the RecyclerView
+        localAdapter.setOnItemClickListener(
+                (view, song, position) -> {
+                    // Note: The adapter passes the 'song' object directly, so we use that.
+                    // We don't need 'filteredLocalSongs.get(position)' because the adapter gave it
+                    // to us.
+
+                    Bitmap extractedBitmap = null;
+                    try {
+                        ImageView artView = view.findViewById(R.id.localArtwork);
+                        extractedBitmap = getBitmapFromImageView(artView);
+                    } catch (Exception ignored) {
+                    }
+
+                    new IdentifySongDialog(MainActivity.this, song, extractedBitmap).show();
+                });
+
+        // FIX: Call setOnItemLongClickListener on the ADAPTER
+        localAdapter.setOnItemLongClickListener(
+                (view, song, position) -> {
+                    Intent intent = new Intent(MainActivity.this, TagEditorActivity.class);
+                    intent.putExtra("FILE_PATH", song.filePath);
+                    intent.putExtra("SONG_TITLE", song.title);
+                    intent.putExtra("SONG_ARTIST", song.artist);
+                    startActivity(intent);
+                    // Note: The adapter expects void return for this interface based on my previous
+                    // code,
+                    // or if you used the standard boolean return, return true;
+                });
 
         findViewById(R.id.sortButton).setOnClickListener(v -> showSortDialog());
     }
@@ -417,14 +523,17 @@ public class MainActivity extends AppCompatActivity {
 
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            dialog.getWindow()
+                    .setLayout(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT);
         }
 
         // Views
         RadioGroup criteriaGroup = dialog.findViewById(R.id.sortCriteriaGroup);
         RadioGroup orderGroup = dialog.findViewById(R.id.sortOrderGroup);
         MaterialSwitch switchHideLyrics = dialog.findViewById(R.id.switchHideLyricsFilter);
-        
+
         MaterialButton btnApply = dialog.findViewById(R.id.btnApplySort);
         MaterialButton btnCancel = dialog.findViewById(R.id.btnCancelSort);
 
@@ -437,39 +546,40 @@ public class MainActivity extends AppCompatActivity {
         switchHideLyrics.setChecked(currentHideState);
 
         btnCancel.setOnClickListener(v -> dialog.dismiss());
-        btnApply.setOnClickListener(v -> {
-            // Get new Values
-            int newCriteria = criteriaGroup.getCheckedRadioButtonId();
-            int newOrder = orderGroup.getCheckedRadioButtonId();
-            boolean newHideState = switchHideLyrics.isChecked();
+        btnApply.setOnClickListener(
+                v -> {
+                    // Get new Values
+                    int newCriteria = criteriaGroup.getCheckedRadioButtonId();
+                    int newOrder = orderGroup.getCheckedRadioButtonId();
+                    boolean newHideState = switchHideLyrics.isChecked();
 
-            // Save Preferences
-            SharedPreferences.Editor editor = prefs.edit();
-            editor.putBoolean(KEY_HIDE_LYRICS, newHideState);
-            editor.apply(); // Key Hide Lyrics saved
+                    // Save Preferences
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putBoolean(KEY_HIDE_LYRICS, newHideState);
+                    editor.apply(); // Key Hide Lyrics saved
 
-            // Update local vars
-            currentSortCriteria = newCriteria;
-            currentSortOrder = newOrder;
-            saveSortPreferences();
+                    // Update local vars
+                    currentSortCriteria = newCriteria;
+                    currentSortOrder = newOrder;
+                    saveSortPreferences();
 
-            // Logic: If filter changed, we MUST re-scan (loadLocalSongs). 
-            // If only sort changed, we just re-sort (applyCurrentSort).
-            if (newHideState != currentHideState) {
-                // Filter Changed -> Full Refresh
-                allLocalSongs.clear();
-                filteredLocalSongs.clear();
-                localAdapter.notifyDataSetChanged();
-                songLoading.setVisibility(View.VISIBLE);
-                loadLocalSongs();
-            } else {
-                // Only Sort Changed
-                applyCurrentSort();
-                filterLocalSongs(searchEditText.getText().toString());
-            }
-            
-            dialog.dismiss();
-        });
+                    // Logic: If filter changed, we MUST re-scan (loadLocalSongs).
+                    // If only sort changed, we just re-sort (applyCurrentSort).
+                    if (newHideState != currentHideState) {
+                        // Filter Changed -> Full Refresh
+                        allLocalSongs.clear();
+                        filteredLocalSongs.clear();
+                        localAdapter.notifyDataSetChanged();
+                        songLoading.setVisibility(View.VISIBLE);
+                        loadLocalSongs();
+                    } else {
+                        // Only Sort Changed
+                        applyCurrentSort();
+                        filterLocalSongs(searchEditText.getText().toString());
+                    }
+
+                    dialog.dismiss();
+                });
         dialog.show();
     }
 
@@ -478,18 +588,20 @@ public class MainActivity extends AppCompatActivity {
         int sortMode = 0;
 
         if (currentSortCriteria == R.id.rbTitle) {
-            comparator = (s1, s2) -> {
-                String t1 = s1.title != null ? s1.title.trim() : "";
-                String t2 = s2.title != null ? s2.title.trim() : "";
-                return t1.compareToIgnoreCase(t2);
-            };
+            comparator =
+                    (s1, s2) -> {
+                        String t1 = s1.title != null ? s1.title.trim() : "";
+                        String t2 = s2.title != null ? s2.title.trim() : "";
+                        return t1.compareToIgnoreCase(t2);
+                    };
             sortMode = 0;
         } else if (currentSortCriteria == R.id.rbArtist) {
-            comparator = (s1, s2) -> {
-                String a1 = s1.artist != null ? s1.artist.trim() : "";
-                String a2 = s2.artist != null ? s2.artist.trim() : "";
-                return a1.compareToIgnoreCase(a2);
-            };
+            comparator =
+                    (s1, s2) -> {
+                        String a1 = s1.artist != null ? s1.artist.trim() : "";
+                        String a2 = s2.artist != null ? s2.artist.trim() : "";
+                        return a1.compareToIgnoreCase(a2);
+                    };
             sortMode = 2;
         } else if (currentSortCriteria == R.id.rbDateAdded) {
             comparator = (s1, s2) -> Long.compare(s1.dateAdded, s2.dateAdded);
@@ -498,7 +610,8 @@ public class MainActivity extends AppCompatActivity {
 
         if (localAdapter != null) localAdapter.setSortMode(sortMode);
         if (comparator != null) {
-            if (currentSortOrder == R.id.rbDescending) comparator = Collections.reverseOrder(comparator);
+            if (currentSortOrder == R.id.rbDescending)
+                comparator = Collections.reverseOrder(comparator);
             Collections.sort(allLocalSongs, comparator);
         }
     }
@@ -508,15 +621,20 @@ public class MainActivity extends AppCompatActivity {
         Drawable drawable = view.getDrawable();
         if (drawable instanceof BitmapDrawable) return ((BitmapDrawable) drawable).getBitmap();
         try {
-            Bitmap bitmap = Bitmap.createBitmap(
-                    drawable.getIntrinsicWidth() <= 0 ? 100 : drawable.getIntrinsicWidth(),
-                    drawable.getIntrinsicHeight() <= 0 ? 100 : drawable.getIntrinsicHeight(),
-                    Bitmap.Config.ARGB_8888);
+            Bitmap bitmap =
+                    Bitmap.createBitmap(
+                            drawable.getIntrinsicWidth() <= 0 ? 100 : drawable.getIntrinsicWidth(),
+                            drawable.getIntrinsicHeight() <= 0
+                                    ? 100
+                                    : drawable.getIntrinsicHeight(),
+                            Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
             drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
             drawable.draw(canvas);
             return bitmap;
-        } catch (Exception e) { return null; }
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public void openLyricsActivity(Song apiSong, MediaStoreHelper.LocalSong localSong) {
@@ -543,10 +661,15 @@ public class MainActivity extends AppCompatActivity {
             if (parts.length == 2) {
                 totalSeconds = (Integer.parseInt(parts[0]) * 60) + Integer.parseInt(parts[1]);
             } else if (parts.length == 3) {
-                totalSeconds = (Integer.parseInt(parts[0]) * 3600) + (Integer.parseInt(parts[1]) * 60) + Integer.parseInt(parts[2]);
+                totalSeconds =
+                        (Integer.parseInt(parts[0]) * 3600)
+                                + (Integer.parseInt(parts[1]) * 60)
+                                + Integer.parseInt(parts[2]);
             }
             return totalSeconds * 1000;
-        } catch (NumberFormatException e) { return 0; }
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private void checkPermissionAndOnboard() {
@@ -565,29 +688,58 @@ public class MainActivity extends AppCompatActivity {
 
     private void showStoragePermissionSheet() {
         if (isFinishing()) return;
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
+        BottomSheetDialog bottomSheetDialog =
+                new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
         View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_permission, null);
         bottomSheetDialog.setContentView(sheetView);
-        if (bottomSheetDialog.getWindow() != null) bottomSheetDialog.getWindow().findViewById(com.google.android.material.R.id.design_bottom_sheet).setBackgroundResource(android.R.color.transparent);
+        if (bottomSheetDialog.getWindow() != null)
+            bottomSheetDialog
+                    .getWindow()
+                    .findViewById(com.google.android.material.R.id.design_bottom_sheet)
+                    .setBackgroundResource(android.R.color.transparent);
         MaterialButton btnGrant = sheetView.findViewById(R.id.btnGrantAccess);
         MaterialButton btnNotNow = sheetView.findViewById(R.id.btnNotNow);
-        btnGrant.setOnClickListener(v -> { bottomSheetDialog.dismiss(); permissionManager.requestStoragePermission(); });
-        btnNotNow.setOnClickListener(v -> { bottomSheetDialog.dismiss(); if (!mediaSessionHandler.hasNotificationAccess()) showNotificationPermissionSheet(); else isShowingSheet = false; });
+        btnGrant.setOnClickListener(
+                v -> {
+                    bottomSheetDialog.dismiss();
+                    permissionManager.requestStoragePermission();
+                });
+        btnNotNow.setOnClickListener(
+                v -> {
+                    bottomSheetDialog.dismiss();
+                    if (!mediaSessionHandler.hasNotificationAccess())
+                        showNotificationPermissionSheet();
+                    else isShowingSheet = false;
+                });
         bottomSheetDialog.setOnDismissListener(dialog -> isShowingSheet = false);
         bottomSheetDialog.show();
     }
 
     private void showNotificationPermissionSheet() {
         if (isFinishing()) return;
-        BottomSheetDialog bottomSheetDialog = new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
-        View sheetView = LayoutInflater.from(this).inflate(R.layout.bottom_sheet_notification_access, null);
+        BottomSheetDialog bottomSheetDialog =
+                new BottomSheetDialog(this, R.style.BottomSheetDialogTheme);
+        View sheetView =
+                LayoutInflater.from(this).inflate(R.layout.bottom_sheet_notification_access, null);
         bottomSheetDialog.setContentView(sheetView);
-        if (bottomSheetDialog.getWindow() != null) bottomSheetDialog.getWindow().findViewById(com.google.android.material.R.id.design_bottom_sheet).setBackgroundResource(android.R.color.transparent);
+        if (bottomSheetDialog.getWindow() != null)
+            bottomSheetDialog
+                    .getWindow()
+                    .findViewById(com.google.android.material.R.id.design_bottom_sheet)
+                    .setBackgroundResource(android.R.color.transparent);
         MaterialButton btnConnect = sheetView.findViewById(R.id.btnConnectApps);
         TextView btnTroubleshoot = sheetView.findViewById(R.id.btnTroubleshoot);
         MaterialButton btnNotNow = sheetView.findViewById(R.id.btnNotNow);
-        btnConnect.setOnClickListener(v -> { bottomSheetDialog.dismiss(); mediaSessionHandler.requestNotificationAccess(); });
-        btnTroubleshoot.setOnClickListener(v -> { bottomSheetDialog.dismiss(); mediaSessionHandler.openAppInfo(); });
+        btnConnect.setOnClickListener(
+                v -> {
+                    bottomSheetDialog.dismiss();
+                    mediaSessionHandler.requestNotificationAccess();
+                });
+        btnTroubleshoot.setOnClickListener(
+                v -> {
+                    bottomSheetDialog.dismiss();
+                    mediaSessionHandler.openAppInfo();
+                });
         btnNotNow.setOnClickListener(v -> bottomSheetDialog.dismiss());
         bottomSheetDialog.setOnDismissListener(dialog -> isShowingSheet = false);
         bottomSheetDialog.show();
@@ -601,7 +753,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(
+            int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         permissionManager.handlePermissionResult(requestCode, permissions, grantResults);
     }

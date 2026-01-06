@@ -1,0 +1,20 @@
+{
+  "allFiles": [
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/TagEditorUtils/TagEditorArtworkHelper.java",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 26402,
+          "line": 568
+        },
+        "start": {
+          "column": 0,
+          "index": 26402,
+          "line": 568
+        }
+      }
+    }
+  ],
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/TagEditorUtils/TagEditorArtworkHelper.java"
+}

@@ -143,6 +143,27 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
     protected void onDestroy() {
         super.onDestroy();
         ApiClient.unregisterCacheListener(this);
+
+        // 1. Clear Memory Cache
+        motionCache = null;
+
+        // 2. Clear File Cache (Delete temporary preview videos)
+        new Thread(
+                        () -> {
+                            try {
+                                File cacheDir = new File(getCacheDir(), "motion_cache");
+                                if (cacheDir.exists()) {
+                                    File[] files = cacheDir.listFiles();
+                                    if (files != null) {
+                                        for (File f : files) f.delete();
+                                    }
+                                    cacheDir.delete();
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        })
+                .start();
     }
 
     @Override
@@ -266,7 +287,7 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                         });
     }
 
-    private void launchCompanionApp(Uri videoUri) {
+    public void launchCompanionApp(Uri videoUri) {
         try {
             Intent intent = new Intent(Intent.ACTION_SEND);
             intent.setType("video/*");
@@ -331,6 +352,8 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         if (filePath != null) fileNameText.setText(new File(filePath).getName());
     }
 
+    // In TagEditorActivity.java inside loadCurrentTags() call
+
     private void loadCurrentTags() {
         dataManager.loadCurrentTags(
                 filePath,
@@ -338,18 +361,22 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
                 this::showLoading,
                 this::hideLoading,
                 this::updateRestoreButtonState,
-                (metadata, artwork) -> {
+                // UPDATED CALLBACK:
+                (metadata, artworkBitmap, rawBytes, mimeType) -> {
                     this.originalMetadata = metadata;
-                    if (artwork != null) {
-                        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                        artwork.compress(Bitmap.CompressFormat.PNG, 100, stream);
+
+                    // NEW: Pass raw bytes directly!
+                    if (rawBytes != null && rawBytes.length > 0) {
                         artworkHelper.setOriginalArtwork(
-                                artwork,
-                                stream.toByteArray(),
-                                artworkHelper.detectMimeTypeFromBitmap(artwork));
+                                artworkBitmap,
+                                rawBytes, // The real animated bytes (GIF/WebP)
+                                mimeType // The real mime type
+                                );
                     } else {
+                        // Fallback for no artwork
                         artworkHelper.setOriginalArtwork(null, null, null);
                     }
+
                     Map<String, String> normalized = new HashMap<>();
                     if (metadata != null) {
                         for (Map.Entry<String, String> entry : metadata.entrySet())
@@ -404,9 +431,24 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         extendedTagsHeader.setOnClickListener(v -> toggleExtendedTags());
         lyricsHeader.setOnClickListener(v -> toggleLyrics());
         formatSwapperContainer.setOnClickListener(v -> lyricsHelper.toggleLyricsMode());
+        // In TagEditorActivity.java inside setupListeners()
         artworkDimensionsContainer.setOnClickListener(
-                v -> artworkHelper.showArtworkOptionsDialog(metadataHelper.getIntentArtworkUrl()));
+                v -> {
+                    // OLD: artworkHelper.showArtworkOptionsDialog(...)
 
+                    // NEW:
+                    String trackUrl = null;
+                    if (metadataHelper.getCachedMetadata() != null) {
+                        trackUrl =
+                                metadataHelper.getCachedMetadata()
+                                        .trackUrl; // Ensure you added this field to LyricsResponse!
+                    }
+
+                    ArtworkBottomSheetFragment bottomSheet =
+                            ArtworkBottomSheetFragment.newInstance(
+                                    trackUrl, metadataHelper.getIntentArtworkUrl());
+                    bottomSheet.show(getSupportFragmentManager(), "ArtworkSheet");
+                });
         TextWatcher changeWatcher =
                 new TextWatcher() {
                     public void beforeTextChanged(
@@ -610,6 +652,20 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
 
     public List<CustomField> getCustomFields() {
         return customFields;
+    }
+
+    public TagEditorArtworkHelper getTagEditorArtworkHelper() {
+        return this.artworkHelper;
+    }
+
+    private List<MotionRepository.MotionOption> motionCache = null;
+
+    public List<MotionRepository.MotionOption> getMotionCache() {
+        return motionCache;
+    }
+
+    public void setMotionCache(List<MotionRepository.MotionOption> cache) {
+        this.motionCache = cache;
     }
 
     private void hideSystemUI() {

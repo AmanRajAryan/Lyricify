@@ -31,6 +31,13 @@ public class LyricsFetcher {
     public void setCallback(LyricsCallback callback) {
         this.callback = callback;
     }
+    
+    
+        
+    public void setLyricsResponse(ApiClient.LyricsResponse lyricsResponse) {
+        this.currentLyricsResponse = lyricsResponse;
+    }
+    
 
     /** Fetch lyrics by song ID */
     public void fetchBySongId(String songId) {

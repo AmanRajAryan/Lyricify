@@ -145,7 +145,7 @@ public class LocalSongAdapter extends RecyclerView.Adapter<LocalSongAdapter.Song
                     .placeholder(R.drawable.ic_music_note)
                     .error(R.drawable.ic_music_note)
                     // Optional Center Crop: Crops static images, leaves animations alone.
-                    // (Your XML ImageView scaleType="centerCrop" handles the rest)
+                    
                     .optionalCenterCrop();
 
             // 4. Fling Optimization

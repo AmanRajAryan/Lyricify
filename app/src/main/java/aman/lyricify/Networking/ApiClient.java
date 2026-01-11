@@ -29,10 +29,12 @@ public class ApiClient {
     public static class LyricsResponse implements Serializable {
         public String plain;
         public String lrc;
-        public String lrcMultiPerson; 
+        public String lrcMultiPerson;
         public String elrc;
         public String elrcMultiPerson;
         public String ttml;
+
+        public String trackUrl;
 
         // Metadata
         public List<String> songwriters;
@@ -57,9 +59,7 @@ public class ApiClient {
             return hasPlain || hasTtml;
         }
     }
-    
-   
-    
+
     // --- SHARED CACHE MECHANISM ---
     private static LyricsResponse globalCache;
     private static final List<CacheListener> listeners = new ArrayList<>();
@@ -105,13 +105,74 @@ public class ApiClient {
 
     // --- PUBLIC METHODS ---
 
+    //
     public static void searchSongs(String query, SearchCallback callback) {
-        SearchRepository.search(client, query, callback);
+        String TAG = "ApiClient";
+
+        // PRIORITY 1: Direct Apple Music Search
+        Log.d(TAG, "🚀 Initiating Priority 1: Direct Apple Search for '" + query + "'");
+
+        DirectAppleSearchRepository.search(
+                client,
+                query,
+                new SearchCallback() {
+                    @Override
+                    public void onSuccess(ArrayList<Song> songs) {
+                        Log.i(
+                                TAG,
+                                "✅ Direct Search SUCCESS. Returning " + songs.size() + " items.");
+                        callback.onSuccess(songs);
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        Log.e(TAG, "⚠️ Direct Search FAILED: " + error);
+                        Log.d(TAG, "🔄 Falling back to Priority 2: Worker Search...");
+
+                        // PRIORITY 2: Original Worker Search (Fallback)
+                        SearchRepository.search(
+                                client,
+                                query,
+                                new SearchCallback() {
+                                    @Override
+                                    public void onSuccess(ArrayList<Song> songs) {
+                                        Log.i(TAG, "✅ Worker Fallback SUCCESS.");
+                                        callback.onSuccess(songs);
+                                    }
+
+                                    @Override
+                                    public void onFailure(String error) {
+                                        Log.e(TAG, "❌ Worker Fallback FAILED: " + error);
+                                        callback.onFailure(error);
+                                    }
+                                });
+                    }
+                });
+    }
+    
+    
+    
+    
+    
+    
+  
+    public static void getLyrics(String songId, LyricsCallback callback) {
+        getLyrics(songId, false, callback);
     }
 
-    public static void getLyrics(String songId, LyricsCallback callback) {
-        LyricsRepository.getLyrics(client, songId, callback);
+   
+    public static void getLyrics(String songId, boolean forceRefresh, LyricsCallback callback) {
+        LyricsRepository.getLyrics(client, songId, forceRefresh, callback);
     }
+
+    
+    
+    
+    
+    
+    
+
+
 
     public static void getLyricsByTitleAndArtist(
             String title, String artist, LyricsCallback callback) {
@@ -134,3 +195,9 @@ public class ApiClient {
                 });
     }
 }
+
+
+
+
+
+   

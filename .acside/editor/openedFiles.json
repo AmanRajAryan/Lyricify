@@ -1,20 +1,35 @@
 {
   "allFiles": [
     {
-      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/TagEditorUtils/TagEditorArtworkHelper.java",
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore",
+      "selection": {
+        "end": {
+          "column": 11,
+          "index": 97,
+          "line": 10
+        },
+        "start": {
+          "column": 11,
+          "index": 97,
+          "line": 10
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/Networking/MotionCover.java",
       "selection": {
         "end": {
           "column": 0,
-          "index": 26402,
-          "line": 568
+          "index": 0,
+          "line": 0
         },
         "start": {
           "column": 0,
-          "index": 26402,
-          "line": 568
+          "index": 0,
+          "line": 0
         }
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/app/src/main/java/aman/lyricify/TagEditorUtils/TagEditorArtworkHelper.java"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Lyricify/.gitignore"
 }

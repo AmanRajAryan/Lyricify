@@ -55,6 +55,12 @@ public class LyricsActivity extends AppCompatActivity {
     private ImageButton embedLyricsButton, syncedLyricsButton;
     private ExtendedFloatingActionButton editTagsButton;
 
+    // Add new button var
+    private ImageButton refreshLyricsButton;
+
+    // Add State variable
+    private boolean hasRefreshedOnce = false;
+
     // Data
     private String songId;
     private String title;
@@ -178,6 +184,9 @@ public class LyricsActivity extends AppCompatActivity {
         hasElrcIndicator = findViewById(R.id.hasElrcIndicator);
         statusDot = findViewById(R.id.statusDot);
 
+        // Init Refresh Button
+        refreshLyricsButton = findViewById(R.id.refreshLyricsButton);
+
         showMetadataButton = findViewById(R.id.showMetadataButton);
         saveLrcButton = findViewById(R.id.saveLrcButton);
         copyLyricsButton = findViewById(R.id.copyLyricsButton);
@@ -253,11 +262,9 @@ public class LyricsActivity extends AppCompatActivity {
                         runOnUiThread(() -> metadataManager.showMetadataDialog(filePath));
                     }
                 });
-                
-                
     }
 
-        // Replace the existing updateFormatAvailability method with this:
+    // Replace the existing updateFormatAvailability method with this:
     private void updateFormatAvailability(ApiClient.LyricsResponse response) {
         availableFormats.clear();
         availableFormats.add("Plain"); // Always available
@@ -319,11 +326,9 @@ public class LyricsActivity extends AppCompatActivity {
         updateSyncedLyricsButtonState();
     }
 
-    
     private boolean isValidFormat(String text) {
         return text != null && !text.isEmpty() && !text.equals("null");
     }
-
 
     private void updateSelectorState(boolean enabled) {
         formatSelectorButton.setEnabled(enabled);
@@ -458,6 +463,84 @@ public class LyricsActivity extends AppCompatActivity {
                     }
                     startActivity(intent);
                 });
+
+        refreshLyricsButton.setOnClickListener(v -> handleRefreshLyrics());
+    }
+
+    private void handleRefreshLyrics() {
+        if (hasRefreshedOnce) {
+            Toast.makeText(this, "Already refreshed. Please wait.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (songId == null || songId.isEmpty()) {
+            Toast.makeText(this, "Cannot refresh: No Song ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Set flag to true immediately to prevent spam
+        hasRefreshedOnce = true;
+
+        // Visual feedback (disable button or dim it)
+        refreshLyricsButton.setAlpha(0.3f);
+        refreshLyricsButton.setEnabled(false);
+
+        Toast.makeText(this, "Forcing refresh from server...", Toast.LENGTH_SHORT).show();
+
+        // Show loading state
+        lyricsLoading.setVisibility(View.VISIBLE);
+        lyricsTextViewPlain.setVisibility(View.GONE); // Hide current lyrics
+
+        // Call API with forceRefresh = true
+        ApiClient.getLyrics(
+                songId,
+                true,
+                new ApiClient.LyricsCallback() {
+                    @Override
+                    public void onSuccess(ApiClient.LyricsResponse lyricsResponse) {
+                        runOnUiThread(
+                                () -> {
+                                    lyricsLoading.setVisibility(View.GONE);
+                                    Toast.makeText(
+                                                    LyricsActivity.this,
+                                                    "Lyrics Refreshed!",
+                                                    Toast.LENGTH_SHORT)
+                                            .show();
+
+                                    // 1. Update Activity's reference
+                                    currentLyricsResponse = lyricsResponse;
+
+                                    // 2. [FIX] Update Fetcher's reference so it knows what to
+                                    // display!
+                                    lyricsFetcher.setLyricsResponse(lyricsResponse);
+
+                                    // 3. Update Cache & UI
+                                    ApiClient.updateCache(lyricsResponse);
+                                    updateFormatAvailability(lyricsResponse);
+
+                                    // 4. Update the display immediately
+                                    currentFormatText.setText(
+                                            currentFormat); // Ensure text reflects selection
+                                    lyricsFetcher.displayFormat(currentFormat);
+                                    applyTextLayoutLogic(currentFormat);
+                                });
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        runOnUiThread(
+                                () -> {
+                                    lyricsLoading.setVisibility(View.GONE);
+                                    Toast.makeText(
+                                                    LyricsActivity.this,
+                                                    "Refresh failed: " + error,
+                                                    Toast.LENGTH_LONG)
+                                            .show();
+                                    // Re-enable button if it failed?
+                                    // Maybe keep it disabled to prevent spam loop on errors too.
+                                });
+                    }
+                });
     }
 
     private void extractIntentData() {
@@ -510,7 +593,7 @@ public class LyricsActivity extends AppCompatActivity {
 
         String fileName = embeddingManager.extractFileName(filePath);
         String baseFileName = fileName.substring(0, fileName.lastIndexOf('.'));
-        
+
         // Determine file extension based on current format
         String extension;
         switch (currentFormat) {
@@ -526,7 +609,7 @@ public class LyricsActivity extends AppCompatActivity {
                 extension = ".lrc";
                 break;
         }
-        
+
         String outputFileName = baseFileName + extension;
 
         new AlertDialog.Builder(this)

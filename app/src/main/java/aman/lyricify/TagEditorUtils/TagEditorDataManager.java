@@ -19,6 +19,32 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public class TagEditorDataManager {
 
     private static final String TAG = "TagEditorDataManager";
@@ -39,8 +65,9 @@ public class TagEditorDataManager {
     }
 
     public interface LoadCallback {
-        void onLoaded(HashMap<String, String> metadata, Bitmap artwork);
-    }
+    // CHANGED: Added byte[] rawData and String mimeType
+    void onLoaded(HashMap<String, String> metadata, Bitmap artwork, byte[] rawData, String mimeType);
+}
 
     public void loadCurrentTags(
             String filePath,
@@ -71,32 +98,43 @@ public class TagEditorDataManager {
                     activity.runOnUiThread(() -> populateUIFromMetadata(uiMetadata));
                 }
 
-                Bitmap artwork = null;
-                TagLib.Artwork[] artworks = tagLib.getArtwork(filePath);
-                
-                if (artworks != null && artworks.length > 0) {
-                    byte[] artworkData = artworks[0].data;
-                    
-                    // NEW: Load animated image with support for GIF/WebP
-                    activity.runOnUiThread(() -> {
-                        loadAnimatedArtwork(artworkData, artworks[0].mimeType);
-                    });
-                    
-                    // Still create Bitmap for dimensions/fallback
-                    Bitmap bitmap = BitmapFactory.decodeByteArray(artworkData, 0, artworkData.length);
-                    if (bitmap != null) {
-                        artwork = bitmap;
-                    }
-                } else if (intentArtworkUrl != null && !intentArtworkUrl.isEmpty()) {
-                    activity.runOnUiThread(() -> loadArtworkFromUrl(intentArtworkUrl));
-                }
+                Bitmap artworkBitmap = null;
+            byte[] rawArtworkBytes = null;     // NEW
+            String rawArtworkMime = null;      // NEW
 
-                Bitmap finalArtwork = artwork;
+            TagLib.Artwork[] artworks = tagLib.getArtwork(filePath);
+            
+            if (artworks != null && artworks.length > 0) {
+                rawArtworkBytes = artworks[0].data;       // Capture raw bytes!
+                rawArtworkMime = artworks[0].mimeType;    // Capture mime type!
+                
+                final byte[] bytesFinal = rawArtworkBytes;
+                final String mimeFinal = rawArtworkMime;
+
+                // Load to UI
                 activity.runOnUiThread(() -> {
-                    hideLoading.run();
-                    updateRestoreButton.run();
-                    callback.onLoaded(originalMetadata, finalArtwork);
+                    loadAnimatedArtwork(bytesFinal, mimeFinal);
                 });
+                
+                // Create static bitmap fallback
+                artworkBitmap = BitmapFactory.decodeByteArray(rawArtworkBytes, 0, rawArtworkBytes.length);
+
+            } else if (intentArtworkUrl != null && !intentArtworkUrl.isEmpty()) {
+                activity.runOnUiThread(() -> loadArtworkFromUrl(intentArtworkUrl));
+            }
+
+            // Prepare final variables for lambda
+            Bitmap finalBmp = artworkBitmap;
+            byte[] finalBytes = rawArtworkBytes;
+            String finalMime = rawArtworkMime;
+            HashMap<String, String> finalMeta = originalMetadata; // Ensure this exists from your logic
+
+            activity.runOnUiThread(() -> {
+                hideLoading.run();
+                updateRestoreButton.run();
+                // CHANGED: Pass raw data
+                callback.onLoaded(finalMeta, finalBmp, finalBytes, finalMime);
+            });
 
             } catch (Exception e) {
                 activity.runOnUiThread(() -> {

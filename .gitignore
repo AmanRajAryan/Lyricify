@@ -8,7 +8,9 @@
 .gitignore
 
 **/*/SearchRepository.java
+**/*/MotionRepository.java
 **/*/LyricsRepository.java
+**/*/DirectAppleSearchRepository.java
 
 # Gradle
 .gradle/

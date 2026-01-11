@@ -1,8 +1,7 @@
 package aman.lyricify;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
 import android.content.ComponentName;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.RenderEffect;
 import android.graphics.Shader;
@@ -12,6 +11,7 @@ import android.media.MediaMetadata;
 import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -20,7 +20,9 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.*;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.motion.widget.MotionLayout;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -28,19 +30,29 @@ import androidx.fragment.app.FragmentTransaction;
 
 import aman.youly.LyricsWebViewFragment;
 
+// GLIDE IMPORTS
+import aman.lyricify.glide.AudioFileCover;
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.RequestOptions;
+import com.bumptech.glide.request.target.Target;
+
 import jp.wasabeef.glide.transformations.BlurTransformation;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import java.io.File;
 import java.util.List;
 
 public class YoulyPlayerActivity extends AppCompatActivity {
 
     // UI Components
+    private MotionLayout rootLayout;
     private FrameLayout webViewContainer;
     private ImageView headerArtwork;
     private ImageView immersiveBackground;
@@ -59,6 +71,8 @@ public class YoulyPlayerActivity extends AppCompatActivity {
     private MaterialButton immersiveButton;
     private MaterialButton reloadButton;
     private MaterialButton prevButton, nextButton;
+    private MaterialButton btnOpenLyrics; 
+    
     private SquigglySeekBar progressSeekBar;
 
     // Logic Variables
@@ -78,6 +92,8 @@ public class YoulyPlayerActivity extends AppCompatActivity {
     private String currentArtist = "";
     private String currentAlbum = "";
     private long currentDuration = 0;
+    
+    private String currentFilePath = null;
 
     private LyricsWebViewFragment lyricsWebViewFragment;
 
@@ -94,18 +110,12 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         setupMediaSession();
 
         updateHandler = new Handler(Looper.getMainLooper());
-        
-        // Note: startPositionUpdates is called, but we also rely on onResume for the immediate fix
         startPositionUpdates();
     }
 
-    // --- FIX PART 1: Force Sync on Resume ---
     @Override
     protected void onResume() {
         super.onResume();
-        // As soon as the app opens (or comes back from background), 
-        // Force-update the lyrics engine with the EXACT current time.
-        // This fixes both "Paused on Open" and "Stuck Time".
         syncNow();
     }
 
@@ -116,11 +126,9 @@ public class YoulyPlayerActivity extends AppCompatActivity {
                 long pos = state.getPosition();
                 boolean playing = (state.getState() == PlaybackState.STATE_PLAYING);
                 
-                // 1. Force the UI to match
                 if (!isTracking) progressSeekBar.setProgress((int) pos);
                 positionText.setText(formatTime(pos));
                 
-                // 2. Force the Lyrics Engine to match immediately
                 if (lyricsWebViewFragment != null) {
                     lyricsWebViewFragment.setPlaying(playing);
                     lyricsWebViewFragment.updateTime(pos);
@@ -133,13 +141,13 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             if (mediaController != null) {
                 mediaController.getTransportControls().seekTo(timeMs);
-                // Optional: Sync immediately after seek to feel responsive
                 if (lyricsWebViewFragment != null) lyricsWebViewFragment.updateTime(timeMs);
             }
         });
     }
 
     private void initializeViews() {
+        rootLayout = findViewById(R.id.rootLayout);
         webViewContainer = findViewById(R.id.webViewContainer);
         immersiveBackground = findViewById(R.id.immersiveBackground);
         immersiveBackgroundOverlay = findViewById(R.id.immersiveBackgroundOverlay);
@@ -161,6 +169,8 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         immersiveButton = findViewById(R.id.immersiveButton);
         reloadButton = findViewById(R.id.reloadButton);
 
+        btnOpenLyrics = findViewById(R.id.btnOpenLyrics);
+
         applyBlurEffect();
     }
 
@@ -181,6 +191,16 @@ public class YoulyPlayerActivity extends AppCompatActivity {
     }
 
     private void setupControls() {
+        if (btnOpenLyrics != null) {
+            btnOpenLyrics.setOnClickListener(v -> {
+                if (rootLayout.getCurrentState() == R.id.end) {
+                    rootLayout.transitionToStart();
+                } else {
+                    rootLayout.transitionToEnd();
+                }
+            });
+        }
+
         playPauseButton.setOnClickListener(v -> {
             if (mediaController != null) {
                 if (isPlaying) mediaController.getTransportControls().pause();
@@ -202,7 +222,6 @@ public class YoulyPlayerActivity extends AppCompatActivity {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser && mediaController != null) {
-                    // Send updates while dragging for live preview (optional, but smooth)
                     if (lyricsWebViewFragment != null) lyricsWebViewFragment.updateTime(progress);
                 }
             }
@@ -232,31 +251,71 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         int duration = 300;
 
         if (isImmersiveMode) {
-            headerCard.animate().alpha(0f).setDuration(duration).withEndAction(() -> headerCard.setVisibility(View.GONE)).start();
-            controlsLayout.animate().alpha(0f).setDuration(duration).withEndAction(() -> controlsLayout.setVisibility(View.GONE)).start();
-            controlsScrim.animate().alpha(0f).setDuration(duration).withEndAction(() -> controlsScrim.setVisibility(View.GONE)).start();
+            // HIDING UI
+            headerCard.animate().alpha(0f).setDuration(duration).start();
+            headerCard.setClickable(false);
+            
+            controlsLayout.animate().alpha(0f).setDuration(duration).start();
+            setRecursiveClickable(controlsLayout, false);
+
+            if(controlsScrim != null) controlsScrim.animate().alpha(0f).setDuration(duration).start();
+            
+            songTitleText.animate().alpha(0f).setDuration(duration).start();
+            songArtistText.animate().alpha(0f).setDuration(duration).start();
+
+            if(btnOpenLyrics != null) {
+                btnOpenLyrics.animate().alpha(0f).setDuration(duration).start();
+                btnOpenLyrics.setClickable(false);
+            }
+            if(reloadButton != null) {
+                reloadButton.animate().alpha(0f).setDuration(duration).start();
+                reloadButton.setClickable(false);
+            }
+            if(immersiveButton != null) {
+                immersiveButton.animate().alpha(0f).setDuration(duration).start();
+                immersiveButton.setClickable(false);
+            }
+
             immersiveBackgroundOverlay.animate().alpha(0f).setDuration(500).start();
-            Toast.makeText(this, "Immersive Mode On (Tap Back to Exit)", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Immersive Mode On", Toast.LENGTH_SHORT).show();
+
         } else {
-            if (headerCard.getVisibility() != View.VISIBLE) {
-                headerCard.setAlpha(0f);
-                headerCard.setVisibility(View.VISIBLE);
-            }
-            headerCard.animate().alpha(1f).setDuration(duration).setListener(null).withEndAction(null).start();
+            // SHOWING UI
+            headerCard.animate().alpha(1f).setDuration(duration).start();
+            headerCard.setClickable(true);
+            
+            controlsLayout.animate().alpha(1f).setDuration(duration).start();
+            setRecursiveClickable(controlsLayout, true);
 
-            if (controlsLayout.getVisibility() != View.VISIBLE) {
-                controlsLayout.setAlpha(0f);
-                controlsLayout.setVisibility(View.VISIBLE);
-            }
-            controlsLayout.animate().alpha(1f).setDuration(duration).setListener(null).withEndAction(null).start();
+            if(controlsScrim != null) controlsScrim.animate().alpha(1f).setDuration(duration).start();
 
-            if (controlsScrim.getVisibility() != View.VISIBLE) {
-                controlsScrim.setAlpha(0f);
-                controlsScrim.setVisibility(View.VISIBLE);
+            songTitleText.animate().alpha(1f).setDuration(duration).start();
+            songArtistText.animate().alpha(1f).setDuration(duration).start();
+
+            if(btnOpenLyrics != null) {
+                btnOpenLyrics.animate().alpha(1f).setDuration(duration).start();
+                btnOpenLyrics.setClickable(true);
             }
-            controlsScrim.animate().alpha(1f).setDuration(duration).setListener(null).withEndAction(null).start();
+            if(reloadButton != null) {
+                reloadButton.animate().alpha(1f).setDuration(duration).start();
+                reloadButton.setClickable(true);
+            }
+            if(immersiveButton != null) {
+                immersiveButton.animate().alpha(1f).setDuration(duration).start();
+                immersiveButton.setClickable(true);
+            }
 
             immersiveBackgroundOverlay.animate().alpha(1f).setDuration(500).start();
+        }
+    }
+    
+    private void setRecursiveClickable(View view, boolean clickable) {
+        view.setClickable(clickable);
+        if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup group = (android.view.ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                setRecursiveClickable(group.getChildAt(i), clickable);
+            }
         }
     }
 
@@ -264,9 +323,13 @@ public class YoulyPlayerActivity extends AppCompatActivity {
     public void onBackPressed() {
         if (isImmersiveMode) {
             toggleImmersiveMode();
-        } else {
-            super.onBackPressed();
+            return;
         }
+        if (rootLayout != null && rootLayout.getCurrentState() == R.id.end) {
+            rootLayout.transitionToStart();
+            return;
+        }
+        super.onBackPressed();
     }
 
     private void setupMediaSession() {
@@ -307,8 +370,6 @@ public class YoulyPlayerActivity extends AppCompatActivity {
             public void onMetadataChanged(MediaMetadata metadata) { updateMetadata(metadata); }
         };
         controller.registerCallback(mediaControllerCallback);
-        
-        // Initial sync on attach
         updatePlaybackState(controller.getPlaybackState());
         updateMetadata(controller.getMetadata());
         syncNow(); 
@@ -324,40 +385,44 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         if (newTitle == null) newTitle = "";
         if (newArtist == null) newArtist = "";
 
-        Bitmap newArtwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
-        if (newArtwork == null) newArtwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
-
-        boolean textChanged = !newTitle.equals(currentTitle) || !newArtist.equals(currentArtist);
+        boolean songChanged = !newTitle.equals(currentTitle) || !newArtist.equals(currentArtist);
         
-        if (textChanged || newArtwork != null) {
-            if (textChanged) {
-                currentTitle = newTitle;
-                currentArtist = newArtist;
-                currentAlbum = newAlbum;
-                currentDuration = duration;
-                
-                runOnUiThread(() -> {
-                    songTitleText.setText(currentTitle);
-                    songArtistText.setText(currentArtist);
-                    if (duration > 0) progressSeekBar.setMax((int) duration);
-                });
-            }
+        if (songChanged) {
+            currentTitle = newTitle;
+            currentArtist = newArtist;
+            currentAlbum = newAlbum;
+            currentDuration = duration;
+            currentFilePath = null; 
+            
+            runOnUiThread(() -> {
+                songTitleText.setText(currentTitle);
+                songArtistText.setText(currentArtist);
+                if (duration > 0) progressSeekBar.setMax((int) duration);
+            });
 
+            // 1. Get Static Bitmap from Metadata
+            Bitmap newArtwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
+            if (newArtwork == null) newArtwork = metadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
+            
             final Bitmap finalArt = newArtwork;
+            
+            // 2. Load it as the "Base" image immediately
             runOnUiThread(() -> updateArtwork(finalArt));
 
-            if (textChanged) {
-                final String fTitle = newTitle;
-                final String fArtist = newArtist;
-                final String fAlbum = newAlbum;
-                
+            // 3. Search for Animated File, passing the Static Bitmap as "fallback"
+            searchForLocalFile(this, newTitle, newArtist, finalArt);
+
+            // 4. Update Lyrics
+            final String fTitle = newTitle;
+            final String fArtist = newArtist;
+            final String fAlbum = newAlbum;
+            
+            if (webViewContainer != null) {
                 webViewContainer.post(() -> {
                     if (lyricsWebViewFragment != null && lyricsWebViewFragment.isAdded()) {
                         long durSeconds = duration / 1000;
                         lyricsWebViewFragment.loadLyrics(fTitle, fArtist, fAlbum, durSeconds);
                         lyricsWebViewFragment.displayLyrics();
-                        
-                        // FIX: Ensure playing state is synced after load
                         lyricsWebViewFragment.setPlaying(isPlaying);
                         syncNow();
                     }
@@ -366,17 +431,102 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         }
     }
 
+    private void searchForLocalFile(Context context, String title, String artist, Bitmap staticArtwork) {
+        MediaStoreHelper.searchLocalSong(context, title, artist, 
+            new MediaStoreHelper.SearchCallback() {
+                @Override
+                public void onFound(MediaStoreHelper.LocalSong song) {
+                    currentFilePath = song.filePath;
+                    runOnUiThread(() -> {
+                        loadAnimatedArtwork(song.filePath, staticArtwork);
+                    });
+                }
+                
+                @Override
+                public void onNotFound() {
+                    currentFilePath = null;
+                }
+                
+                @Override
+                public void onError(String error) {
+                    currentFilePath = null;
+                }
+            }
+        );
+    }
+
+    private void loadAnimatedArtwork(String filePath, Bitmap staticArtwork) {
+        if (filePath == null) return;
+        
+        long lastModified = 0;
+        try {
+            lastModified = new File(filePath).lastModified();
+        } catch (Exception ignored) {}
+        
+        AudioFileCover coverModel = new AudioFileCover(filePath, lastModified);
+        
+        // Use the current drawable as a placeholder to avoid flickering
+        Drawable currentPlaceholder = headerArtwork.getDrawable();
+        if (currentPlaceholder == null && staticArtwork != null) {
+            // Fallback to static bitmap if view is empty
+            // We need to wrap Bitmap in a Drawable or load it with Glide first
+             // But simpler to just let updateArtwork handle the init state
+        }
+
+        Glide.with(this)
+             .load(coverModel)
+             .diskCacheStrategy(DiskCacheStrategy.DATA)
+             // KEY FIX: Use current image as placeholder
+             .placeholder(currentPlaceholder)
+             .thumbnail(Glide.with(this).load(staticArtwork)) 
+             .dontAnimate() // Avoid crossfade conflicts
+             .into(headerArtwork);
+    }
+
     private void updateArtwork(Bitmap bitmap) {
         if (bitmap != null) {
-            Glide.with(this).asBitmap().load(bitmap).into(headerArtwork);
+            // FLICKER FIX FOR HEADER:
+            // Capture the OLD image currently in the view
+            Drawable oldHeaderArt = headerArtwork.getDrawable();
+            
+            // Load NEW image, but use OLD image as placeholder
+            Glide.with(this)
+                 .asBitmap()
+                 .load(bitmap)
+                 .placeholder(oldHeaderArt) // Keeps old art on screen until new is ready
+                 .dontAnimate()
+                 .into(headerArtwork);
+            
+            // FLICKER FIX FOR BACKGROUNDS:
+            Drawable currentBg = immersiveBackground.getDrawable();
+            
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                Glide.with(this).load(bitmap).into(immersiveBackground);
-                Glide.with(this).load(bitmap).into(immersiveBackgroundOverlay);
+                Glide.with(this)
+                     .load(bitmap)
+                     .placeholder(currentBg) 
+                     .dontAnimate()
+                     .into(immersiveBackground);
+                     
+                Glide.with(this)
+                     .load(bitmap)
+                     .placeholder(immersiveBackgroundOverlay.getDrawable())
+                     .dontAnimate()
+                     .into(immersiveBackgroundOverlay);
             } else {
-                Glide.with(this).load(bitmap).apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 12))).into(immersiveBackground);
-                Glide.with(this).load(bitmap).apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 17))).into(immersiveBackgroundOverlay);
+                Glide.with(this).load(bitmap)
+                     .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 12)))
+                     .placeholder(currentBg)
+                     .dontAnimate()
+                     .into(immersiveBackground);
+                     
+                Glide.with(this).load(bitmap)
+                     .apply(RequestOptions.bitmapTransform(new BlurTransformation(25, 17)))
+                     .placeholder(immersiveBackgroundOverlay.getDrawable())
+                     .dontAnimate()
+                     .into(immersiveBackgroundOverlay);
             }
         } else {
+            // Handle null case
             headerArtwork.setImageResource(R.drawable.ic_music_note);
             immersiveBackground.setImageResource(R.drawable.ic_music_note);
             immersiveBackgroundOverlay.setImageResource(R.drawable.ic_music_note);
@@ -390,7 +540,6 @@ public class YoulyPlayerActivity extends AppCompatActivity {
 
         if (lyricsWebViewFragment != null) {
             lyricsWebViewFragment.setPlaying(isPlaying);
-            // Sync time on state change (Paused -> Playing or Playing -> Paused)
             lyricsWebViewFragment.updateTime(state.getPosition());
         }
 
@@ -413,7 +562,6 @@ public class YoulyPlayerActivity extends AppCompatActivity {
         view.animate().scaleX(0.8f).scaleY(0.8f).setDuration(100).withEndAction(() -> view.animate().scaleX(1f).scaleY(1f).setDuration(100).start()).start();
     }
 
-    // --- FIX PART 2: Throttled Loop for performance ---
     private void startPositionUpdates() {
         updateRunnable = new Runnable() {
             private long lastSentPosition = -1;
@@ -424,12 +572,8 @@ public class YoulyPlayerActivity extends AppCompatActivity {
                     PlaybackState state = mediaController.getPlaybackState();
                     if (state != null) {
                         long currentPosition = state.getPosition();
-                        
-                        // LOGIC: Calculate drift
                         long delta = Math.abs(currentPosition - lastSentPosition);
 
-                        // Only send update to WebView if we drifted by >= 1 second
-                        // OR if we are forcing a sync via syncNow() (handled separately)
                         if (delta >= 1000) {
                             if (lyricsWebViewFragment != null) {
                                 lyricsWebViewFragment.updateTime(currentPosition);
@@ -437,7 +581,6 @@ public class YoulyPlayerActivity extends AppCompatActivity {
                             lastSentPosition = currentPosition;
                         }
 
-                        // Seekbar needs to be smooth (60fps is fine for local UI)
                         if (!isTracking) {
                             progressSeekBar.setProgress((int) currentPosition);
                         }

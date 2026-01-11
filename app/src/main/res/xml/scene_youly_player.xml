@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MotionScene 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:motion="http://schemas.android.com/apk/res-auto">
+
+    <Transition
+        motion:constraintSetEnd="@+id/end"
+        motion:constraintSetStart="@+id/start"
+        motion:duration="400">
+        
+        <OnSwipe
+            motion:dragDirection="dragLeft"
+            motion:touchAnchorId="@id/headerCard"
+            motion:touchAnchorSide="right"
+            motion:touchRegionId="@id/headerCard" />
+    </Transition>
+
+    <ConstraintSet android:id="@+id/start">
+        
+        <Constraint
+            android:id="@+id/headerCard"
+            android:layout_width="370dp"
+            android:layout_height="370dp"
+            android:layout_marginBottom="40dp"
+            motion:layout_constraintBottom_toTopOf="@id/songTitleText"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintStart_toStartOf="parent"
+            motion:layout_constraintTop_toTopOf="parent" 
+            motion:layout_constraintVertical_bias="0.5">
+            <CustomAttribute
+                motion:attributeName="radius"
+                motion:customDimension="24dp" />
+        </Constraint>
+
+        <Constraint
+            android:id="@+id/songTitleText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:scaleX="1"
+            android:scaleY="1"
+            motion:layout_constraintStart_toStartOf="@id/headerCard"
+            motion:layout_constraintEnd_toStartOf="@id/btnOpenLyrics"
+            motion:layout_constraintBottom_toTopOf="@id/songArtistText" />
+
+        <Constraint
+            android:id="@+id/songArtistText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="40dp"
+            android:alpha="1"
+            motion:layout_constraintStart_toStartOf="@id/headerCard"
+            motion:layout_constraintEnd_toStartOf="@id/btnOpenLyrics"
+            motion:layout_constraintBottom_toTopOf="@id/controlsLayout" />
+
+        <Constraint
+            android:id="@+id/btnOpenLyrics"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:alpha="1"
+            motion:layout_constraintBottom_toBottomOf="@id/songArtistText"
+            motion:layout_constraintEnd_toEndOf="@id/headerCard"
+            motion:layout_constraintTop_toTopOf="@id/songTitleText" />
+
+        <Constraint
+            android:id="@+id/webViewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:translationX="1000dp" />
+
+        <Constraint
+            android:id="@+id/reloadButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:alpha="0"
+            android:scaleX="0"
+            android:scaleY="0"
+            android:layout_marginStart="24dp"
+            android:layout_marginBottom="56dp"
+            motion:layout_constraintStart_toStartOf="parent"
+            motion:layout_constraintBottom_toBottomOf="parent" />
+
+        <Constraint
+            android:id="@+id/immersiveButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:alpha="0"
+            android:scaleX="0"
+            android:scaleY="0"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="56dp"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintBottom_toBottomOf="parent" />
+
+    </ConstraintSet>
+
+    <ConstraintSet android:id="@+id/end">
+
+        <Constraint
+            android:id="@+id/headerCard"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginTop="50dp"
+            android:layout_marginStart="24dp"
+            motion:layout_constraintStart_toStartOf="parent"
+            motion:layout_constraintTop_toTopOf="parent">
+            <CustomAttribute
+                motion:attributeName="radius"
+                motion:customDimension="12dp" />
+        </Constraint>
+
+        <Constraint
+            android:id="@+id/songTitleText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="24dp"
+            android:scaleX="0.9"
+            android:scaleY="0.9"
+            android:transformPivotX="0dp"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintStart_toEndOf="@id/headerCard"
+            motion:layout_constraintTop_toTopOf="@id/headerCard"
+            motion:layout_constraintBottom_toTopOf="@id/songArtistText" />
+
+        <Constraint
+            android:id="@+id/songArtistText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:transformPivotX="0dp"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintStart_toEndOf="@id/headerCard"
+            motion:layout_constraintTop_toBottomOf="@id/songTitleText" />
+
+        <Constraint
+            android:id="@+id/btnOpenLyrics"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:alpha="1"
+            android:layout_marginStart="24dp"
+            android:layout_marginBottom="8dp"
+            motion:layout_constraintBottom_toTopOf="@id/controlsLayout"
+            motion:layout_constraintStart_toStartOf="parent" />
+
+        <Constraint
+            android:id="@+id/webViewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:translationX="0dp"
+            motion:layout_constraintTop_toTopOf="parent"
+            motion:layout_constraintBottom_toBottomOf="parent" />
+
+        <Constraint
+            android:id="@+id/reloadButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:alpha="1"
+            android:scaleX="1"
+            android:scaleY="1"
+            android:layout_marginStart="24dp"
+            android:layout_marginBottom="56dp"
+            motion:layout_constraintStart_toStartOf="parent"
+            motion:layout_constraintBottom_toBottomOf="parent" />
+
+        <Constraint
+            android:id="@+id/immersiveButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:alpha="1"
+            android:scaleX="1"
+            android:scaleY="1"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="56dp"
+            motion:layout_constraintEnd_toEndOf="parent"
+            motion:layout_constraintBottom_toBottomOf="parent" />
+
+    </ConstraintSet>
+</MotionScene>

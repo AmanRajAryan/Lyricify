@@ -84,7 +84,7 @@ public class LyricsSharedEngine {
             }
         });
 
-        // REMOVED: WebChromeClient onConsoleMessage (Too noisy for production)
+       
         
         webView.loadUrl("https://appassets.androidplatform.net/assets/lyrics_engine/index.html");
     }
@@ -98,8 +98,8 @@ public class LyricsSharedEngine {
     // --- API METHODS ---
 
     public void loadLyrics(String title, String artist, String album, long durationSeconds) {
-        // Keep this single log to track song changes
-        android.util.Log.d("YouLyEngine", "loadLyrics: " + title);
+        
+        //Log.d("YouLyEngine", "loadLyrics: " + title);
         
         if (isJsReady) {
             String safeTitle = escape(title);
@@ -184,7 +184,7 @@ public class LyricsSharedEngine {
 
         @JavascriptInterface
         public void performNetworkRequest(String urlStr, String method, String body, String reqId) {
-            // REMOVED: Log.d("YouLyNet", "Start Req...");
+            
 
             Request.Builder builder = new Request.Builder()
                     .url(urlStr)
@@ -208,7 +208,7 @@ public class LyricsSharedEngine {
 
                 @Override
                 public void onResponse(Call call, Response response) throws IOException {
-                    // REMOVED: Log.d("YouLyNet", "Success...");
+                  
                     
                     String responseBody = response.body() != null ? response.body().string() : "";
                     String safeResponse = escapeForJs(responseBody);

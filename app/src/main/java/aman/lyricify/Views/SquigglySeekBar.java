@@ -1,6 +1,7 @@
 package aman.lyricify;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
@@ -25,10 +26,12 @@ public class SquigglySeekBar extends AppCompatSeekBar {
     private float WAVE_SPEED = 0.07f;        
     private float WAVE_FREQUENCY = 10f;      
     private float STROKE_WIDTH = 12f;        
-    private float TAPER_LENGTH = 100f;       //length near knob in which wave goes from wavy to flat
+    private float TAPER_LENGTH = 100f;       // Length near knob where wave goes from wavy to flat
     private float FADE_LENGTH = 100f;        
 
     private float AMPLITUDE_TRANSITION_SPEED = 0.5f;
+    
+    private float DEFAULT_AMPLITUDE = 7f; 
 
     // KNOB DIMENSIONS
     private float THUMB_RADIUS = 18f;
@@ -46,6 +49,9 @@ public class SquigglySeekBar extends AppCompatSeekBar {
     private float phase = 0f;
     private float currentAnimAmplitude = 0f; 
     private boolean isPlaying = false;
+
+    // FLICKER FIX VARIABLES
+    private long lastTouchUpTime = 0;
 
     private RectF barRect = new RectF();
 
@@ -82,6 +88,17 @@ public class SquigglySeekBar extends AppCompatSeekBar {
         thumbPaint.setStyle(Paint.Style.FILL);
 
         activePath = new Path();
+        
+        // 1. SETTINGS TOGGLE LOGIC
+        SharedPreferences prefs = getContext().getSharedPreferences("LyricifyPrefs", Context.MODE_PRIVATE);
+        boolean isSquigglyEnabled = prefs.getBoolean("squiggly_seekbar_enabled", true);
+
+        if (isSquigglyEnabled) {
+            WAVE_AMPLITUDE = DEFAULT_AMPLITUDE;
+        } else {
+            // Setting amplitude to 0 makes it a straight line
+            WAVE_AMPLITUDE = 0f; 
+        }
 
         setThumb(null);
         setBackground(null);
@@ -113,6 +130,43 @@ public class SquigglySeekBar extends AppCompatSeekBar {
             invalidate();
         }
     }
+    
+    // ==========================================
+    //  FLICKER FIX LOGIC
+    // ==========================================
+
+    @Override
+    public boolean onTouchEvent(android.view.MotionEvent event) {
+        // Let the standard SeekBar handle the touch logic first
+        boolean result = super.onTouchEvent(event);
+        
+        // If the user lifts their finger (ACTION_UP) or cancels the touch
+        if (event.getAction() == android.view.MotionEvent.ACTION_UP || 
+            event.getAction() == android.view.MotionEvent.ACTION_CANCEL) {
+            lastTouchUpTime = System.currentTimeMillis();
+        }
+        
+        return result;
+    }
+
+    @Override
+    public synchronized void setProgress(int progress) {
+        // 1. If the user is currently holding the bar, ignore updates from the player.
+        if (isPressed()) {
+            return;
+        }
+
+        // 2. THE GRACE PERIOD: 
+        // If the user let go less than 500ms ago, ignore updates.
+        // This gives the media player time to finish seeking before we start listening to it again.
+        if (System.currentTimeMillis() - lastTouchUpTime < 500) {
+            return;
+        }
+
+        super.setProgress(progress);
+    }
+    
+    // ==========================================
 
     @Override
     protected synchronized void onDraw(Canvas canvas) {

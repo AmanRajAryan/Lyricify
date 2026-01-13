@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -42,7 +43,7 @@
                         android:textColor="#FFFFFF"
                         android:textSize="18sp"
                         android:textStyle="bold"
-                        android:layout_marginBottom="16dp"/>
+                        android:layout_marginBottom="16dp" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -62,14 +63,14 @@
                             android:textColorHint="#888"
                             android:inputType="number"
                             android:padding="12dp"
-                            android:gravity="center"/>
+                            android:gravity="center" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="x"
                             android:textColor="#888"
-                            android:padding="12dp"/>
+                            android:padding="12dp" />
 
                         <EditText
                             android:id="@+id/heightInput"
@@ -82,9 +83,12 @@
                             android:textColorHint="#888"
                             android:inputType="number"
                             android:padding="12dp"
-                            android:gravity="center"/>
+                            android:gravity="center" />
 
                     </LinearLayout>
+
+                   
+
 
                     <Button
                         android:id="@+id/btnApplyResize"
@@ -93,13 +97,25 @@
                         android:text="Apply Resize"
                         android:backgroundTint="#2196F3"
                         android:textColor="#FFF"
-                        android:layout_marginBottom="24dp"/>
+                        android:layout_marginBottom="8dp" />
+                    <TextView
+                        android:id="@+id/resizeInfoText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Resizing is unavailable, first fetch the metadata"
+                        android:textColor="#FF5252"
+                        android:gravity="center"
+                        android:textSize="12sp"
+                        android:visibility="gone"
+                        android:layout_marginBottom="24dp" />
+
+                   
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:background="#333"
-                        android:layout_marginBottom="24dp"/>
+                        android:layout_marginBottom="24dp" />
 
                     <Button
                         android:id="@+id/btnPickGallery"
@@ -108,7 +124,7 @@
                         android:layout_height="wrap_content"
                         android:text="Pick from Gallery"
                         android:textColor="#FFF"
-                        app:strokeColor="#555"/>
+                        app:strokeColor="#555" />
 
                     <Button
                         android:id="@+id/btnReset"
@@ -117,7 +133,7 @@
                         android:layout_height="wrap_content"
                         android:text="Reset to Original"
                         android:textColor="#FF5252"
-                        app:strokeColor="#555"/>
+                        app:strokeColor="#555" />
 
                     <Button
                         android:id="@+id/btnSaveStatic"
@@ -126,7 +142,7 @@
                         android:layout_height="wrap_content"
                         android:text="Save Current to Gallery"
                         android:textColor="#FFFFFF"
-                        android:background="?attr/selectableItemBackground"/>
+                        android:background="?attr/selectableItemBackground" />
 
                 </LinearLayout>
             </ScrollView>
@@ -163,7 +179,7 @@
                         android:padding="4dp"
                         android:textSize="10sp"
                         android:layout_gravity="bottom|start"
-                        android:layout_margin="8dp"/>
+                        android:layout_margin="8dp" />
                 </FrameLayout>
 
                 <ProgressBar
@@ -172,7 +188,7 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:visibility="gone"
-                    android:padding="20dp"/>
+                    android:padding="20dp" />
 
                 <androidx.core.widget.NestedScrollView
                     android:layout_width="match_parent"
@@ -229,7 +245,7 @@
                                 android:layout_height="24dp"
                                 android:src="@drawable/ic_arrow_drop_down"
                                 app:tint="#2196F3"
-                                android:rotation="0"/>
+                                android:rotation="0" />
                         </LinearLayout>
 
                         <androidx.recyclerview.widget.RecyclerView
@@ -237,7 +253,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:nestedScrollingEnabled="false"
-                            android:visibility="gone"/>
+                            android:visibility="gone" />
 
                     </LinearLayout>
                 </androidx.core.widget.NestedScrollView>
@@ -271,7 +287,7 @@
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:layout_marginBottom="16dp"
-                android:layout_gravity="center"/>
+                android:layout_gravity="center" />
 
             <ProgressBar
                 android:id="@+id/downloadProgressBar"
@@ -279,18 +295,18 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
-                android:progressDrawable="@drawable/custom_progress_bg" 
+                android:progressDrawable="@drawable/custom_progress_bg"
                 android:indeterminate="false"
-                android:max="100"/>
-                
-             <TextView
+                android:max="100" />
+
+            <TextView
                 android:id="@+id/downloadProgressText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0kb / 0MB • 0%"
                 android:textColor="#AAAAAA"
                 android:textSize="14sp"
-                android:layout_gravity="center"/>
+                android:layout_gravity="center" />
 
         </LinearLayout>
     </FrameLayout>

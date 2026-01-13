@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.DecodeFormat;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
@@ -33,7 +34,8 @@ import java.util.Locale;
 
 import aman.lyricify.glide.AudioFileCover;
 
-public class LocalSongAdapter extends RecyclerView.Adapter<LocalSongAdapter.SongViewHolder> implements SectionIndexer {
+public class LocalSongAdapter extends RecyclerView.Adapter<LocalSongAdapter.SongViewHolder>
+        implements SectionIndexer {
 
     private static final String TAG = "LyricifyGlide";
     private final Context context;
@@ -137,16 +139,14 @@ public class LocalSongAdapter extends RecyclerView.Adapter<LocalSongAdapter.Song
             AudioFileCover coverModel = new AudioFileCover(song.filePath, lastModified);
 
             // 3. Build Request
-            RequestBuilder<Drawable> request = Glide.with(context)
-                    .load(coverModel)
-                    // DATA Strategy: Cache only raw bytes. 
-                    // Prevents "Unable to encode AnimatedImageDrawable" crash.
-                    .diskCacheStrategy(DiskCacheStrategy.DATA)
-                    .placeholder(R.drawable.ic_music_note)
-                    .error(R.drawable.ic_music_note)
-                    // Optional Center Crop: Crops static images, leaves animations alone.
-                    
-                    .optionalCenterCrop();
+            RequestBuilder<Drawable> request =
+                    Glide.with(context)
+                            .load(coverModel)
+                            .diskCacheStrategy(DiskCacheStrategy.DATA)
+                            .format(DecodeFormat.PREFER_RGB_565)
+                            .placeholder(R.drawable.ic_music_note)
+                            .error(R.drawable.ic_music_note)
+                            .optionalCenterCrop();
 
             // 4. Fling Optimization
             if (isFlinging) {
@@ -156,36 +156,50 @@ public class LocalSongAdapter extends RecyclerView.Adapter<LocalSongAdapter.Song
             }
 
             // 5. Load
-            request.listener(new RequestListener<Drawable>() {
-                        @Override
-                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
-                            // Don't log expected cache misses during fling
-                            if (!isFlinging) {
-                                Log.e(TAG, "FAILED to load: " + song.title, e);
-                            }
-                            return false;
-                        }
+            request.listener(
+                            new RequestListener<Drawable>() {
+                                @Override
+                                public boolean onLoadFailed(
+                                        @Nullable GlideException e,
+                                        Object model,
+                                        Target<Drawable> target,
+                                        boolean isFirstResource) {
+                                    // Don't log expected cache misses during fling
+                                    if (!isFlinging) {
+                                        Log.e(TAG, "FAILED to load: " + song.title, e);
+                                    }
+                                    return false;
+                                }
 
-                        @Override
-                        public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-                            // Start animation if valid
-                            if (resource instanceof Animatable) {
-                                ((Animatable) resource).start();
-                            }
-                            return false;
-                        }
-                    })
+                                @Override
+                                public boolean onResourceReady(
+                                        Drawable resource,
+                                        Object model,
+                                        Target<Drawable> target,
+                                        DataSource dataSource,
+                                        boolean isFirstResource) {
+                                    // Start animation if valid
+                                    if (resource instanceof Animatable) {
+                                        ((Animatable) resource).start();
+                                    }
+                                    return false;
+                                }
+                            })
                     .into(artworkImageView);
 
             // Click Listeners
-            itemView.setOnClickListener(v -> {
-                if (itemClickListener != null) itemClickListener.onItemClick(v, song, position);
-            });
+            itemView.setOnClickListener(
+                    v -> {
+                        if (itemClickListener != null)
+                            itemClickListener.onItemClick(v, song, position);
+                    });
 
-            itemView.setOnLongClickListener(v -> {
-                if (itemLongClickListener != null) itemLongClickListener.onItemLongClick(v, song, position);
-                return true;
-            });
+            itemView.setOnLongClickListener(
+                    v -> {
+                        if (itemLongClickListener != null)
+                            itemLongClickListener.onItemLongClick(v, song, position);
+                        return true;
+                    });
         }
     }
 
@@ -205,11 +219,17 @@ public class LocalSongAdapter extends RecyclerView.Adapter<LocalSongAdapter.Song
                 sectionHeader = dateFormat.format(date);
             } else if (currentSortMode == 2) { // Artist
                 String artist = song.artist;
-                sectionHeader = (artist == null || artist.isEmpty()) ? "#" : artist.trim().substring(0, 1).toUpperCase(Locale.US);
+                sectionHeader =
+                        (artist == null || artist.isEmpty())
+                                ? "#"
+                                : artist.trim().substring(0, 1).toUpperCase(Locale.US);
                 if (!sectionHeader.matches("[A-Z]")) sectionHeader = "#";
             } else { // Title (Default)
                 String title = song.title;
-                sectionHeader = (title == null || title.isEmpty()) ? "#" : title.trim().substring(0, 1).toUpperCase(Locale.US);
+                sectionHeader =
+                        (title == null || title.isEmpty())
+                                ? "#"
+                                : title.trim().substring(0, 1).toUpperCase(Locale.US);
                 if (!sectionHeader.matches("[A-Z]")) sectionHeader = "#";
             }
 

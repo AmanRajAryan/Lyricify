@@ -432,23 +432,31 @@ public class TagEditorActivity extends AppCompatActivity implements ApiClient.Ca
         lyricsHeader.setOnClickListener(v -> toggleLyrics());
         formatSwapperContainer.setOnClickListener(v -> lyricsHelper.toggleLyricsMode());
         // In TagEditorActivity.java inside setupListeners()
+        // Inside setupListeners()
         artworkDimensionsContainer.setOnClickListener(
                 v -> {
-                    // OLD: artworkHelper.showArtworkOptionsDialog(...)
-
-                    // NEW:
                     String trackUrl = null;
+                    // Default to the intent URL (which might be a local file path)
+                    String artworkUrl = metadataHelper.getIntentArtworkUrl();
+
+                    // If we have fresh metadata from the API, use THAT artwork URL
                     if (metadataHelper.getCachedMetadata() != null) {
-                        trackUrl =
-                                metadataHelper.getCachedMetadata()
-                                        .trackUrl; // Ensure you added this field to LyricsResponse!
+                        trackUrl = metadataHelper.getCachedMetadata().trackUrl;
+
+                        // This is the Fix: Use the API url which contains {w} and {h}
+                        if (metadataHelper.getCachedMetadata().artworkUrl != null) {
+                            artworkUrl = metadataHelper.getCachedMetadata().artworkUrl;
+                        }
                     }
 
+                    // Pass the correct URLs to the sheet
+                    // Arg 1: Track URL (for Motion)
+                    // Arg 2: Artwork URL (for Resize)
                     ArtworkBottomSheetFragment bottomSheet =
-                            ArtworkBottomSheetFragment.newInstance(
-                                    trackUrl, metadataHelper.getIntentArtworkUrl());
+                            ArtworkBottomSheetFragment.newInstance(trackUrl, artworkUrl);
                     bottomSheet.show(getSupportFragmentManager(), "ArtworkSheet");
                 });
+
         TextWatcher changeWatcher =
                 new TextWatcher() {
                     public void beforeTextChanged(

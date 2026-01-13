@@ -43,6 +43,7 @@ import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.navigation.NavigationView;
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -101,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
     // New Feature Keys
     private static final String KEY_BOTTOM_UI = "bottom_ui_enabled";
     private static final String KEY_HIDE_LYRICS = "hide_lyrics_enabled";
+    private static final String KEY_HIDE_LRC = "hide_lrc_enabled";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -346,6 +348,19 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
+    private boolean hasLrcFile(String audioPath) {
+    if (audioPath == null) return false;
+
+    int lastDot = audioPath.lastIndexOf('.');
+    if (lastDot == -1) return false;
+
+    String basePath = audioPath.substring(0, lastDot);
+
+    return new File(basePath + ".lrc").exists()
+        || new File(basePath + ".ttml").exists();
+}
+    
+    
     private void loadLocalSongs() {
         if (!permissionManager.hasStoragePermission()) return;
 
@@ -363,7 +378,10 @@ public class MainActivity extends AppCompatActivity {
                             boolean scanAll = prefs.getBoolean(KEY_SCAN_ALL, true);
                             boolean blacklistEnabled =
                                     prefs.getBoolean(KEY_BLACKLIST_ENABLED, false);
+
+                            // Load Filtering Preferences
                             boolean hideLyrics = prefs.getBoolean(KEY_HIDE_LYRICS, false);
+                            boolean hideLrc = prefs.getBoolean(KEY_HIDE_LRC, false);
 
                             Set<String> whitelistPaths =
                                     prefs.getStringSet(KEY_FOLDERS, new HashSet<>());
@@ -410,26 +428,43 @@ public class MainActivity extends AppCompatActivity {
                                 folderFilteredList.addAll(pendingSongs);
                             }
 
-                            // 4. FILTER BY LYRICS (Cached Check)
+                            // 4. FILTER BY LYRICS & .LRC FILES
                             List<MediaStoreHelper.LocalSong> finalFilteredList = new ArrayList<>();
-                            if (hideLyrics) {
-                                LyricsCacheManager cacheManager =
-                                        LyricsCacheManager.getInstance(this);
 
-                                for (MediaStoreHelper.LocalSong song : folderFilteredList) {
+                            // Prepare Cache Manager if needed
+                            LyricsCacheManager cacheManager = null;
+                            if (hideLyrics) {
+                                cacheManager = LyricsCacheManager.getInstance(this);
+                            }
+
+                            for (MediaStoreHelper.LocalSong song : folderFilteredList) {
+                                boolean shouldInclude = true;
+
+                                // Check A: Hidden because of Embedded Lyrics?
+                                if (hideLyrics && cacheManager != null) {
                                     // hasLyrics uses cache:
                                     // - If file date modified matches cache -> Returns instantly.
                                     // - If file changed -> Scans with TagLib and updates cache.
-                                    if (!cacheManager.hasLyrics(song.filePath)) {
-                                        finalFilteredList.add(song);
+                                    if (cacheManager.hasLyrics(song.filePath)) {
+                                        shouldInclude = false;
                                     }
                                 }
 
-                                // Save the cache to disk so next run is fast
-                                cacheManager.saveCache(this);
+                                // Check B: Hidden because of .LRC File?
+                                if (shouldInclude && hideLrc) {
+                                    if (hasLrcFile(song.filePath)) {
+                                        shouldInclude = false;
+                                    }
+                                }
 
-                            } else {
-                                finalFilteredList.addAll(folderFilteredList);
+                                if (shouldInclude) {
+                                    finalFilteredList.add(song);
+                                }
+                            }
+
+                            // Save the cache to disk if we used it
+                            if (hideLyrics && cacheManager != null) {
+                                cacheManager.saveCache(this);
                             }
 
                             // 5. UPDATE UI
@@ -627,7 +662,7 @@ public class MainActivity extends AppCompatActivity {
                             drawable.getIntrinsicHeight() <= 0
                                     ? 100
                                     : drawable.getIntrinsicHeight(),
-                            Bitmap.Config.ARGB_8888);
+                            Bitmap.Config.RGB_565);
             Canvas canvas = new Canvas(bitmap);
             drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
             drawable.draw(canvas);

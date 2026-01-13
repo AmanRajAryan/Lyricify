@@ -3,9 +3,11 @@ package aman.lyricify;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-
+import android.provider.Settings;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,6 +23,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.util.ArrayList;
@@ -40,12 +43,19 @@ public class SettingsActivity extends AppCompatActivity {
     private static final String KEY_BLACKLIST = "blacklist_folders";
     private static final String KEY_SCAN_ALL = "scan_all_folders";
     private static final String KEY_BLACKLIST_ENABLED = "blacklist_enabled";
+    
     // New Keys
     private static final String KEY_BOTTOM_UI = "bottom_ui_enabled";
     private static final String KEY_HIDE_LYRICS = "hide_lyrics_enabled";
+    private static final String KEY_HIDE_LRC = "hide_lrc_enabled"; 
+    public static final String KEY_SQUIGGLY_ENABLED = "squiggly_seekbar_enabled"; 
+    private static final String KEY_LOW_RAM = "low_ram_enabled";
 
     private LinearLayout whitelistContainer, blacklistContainer;
     private MaterialSwitch switchScanAll, switchBlacklist, switchBottomUi, switchHideLyrics;
+    private MaterialSwitch switchLowRam;
+    private MaterialSwitch switchSquiggly; 
+    private MaterialSwitch switchHideLrc; 
     
     private FolderAdapter whitelistAdapter, blacklistAdapter;
     private List<String> whitelistFolders, blacklistFolders;
@@ -70,6 +80,9 @@ public class SettingsActivity extends AppCompatActivity {
         switchBlacklist = findViewById(R.id.switchBlacklist);
         switchBottomUi = findViewById(R.id.switchBottomUi);
         switchHideLyrics = findViewById(R.id.switchHideLyrics);
+        switchLowRam = findViewById(R.id.switchLowRam);
+        switchSquiggly = findViewById(R.id.switchSquiggly); 
+        switchHideLrc = findViewById(R.id.switchHideLrc); 
 
         RecyclerView whitelistRecycler = findViewById(R.id.whitelistRecyclerView);
         RecyclerView blacklistRecycler = findViewById(R.id.blacklistRecyclerView);
@@ -88,6 +101,20 @@ public class SettingsActivity extends AppCompatActivity {
         setupListeners();
         updateUiVisibility();
     }
+    
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Sync switch state with permission state on return
+        if (switchHideLrc != null && prefs.getBoolean(KEY_HIDE_LRC, false)) {
+             if (!hasManageStoragePermission()) {
+                 switchHideLrc.setChecked(false);
+                 prefs.edit().putBoolean(KEY_HIDE_LRC, false).apply();
+             } else {
+                 switchHideLrc.setChecked(true);
+             }
+        }
+    }
 
     private void loadSettings() {
         whitelistFolders = new ArrayList<>(prefs.getStringSet(KEY_WHITELIST, new HashSet<>()));
@@ -97,6 +124,15 @@ public class SettingsActivity extends AppCompatActivity {
         boolean isBlacklist = prefs.getBoolean(KEY_BLACKLIST_ENABLED, false);
         boolean isBottomUi = prefs.getBoolean(KEY_BOTTOM_UI, false);
         boolean isHideLyrics = prefs.getBoolean(KEY_HIDE_LYRICS, false);
+        boolean isLowRam = prefs.getBoolean(KEY_LOW_RAM, false); 
+        boolean isSquiggly = prefs.getBoolean(KEY_SQUIGGLY_ENABLED, true); 
+        
+        // Ensure switch reflects actual permission state
+        boolean isHideLrc = prefs.getBoolean(KEY_HIDE_LRC, false); 
+        if (isHideLrc && !hasManageStoragePermission()) {
+            isHideLrc = false;
+            prefs.edit().putBoolean(KEY_HIDE_LRC, false).apply();
+        }
 
         Log.d(TAG, "loadSettings: ScanAll=" + isScanAll + ", BlacklistEnabled=" + isBlacklist);
 
@@ -104,6 +140,18 @@ public class SettingsActivity extends AppCompatActivity {
         switchBlacklist.setChecked(isBlacklist);
         switchBottomUi.setChecked(isBottomUi);
         switchHideLyrics.setChecked(isHideLyrics);
+        switchLowRam.setChecked(isLowRam);
+        switchSquiggly.setChecked(isSquiggly); 
+        switchHideLrc.setChecked(isHideLrc);
+    }
+    
+    // --- PERMISSION CHECK HELPER ---
+    private boolean hasManageStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        }
+        // On Android 10 and below, standard storage permission is enough
+        return true; 
     }
 
     private void setupListeners() {
@@ -125,9 +173,63 @@ public class SettingsActivity extends AppCompatActivity {
         switchHideLyrics.setOnCheckedChangeListener((buttonView, isChecked) -> {
             prefs.edit().putBoolean(KEY_HIDE_LYRICS, isChecked).apply();
         });
+        
+        // --- UPDATED LISTENER FOR LRC TOGGLE ---
+        switchHideLrc.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                // User trying to enable it. Check permission first.
+                if (!hasManageStoragePermission()) {
+                    // STOP! Don't enable it yet.
+                    buttonView.setChecked(false); 
+                    showPermissionDialog();
+                } else {
+                    // Has permission, save preference
+                    prefs.edit().putBoolean(KEY_HIDE_LRC, true).apply();
+                }
+            } else {
+                // User turning it off, always allow
+                prefs.edit().putBoolean(KEY_HIDE_LRC, false).apply();
+            }
+        });
+        
+        switchLowRam.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            prefs.edit().putBoolean(KEY_LOW_RAM, isChecked).apply();
+        });
+        
+        switchSquiggly.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            prefs.edit().putBoolean(KEY_SQUIGGLY_ENABLED, isChecked).apply();
+        });
 
         findViewById(R.id.btnAddWhitelist).setOnClickListener(v -> openDirectoryPicker(REQUEST_CODE_WHITELIST));
         findViewById(R.id.btnAddBlacklist).setOnClickListener(v -> openDirectoryPicker(REQUEST_CODE_BLACKLIST));
+    }
+    
+    // --- DIALOG FOR PERMISSION REQUEST ---
+    private void showPermissionDialog() {
+        new MaterialAlertDialogBuilder(this)
+                .setTitle("Permission Required")
+                .setMessage("To detect hidden .lrc files in your folders, Lyricify needs 'Manage All Files' access. \n\nWithout this, Android hides these files from the app.")
+                .setPositiveButton("Grant Access", (dialog, which) -> {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                            intent.addCategory("android.intent.category.DEFAULT");
+                            intent.setData(Uri.parse(String.format("package:%s", getPackageName())));
+                            startActivity(intent);
+                        } else {
+                            // Should not happen due to check, but fallback
+                            Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                            startActivity(intent);
+                        }
+                    } catch (Exception e) {
+                        Intent intent = new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                        startActivity(intent);
+                    }
+                })
+                .setNegativeButton("Cancel", (dialog, which) -> {
+                    dialog.dismiss();
+                })
+                .show();
     }
 
     private void updateUiVisibility() {

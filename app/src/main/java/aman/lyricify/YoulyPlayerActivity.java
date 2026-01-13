@@ -49,6 +49,38 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.io.File;
 import java.util.List;
 
+
+
+
+
+
+
+
+
+
+
+
+
+import android.content.SharedPreferences;
+import com.bumptech.glide.load.DecodeFormat;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 public class YoulyPlayerActivity extends AppCompatActivity {
 
     // UI Components
@@ -456,32 +488,34 @@ public class YoulyPlayerActivity extends AppCompatActivity {
     }
 
     private void loadAnimatedArtwork(String filePath, Bitmap staticArtwork) {
-        if (filePath == null) return;
-        
-        long lastModified = 0;
-        try {
-            lastModified = new File(filePath).lastModified();
-        } catch (Exception ignored) {}
-        
-        AudioFileCover coverModel = new AudioFileCover(filePath, lastModified);
-        
-        // Use the current drawable as a placeholder to avoid flickering
-        Drawable currentPlaceholder = headerArtwork.getDrawable();
-        if (currentPlaceholder == null && staticArtwork != null) {
-            // Fallback to static bitmap if view is empty
-            // We need to wrap Bitmap in a Drawable or load it with Glide first
-             // But simpler to just let updateArtwork handle the init state
-        }
+    if (filePath == null) return;
+    
+    // 1. Check Preference
+    SharedPreferences prefs = getSharedPreferences("LyricifyPrefs", MODE_PRIVATE);
+    boolean useLowRam = prefs.getBoolean("low_ram_enabled", false);
 
-        Glide.with(this)
-             .load(coverModel)
-             .diskCacheStrategy(DiskCacheStrategy.DATA)
-             // KEY FIX: Use current image as placeholder
-             .placeholder(currentPlaceholder)
-             .thumbnail(Glide.with(this).load(staticArtwork)) 
-             .dontAnimate() // Avoid crossfade conflicts
-             .into(headerArtwork);
-    }
+    long lastModified = 0;
+    try {
+        lastModified = new File(filePath).lastModified();
+    } catch (Exception ignored) {}
+    
+    AudioFileCover coverModel = new AudioFileCover(filePath, lastModified);
+    Drawable currentPlaceholder = headerArtwork.getDrawable();
+
+    // 2. Select Format based on Toggle
+    DecodeFormat format = useLowRam ? DecodeFormat.PREFER_RGB_565 : DecodeFormat.PREFER_ARGB_8888;
+
+    Glide.with(this)
+         .load(coverModel)
+         .apply(new RequestOptions().format(format)) // Apply selection
+         .override(1000, 1000)
+         .diskCacheStrategy(DiskCacheStrategy.DATA)
+         .placeholder(currentPlaceholder)
+         .error(staticArtwork)
+         .thumbnail(Glide.with(this).load(staticArtwork)) 
+         .dontAnimate() 
+         .into(headerArtwork);
+}
 
     private void updateArtwork(Bitmap bitmap) {
         if (bitmap != null) {

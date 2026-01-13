@@ -5,6 +5,9 @@ import android.graphics.Bitmap;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.InputFilter;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -29,6 +32,7 @@ import okhttp3.*;
 
 public class ArtworkBottomSheetFragment extends BottomSheetDialogFragment {
 
+    
     private static final String TAG = "LyricifyMotion";
     private static final String CACHE_FOLDER_NAME = "motion_cache";
 
@@ -57,6 +61,10 @@ public class ArtworkBottomSheetFragment extends BottomSheetDialogFragment {
     private EditText widthInput, heightInput;
     private Button btnSaveStatic, btnApplyResize, btnPickGallery, btnReset;
 
+    // NEW: Validation Logic Variables
+    private boolean isAutoUpdating = false;
+    private float aspectRatio = 1.0f; // Default square
+
     public static ArtworkBottomSheetFragment newInstance(String trackUrl, String artworkUrl) {
         ArtworkBottomSheetFragment fragment = new ArtworkBottomSheetFragment();
         Bundle args = new Bundle();
@@ -76,25 +84,18 @@ public class ArtworkBottomSheetFragment extends BottomSheetDialogFragment {
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         BottomSheetDialog dialog = (BottomSheetDialog) super.onCreateDialog(savedInstanceState);
-        dialog.setOnShowListener(
-                d -> {
-                    FrameLayout bottomSheet =
-                            dialog.findViewById(
-                                    com.google.android.material.R.id.design_bottom_sheet);
-                    if (bottomSheet != null) {
-                        BottomSheetBehavior.from(bottomSheet)
-                                .setState(BottomSheetBehavior.STATE_EXPANDED);
-                    }
-                });
+        dialog.setOnShowListener(d -> {
+            FrameLayout bottomSheet = dialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+            if (bottomSheet != null) {
+                BottomSheetBehavior.from(bottomSheet).setState(BottomSheetBehavior.STATE_EXPANDED);
+            }
+        });
         return dialog;
     }
 
     @Nullable
     @Override
-    public View onCreateView(
-            @NonNull LayoutInflater inflater,
-            @Nullable ViewGroup container,
-            @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.artwork_bottom_sheet, container, false);
 
         if (getArguments() != null) {
@@ -109,6 +110,7 @@ public class ArtworkBottomSheetFragment extends BottomSheetDialogFragment {
         return v;
     }
 
+   
     private void setupTabs(View v) {
         TabLayout tabLayout = v.findViewById(R.id.artworkTabs);
         viewFlipper = v.findViewById(R.id.viewFlipper);
@@ -116,82 +118,185 @@ public class ArtworkBottomSheetFragment extends BottomSheetDialogFragment {
         tabLayout.addTab(tabLayout.newTab().setText("Static"));
         tabLayout.addTab(tabLayout.newTab().setText("Motion"));
 
-        tabLayout.addOnTabSelectedListener(
-                new TabLayout.OnTabSelectedListener() {
-                    @Override
-                    public void onTabSelected(TabLayout.Tab tab) {
-                        viewFlipper.setDisplayedChild(tab.getPosition());
-                        if (tab.getPosition() == 1) {
-                            loadMotionData();
-                        } else {
-                            if (motionPreviewPlayer.isPlaying()) {
-                                motionPreviewPlayer.pause();
-                            }
-                        }
-                    }
-
-                    @Override
-                    public void onTabUnselected(TabLayout.Tab tab) {}
-
-                    @Override
-                    public void onTabReselected(TabLayout.Tab tab) {}
-                });
+        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                viewFlipper.setDisplayedChild(tab.getPosition());
+                if (tab.getPosition() == 1) {
+                    loadMotionData();
+                } else {
+                    if (motionPreviewPlayer.isPlaying()) motionPreviewPlayer.pause();
+                }
+            }
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {}
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {}
+        });
     }
 
-    private void setupStaticTab(View v) {
+    // --- UPDATED STATIC TAB SETUP ---
+        // --- UPDATED STATIC TAB SETUP ---
+        private void setupStaticTab(View v) {
         widthInput = v.findViewById(R.id.widthInput);
         heightInput = v.findViewById(R.id.heightInput);
         btnSaveStatic = v.findViewById(R.id.btnSaveStatic);
         btnApplyResize = v.findViewById(R.id.btnApplyResize);
         btnPickGallery = v.findViewById(R.id.btnPickGallery);
         btnReset = v.findViewById(R.id.btnReset);
+        
+        // NEW: Bind the text view
+        TextView resizeInfoText = v.findViewById(R.id.resizeInfoText);
 
+        // 1. Set Length Filter (Max 4 digits)
+        InputFilter[] lengthFilter = new InputFilter[]{new InputFilter.LengthFilter(4)};
+        widthInput.setFilters(lengthFilter);
+        heightInput.setFilters(lengthFilter);
+
+        // 2. Get Current Bitmap Dimensions & Aspect Ratio
         if (activity.getTagEditorArtworkHelper() != null) {
             Bitmap bmp = activity.getTagEditorArtworkHelper().getSelectedArtwork();
             if (bmp == null) bmp = activity.getTagEditorArtworkHelper().getOriginalArtwork();
+            
             if (bmp != null) {
-                widthInput.setText(String.valueOf(bmp.getWidth()));
-                heightInput.setText(String.valueOf(bmp.getHeight()));
+                int w = bmp.getWidth();
+                int h = bmp.getHeight();
+                widthInput.setText(String.valueOf(w));
+                heightInput.setText(String.valueOf(h));
+                
+                if (h != 0) aspectRatio = (float) w / h;
             }
         }
 
-        btnPickGallery.setOnClickListener(
-                btn -> {
-                    activity.findViewById(R.id.changeArtworkButton).performClick();
-                    dismiss();
-                });
+        // 3. Validation Logic
+        Runnable checkValidation = () -> {
+            String wStr = widthInput.getText().toString().trim();
+            String hStr = heightInput.getText().toString().trim();
 
-        btnReset.setOnClickListener(
-                btn -> {
-                    activity.findViewById(R.id.resetArtworkButton).performClick();
-                    dismiss();
-                });
+            boolean isInvalid = false;
 
-        btnApplyResize.setOnClickListener(
-                btn -> {
-                    String w = widthInput.getText().toString();
-                    String h = heightInput.getText().toString();
-                    if (!w.isEmpty() && !h.isEmpty() && artworkUrl != null) {
-                        activity.getTagEditorArtworkHelper()
-                                .downloadResizedArtwork(w, h, artworkUrl);
-                        dismiss();
-                    }
-                });
+            if (wStr.isEmpty() || hStr.isEmpty()) isInvalid = true;
 
-        btnSaveStatic.setOnClickListener(
-                btn -> {
-                    activity.getTagEditorArtworkHelper().saveCurrentArtworkToGallery();
-                    dismiss();
-                });
+            if (!isInvalid) {
+                try {
+                    int w = Integer.parseInt(wStr);
+                    int h = Integer.parseInt(hStr);
+                    if (w == 0 || h == 0) isInvalid = true;
+                } catch (NumberFormatException e) {
+                    isInvalid = true;
+                }
+            }
 
+            boolean canResize = artworkUrl != null && artworkUrl.contains("{w}");
+            btnApplyResize.setEnabled(!isInvalid && canResize);
+            btnApplyResize.setAlpha(isInvalid || !canResize ? 0.5f : 1.0f);
+            
+            btnSaveStatic.setEnabled(!isInvalid);
+            btnSaveStatic.setAlpha(isInvalid ? 0.5f : 1.0f);
+        };
+
+        // 4. Text Watcher for Width
+        widthInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (isAutoUpdating) return;
+
+                if (s.length() > 0) {
+                    try {
+                        int w = Integer.parseInt(s.toString());
+                        int h = Math.round(w / aspectRatio);
+                        
+                        isAutoUpdating = true;
+                        heightInput.setText(String.valueOf(h));
+                        isAutoUpdating = false;
+                    } catch (Exception e) {}
+                } else {
+                    // Explicitly clear Height if Width is empty
+                    isAutoUpdating = true;
+                    heightInput.setText("");
+                    isAutoUpdating = false;
+                }
+                
+                checkValidation.run();
+            }
+        });
+
+        // 5. Text Watcher for Height
+        heightInput.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (isAutoUpdating) return;
+
+                if (s.length() > 0) {
+                    try {
+                        int h = Integer.parseInt(s.toString());
+                        int w = Math.round(h * aspectRatio);
+                        
+                        isAutoUpdating = true;
+                        widthInput.setText(String.valueOf(w));
+                        isAutoUpdating = false;
+                    } catch (Exception e) {}
+                } else {
+                    // Explicitly clear Width if Height is empty
+                    isAutoUpdating = true;
+                    widthInput.setText("");
+                    isAutoUpdating = false;
+                }
+
+                checkValidation.run();
+            }
+        });
+
+        // 6. Button Listeners
+        btnPickGallery.setOnClickListener(btn -> {
+            activity.findViewById(R.id.changeArtworkButton).performClick();
+            dismiss();
+        });
+
+        btnReset.setOnClickListener(btn -> {
+            activity.findViewById(R.id.resetArtworkButton).performClick();
+            dismiss();
+        });
+
+        btnApplyResize.setOnClickListener(btn -> {
+            String w = widthInput.getText().toString();
+            String h = heightInput.getText().toString();
+            if (!w.isEmpty() && !h.isEmpty() && artworkUrl != null) {
+                activity.getTagEditorArtworkHelper().downloadResizedArtwork(w, h, artworkUrl);
+                dismiss();
+            }
+        });
+
+        btnSaveStatic.setOnClickListener(btn -> {
+            activity.getTagEditorArtworkHelper().saveCurrentArtworkToGallery();
+            dismiss();
+        });
+
+        // 7. Initial State Check (SHOW/HIDE TEXT LOGIC)
         if (artworkUrl == null || !artworkUrl.contains("{w}")) {
             widthInput.setEnabled(false);
             heightInput.setEnabled(false);
             btnApplyResize.setEnabled(false);
             btnApplyResize.setText("Resize Unavailable");
+            
+            // SHOW THE TEXT
+            if (resizeInfoText != null) resizeInfoText.setVisibility(View.VISIBLE);
+        } else {
+             checkValidation.run(); 
+             // HIDE THE TEXT
+             if (resizeInfoText != null) resizeInfoText.setVisibility(View.GONE);
         }
     }
 
+
+
+    
     private void setupMotionTab(View v) {
         motionPreviewPlayer = v.findViewById(R.id.motionPreviewPlayer);
         playerLoading = v.findViewById(R.id.playerLoading);

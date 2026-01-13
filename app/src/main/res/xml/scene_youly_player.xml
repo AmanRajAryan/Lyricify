@@ -15,22 +15,50 @@
             motion:touchRegionId="@id/headerCard" />
     </Transition>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <ConstraintSet android:id="@+id/start">
         
-        <Constraint
-            android:id="@+id/headerCard"
-            android:layout_width="370dp"
-            android:layout_height="370dp"
-            android:layout_marginBottom="40dp"
-            motion:layout_constraintBottom_toTopOf="@id/songTitleText"
-            motion:layout_constraintEnd_toEndOf="parent"
-            motion:layout_constraintStart_toStartOf="parent"
-            motion:layout_constraintTop_toTopOf="parent" 
-            motion:layout_constraintVertical_bias="0.5">
-            <CustomAttribute
-                motion:attributeName="radius"
-                motion:customDimension="24dp" />
-        </Constraint>
+         <Constraint
+        android:id="@+id/headerCard"
+        android:layout_width="0dp" 
+        android:layout_height="0dp"
+        android:layout_marginBottom="40dp"
+        
+        motion:layout_constraintWidth_percent="0.95"
+        motion:layout_constraintDimensionRatio="1:1"
+        
+        motion:layout_constraintBottom_toTopOf="@id/songTitleText"
+        motion:layout_constraintEnd_toEndOf="parent"
+        motion:layout_constraintStart_toStartOf="parent"
+        motion:layout_constraintTop_toTopOf="parent" 
+        motion:layout_constraintVertical_bias="0.5">
+        
+        <CustomAttribute
+            motion:attributeName="radius"
+            motion:customDimension="24dp" />
+    </Constraint>
 
         <Constraint
             android:id="@+id/songTitleText"

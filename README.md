@@ -105,7 +105,7 @@
 - (Optional) MANAGE_ALL_FILES permission for .lrc file detection
 
 ### Download
-1. Download the latest APK from the [Releases](https://github.com/yourusername/lyricify/releases) page
+1. Download the latest APK from the [Releases](https://github.com/amanrajaryan/lyricify/releases) page
 2. Enable "Install from Unknown Sources" in your device settings
 3. Install the APK
 4. Grant required permissions when prompted

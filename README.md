@@ -23,7 +23,6 @@
 - **Real-time Synchronization**: Word-by-word highlighting with dynamic glow effects
 - **Three Rendering Engines**:
   - **Native Engine**: Custom Android view with optimized rendering
-  - **YouLy+ Engine**: Web-based engine with advanced features
   - **Karaoke/Accompanist Engine**: Specialized karaoke-style display
 - **Smart Animation**: Speed-adaptive glow effects that adjust based on lyric timing
 - **Interactive Seeking**: Tap any line to jump to that timestamp
@@ -213,12 +212,11 @@ cd lyricify
 
 **SyncedLyricsActivity**
 - Real-time synced lyrics rendering
-- Three player modes (Native, YouLy+, Karaoke)
+- Three player modes (Native, Karaoke)
 - Media session integration
 - Immersive mode
 
-**YoulyPlayerActivity**
-- Dedicated player with YouLy+ engine
+**Home Screen Player**
 - Background lyrics search
 - Animated artwork support
 

@@ -84,7 +84,7 @@
 |:---:|:---:|:---:|
 | ![Main](screenshots/mainActivity.jpg) | ![Lyrics](screenshots/lyrics.jpg) | ![Tags](screenshots/tagEditor.jpg) |
 
-| YouLy Player | Immersive Mode | Settings |
+| Lyrics Player | Immersive Mode | Settings |
 |:---:|:---:|:---:|
 | ![Player](screenshots/player.jpg) | ![Immersive](screenshots/immersive.jpg) | ![Settings](screenshots/settings.jpg) |
 

@@ -310,9 +310,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📧 Contact
 
 For questions, suggestions, or bug reports:
-- Open an [Issue](https://github.com/yourusername/lyricify/issues)
-- Email: your.email@example.com
-- Twitter: [@yourhandle](https://twitter.com/yourhandle)
+- Open an [Issue](https://github.com/amanrajaryan/lyricify/issues)
+- Email: amanrajaryan3@gmail.com
+- Twitter: [@yourhandle](https://twitter.com/idk)
 
 ---
 

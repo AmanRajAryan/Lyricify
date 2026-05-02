@@ -1,0 +1,144 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+}
+
+android {
+    namespace "aman.lyricify"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "aman.lyricify"
+        minSdk 29
+        targetSdk 33
+        versionCode 1
+        versionName "1.5.3"
+
+        vectorDrawables {
+            useSupportLibrary true
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (
+                project.hasProperty("RELEASE_STORE_FILE") &&
+                project.hasProperty("RELEASE_STORE_PASSWORD") &&
+                project.hasProperty("RELEASE_KEY_ALIAS") &&
+                project.hasProperty("RELEASE_KEY_PASSWORD")
+            ) {
+                storeFile file(RELEASE_STORE_FILE)
+                storePassword RELEASE_STORE_PASSWORD
+                keyAlias RELEASE_KEY_ALIAS
+                keyPassword RELEASE_KEY_PASSWORD
+            } else {
+                println("WARNING: Release signing properties are missing. Building unsigned release.")
+            }
+        }
+    }
+
+        buildTypes {
+        release {
+            if (
+                project.hasProperty("RELEASE_STORE_FILE") &&
+                project.hasProperty("RELEASE_STORE_PASSWORD") &&
+                project.hasProperty("RELEASE_KEY_ALIAS") &&
+                project.hasProperty("RELEASE_KEY_PASSWORD")
+            ) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled true
+            shrinkResources true
+
+            
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+
+        debug {
+        }
+    }
+
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+    
+    
+
+    buildFeatures {
+        viewBinding true
+        compose true
+        
+    }
+    
+    
+    
+    packaging {
+        resources {
+            excludes += "**/sf_pro.ttf" 
+            
+        }
+    }
+    
+
+
+    
+    
+    
+}
+
+dependencies {
+    implementation project(":youLy")
+
+    implementation(libs.androidx.core)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+
+    implementation("com.github.bumptech.glide:glide:5.0.5")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+    implementation("jp.wasabeef:glide-transformations:4.3.0")
+
+    implementation("com.mocharealm.accompanist:lyrics-core:0.4.2")
+    implementation("com.mocharealm.accompanist:lyrics-ui:1.0.12")
+
+    implementation(files("libs/library-release.aar"))
+    
+    
+    implementation "androidx.documentfile:documentfile:1.0.1"
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+    
+    
+    
+    
+    
+    implementation 'io.noties.markwon:core:4.6.2'
+
+
+    
+    
+    
+    
+
+    implementation(platform(libs.compose.bom))
+
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+
+    implementation(libs.activity.compose)
+    implementation(libs.lifecycle.runtime.compose)
+
+    debugImplementation(libs.compose.ui.tooling)
+    
+
+    
+}

@@ -1,0 +1,48 @@
+# Android
+*.apk
+*.aar
+*.ap_
+*.aab
+bin/
+gen/
+out/
+build/
+.gradle/
+local.properties
+proguard/
+*.log
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+.project
+.classpath
+.settings/
+capture/
+memory.py
+
+# Gradle
+.gradle/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# JNI
+libs/
+!app/libs/*.aar
+
+# Miscellaneous
+*.swp
+*~
+.DS_Store

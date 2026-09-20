@@ -2,6 +2,11 @@
 
 <div align="center">
 
+[![Get it on Google Play](https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png)](https://play.google.com/store/apps/details?id=aman.lyricify)
+</div>
+
+<div align="center">
+
 ![Lyricify Banner](screenshots/mainActivity.jpg)
 
 **A powerful Android lyrics application with real-time synced lyrics, multiple rendering engines, and advanced tag editing**
